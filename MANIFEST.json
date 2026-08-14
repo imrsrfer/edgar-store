@@ -1,7 +1,7 @@
 {
-  "synced_utc": "2026-08-14T05:28:19Z",
-  "store_built_utc_oldest": "2026-08-08T04:48:35Z",
-  "store_built_utc_newest": "2026-08-08T05:18:49Z",
+  "synced_utc": "2026-08-14T05:59:00Z",
+  "store_built_utc_oldest": "2026-08-08T05:01:20Z",
+  "store_built_utc_newest": "2026-08-14T05:48:12Z",
   "code": {
     "fetch_edgar.py": {
       "bytes": 9115,
@@ -46,19 +46,19 @@
   },
   "store": {
     "gate0.csv": {
-      "bytes": 6695721,
-      "mtime_utc": "2026-08-08T04:52:03Z",
-      "sha256_16": "e428d22dfbcd9f96"
+      "bytes": 6704017,
+      "mtime_utc": "2026-08-14T05:48:12Z",
+      "sha256_16": "bf55ecac37da8d73"
     },
     "facts.parquet": {
-      "bytes": 15293232,
-      "mtime_utc": "2026-08-08T04:48:35Z",
-      "sha256_16": "ffc4ec30defc492f"
+      "bytes": 15407485,
+      "mtime_utc": "2026-08-14T05:48:10Z",
+      "sha256_16": "2969e7bc935f6a7e"
     },
     "meta.parquet": {
-      "bytes": 316371,
-      "mtime_utc": "2026-08-08T04:48:35Z",
-      "sha256_16": "cdf13bb5aaad9b86"
+      "bytes": 317157,
+      "mtime_utc": "2026-08-14T05:48:10Z",
+      "sha256_16": "14b93c66d76a0915"
     },
     "shortlist_main.csv": {
       "bytes": 5731222,
@@ -81,23 +81,23 @@
       "sha256_16": "b0f4e1a8467ad54c"
     },
     "data_quality.csv": {
-      "bytes": 140,
-      "mtime_utc": "2026-08-08T05:02:10Z",
-      "sha256_16": "75bcbe82a82910fe"
+      "bytes": 281934,
+      "mtime_utc": "2026-08-14T05:48:12Z",
+      "sha256_16": "f4cd5f8975418078"
     },
     "inactive_filers.csv": {
-      "bytes": 74,
-      "mtime_utc": "2026-08-08T05:02:10Z",
-      "sha256_16": "add7bce9a78ca8c9"
+      "bytes": 169378,
+      "mtime_utc": "2026-08-14T05:48:11Z",
+      "sha256_16": "16154e5f254cb0ff"
     },
     "duplicate_filers.csv": {
-      "bytes": 2905,
-      "mtime_utc": "2026-08-08T05:02:10Z",
-      "sha256_16": "7d973bc50ce0bd58"
+      "bytes": 3261,
+      "mtime_utc": "2026-08-14T05:48:11Z",
+      "sha256_16": "8cd926758d5081de"
     },
     "invalid_fiscal_years.csv": {
       "bytes": 196563,
-      "mtime_utc": "2026-08-08T04:48:35Z",
+      "mtime_utc": "2026-08-14T05:48:10Z",
       "sha256_16": "b80fd67cca8ea812"
     },
     "prices.csv": {

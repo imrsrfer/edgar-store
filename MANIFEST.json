@@ -1,8 +1,8 @@
 {
   "contains": "reference data only: code + SEC-derived store. NO queue, NO portfolio data.",
-  "synced_utc": "2026-08-19T23:11:31Z",
+  "synced_utc": "2026-08-19T23:22:56Z",
   "store_built_utc_oldest": "2026-08-08T05:02:21Z",
-  "store_built_utc_newest": "2026-08-19T23:11:28Z",
+  "store_built_utc_newest": "2026-08-19T23:22:54Z",
   "code": {
     "fetch_edgar.py": {
       "bytes": 9115,
@@ -102,13 +102,13 @@
       "sha256_16": "b80fd67cca8ea812"
     },
     "prices.csv": {
-      "bytes": 5858,
-      "mtime_utc": "2026-08-19T22:50:22Z",
-      "sha256_16": "0e9bd30a88b4d800"
+      "bytes": 6225,
+      "mtime_utc": "2026-08-19T23:17:57Z",
+      "sha256_16": "1c2ca069ee834953"
     },
     "prices_unmatched.csv": {
       "bytes": 434,
-      "mtime_utc": "2026-08-19T23:11:28Z",
+      "mtime_utc": "2026-08-19T23:22:54Z",
       "sha256_16": "89c60318d9d25a5a"
     }
   },

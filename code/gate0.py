@@ -23,6 +23,19 @@ from concepts import QUARTERS, REQUIRED_CONCEPTS
 from edgar_lib import Paths, log_stage
 
 # Gate 0 thresholds.
+# Capex-integrity thresholds. Capex under 0.5% of revenue while OCF runs
+# above 5% of revenue is the shape a mis-extracted capex line takes; it is
+# also the shape a genuinely asset-light business takes, so it warns and
+# never rejects.
+CAPEX_SUSPECT_RATIO = 0.005
+CAPEX_SUSPECT_OCF_RATIO = 0.05
+# capex below this multiple of D&A. Industry-neutral where capex/revenue is
+# not: D&A is the filer's own measure of how fast it consumes its assets, so a
+# going concern sits near 1 regardless of sector. Set at 0.25 because across
+# 76 post-quality rows the broken names sat at 0.00 and 0.09 and the nearest
+# genuine one at 0.29 -- the gap is real, so the threshold is not a guess.
+CAPEX_VS_DA_FLOOR = 0.25
+
 INCOME_QUALITY_FLOOR = 0.80
 SBC_FAIL = 0.15
 SBC_WARN = 0.10
@@ -240,10 +253,76 @@ def compute_metrics(frame, assume_absent_zero=False):
             pl.when(total_debt_raw.is_null()).then(pl.lit("total_debt")).otherwise(None),
         ]
 
+    # 🔴 Capex integrity guard (added 2026-08-19). A capex figure that is
+    # negative, or zero against real revenue, is not a low-capex company -- it
+    # is a broken extraction, and it fails OPEN: understated capex overstates
+    # FCF, so the very test meant to catch a cash-burning business (fail_fcf)
+    # is the test the defect disables. SAH resolved to capex of -$149.9M,
+    # which ADDED $150M to its free cash flow.
+    #
+    # Hard cases null out fcf/fcf_after_sbc, so the existing NOT_EVALUABLE
+    # machinery blocks the verdict rather than passing a flattered one -- an
+    # unknown FCF is a materially different statement from a large one.
+    #
+    # capex_suspect is the softer signal and only WARNS. Two independent
+    # tests, because the first one alone was not enough:
+    #
+    #   (a) capex under CAPEX_SUSPECT_RATIO of revenue while OCF runs above
+    #       CAPEX_SUSPECT_OCF_RATIO of it. Catches the extreme cases (LRN at
+    #       0.02% of revenue).
+    #   (b) capex under CAPEX_VS_DA_FLOOR of depreciation & amortisation.
+    #       🔴 THIS IS THE SHARPER TEST and it exists because (a) missed
+    #       SKYW on the first patched run: an airline reporting $32.0M of
+    #       capex against $940M of OCF, whose aircraft purchases are tagged
+    #       outside the capex chain entirely. capex/revenue was 0.79% --
+    #       above the 0.5% threshold, so nothing fired, and SKYW went
+    #       STRAIGHT TO THE TOP of the shortlist at a 4.6x P/FCF.
+    #
+    #       capex/revenue is industry-dependent and needs a different
+    #       threshold for a software firm than for a railroad. capex/D&A is
+    #       not: D&A is the company's own statement of how fast it is
+    #       consuming its asset base, so the ratio is near 1 for a going
+    #       concern in ANY industry. A business replacing its assets at
+    #       under a quarter of the rate it depreciates them is either
+    #       liquidating or mis-extracted. Measured over 76 post-quality rows
+    #       the two populations do not overlap: the broken names sit at 0.00
+    #       and 0.09, the next real one at 0.29, and everything genuine
+    #       clusters 0.6-1.8.
+    #
+    # Neither test rejects. This file cannot distinguish a mis-extraction
+    # from a genuinely asset-light filer, so it flags for a human to check
+    # against the cash-flow statement.
+    capex_broken = (pl.col("capex") < 0) | (
+        (pl.col("capex") == 0) & pl.col("revenue").is_not_null() & (pl.col("revenue") > 0)
+    )
+    capex_ratio = _safe_div(pl.col("capex"), pl.col("revenue"))
+    ocf_ratio = _safe_div(pl.col("ocf"), pl.col("revenue"))
+    capex_vs_da = _safe_div(pl.col("capex"), pl.col("dep_amort"))
+    frame = frame.with_columns(
+        capex_broken.fill_null(False).alias("capex_broken"),
+        (
+            capex_broken.fill_null(False)
+            | (
+                capex_ratio.is_not_null()
+                & (capex_ratio < CAPEX_SUSPECT_RATIO)
+                & ocf_ratio.is_not_null()
+                & (ocf_ratio > CAPEX_SUSPECT_OCF_RATIO)
+            )
+            | (
+                pl.col("dep_amort").is_not_null()
+                & (pl.col("dep_amort") > 0)
+                & capex_vs_da.is_not_null()
+                & (capex_vs_da < CAPEX_VS_DA_FLOOR)
+            )
+        ).alias("capex_suspect"),
+        capex_vs_da.alias("capex_vs_dep_amort"),
+    )
+    capex_usable = pl.when(pl.col("capex_broken")).then(None).otherwise(pl.col("capex"))
+
     frame = frame.with_columns(
         (pl.col("equity") - goodwill - intangibles).alias("tangible_book"),
-        (pl.col("ocf") - pl.col("capex")).alias("fcf"),
-        (pl.col("ocf") - pl.col("capex") - pl.col("sbc")).alias("fcf_after_sbc"),
+        (pl.col("ocf") - capex_usable).alias("fcf"),
+        (pl.col("ocf") - capex_usable - pl.col("sbc")).alias("fcf_after_sbc"),
         (pl.col("cash") - total_debt).alias("net_cash"),
         _safe_div(pl.col("ocf"), pl.col("net_income")).alias("income_quality"),
         _safe_div(pl.col("sbc"), pl.col("revenue")).alias("sbc_pct_revenue"),
@@ -863,8 +942,16 @@ def build_ttm(facts):
     for needed in ("ttm_ocf", "ttm_capex", "ttm_sbc"):
         if needed not in wide.columns:
             wide = wide.with_columns(pl.lit(None, dtype=pl.Float64).alias(needed))
+    # Same integrity guard as the annual path: a negative TTM capex is a
+    # broken extraction, not a capex-free year, and it would flatter
+    # ttm_fcf_after_sbc in exactly the same direction. Guarding one path and
+    # not the other leaves the defect alive in whichever number the reader
+    # happens to quote.
+    ttm_capex_usable = pl.when(pl.col("ttm_capex") < 0).then(None).otherwise(
+        pl.col("ttm_capex")
+    )
     return wide.with_columns(
-        (pl.col("ttm_ocf") - pl.col("ttm_capex") - pl.col("ttm_sbc")).alias(
+        (pl.col("ttm_ocf") - ttm_capex_usable - pl.col("ttm_sbc")).alias(
             "ttm_fcf_after_sbc"
         )
     )
@@ -1297,6 +1384,9 @@ OUTPUT_ORDER = (
     "operating_income",
     "ocf",
     "capex",
+    "capex_broken",
+    "capex_suspect",
+    "capex_vs_dep_amort",
     "sbc",
     "equity",
     "goodwill",

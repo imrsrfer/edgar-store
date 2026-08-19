@@ -32,14 +32,30 @@ QUARTER_DAYS = (80, 100)
 class Concept:
     """One financial concept and the ordered tag chain that can supply it."""
 
-    def __init__(self, name, period_type, chain, unit=UNIT_USD, components=None, ifrs_chain=None):
+    def __init__(
+        self,
+        name,
+        period_type,
+        chain,
+        unit=UNIT_USD,
+        components=None,
+        ifrs_chain=None,
+        partial_ok=False,
+    ):
         self.name = name
         self.period_type = period_type
         self.chain = tuple(chain)
         self.unit = unit
-        # For composite concepts (currently only total_debt): tags that are
-        # summed together, tried before the flat chain.
+        # For composite concepts: tags that are summed together, tried before
+        # the flat chain.
         self.components = tuple(components) if components else ()
+        # True when a subset of the components is the NORMAL case rather than
+        # a defect. total_debt has two components and a filer missing one is
+        # notable, so it is marked "(partial)". capex has nine disjoint legs
+        # and almost every filer uses one or two, so marking those "(partial)"
+        # would label the ordinary case as degraded and make the marker
+        # useless. See _resolve_components in build_facts.
+        self.partial_ok = bool(partial_ok)
         # ifrs-full fallback, tried only after the whole us-gaap chain (and
         # components) come up empty for a company-period. Foreign private
         # issuers filing 20-F/40-F often report in a non-USD currency, so
@@ -161,22 +177,61 @@ CONCEPTS = (
         ],
         ifrs_chain=["CashFlowsFromUsedInOperatingActivities"],
     ),
+    # 🔴 capex is a SUM, not a first-match chain (changed 2026-08-19).
+    #
+    # It was a flat chain, and the chain is what broke it. The tags below are
+    # DISJOINT line items on the investing-activities statement -- a filer can
+    # and does report several of them at once -- so "first tag that yields a
+    # value wins" silently counted one leg and dropped the rest. Three real
+    # failures, all found in the same 2026-08-19 audit of store rows that had
+    # cleared every Gate 0 quality leg:
+    #
+    #   NOG  -- PaymentsToAcquireOtherPropertyPlantAndEquipment sat THIRD in the
+    #           chain and matched at $0.76M, so the two oil-and-gas development
+    #           tags at positions 8 and 9 were never read. An E&P's capex read
+    #           as $0.8M against $2.48B of revenue; FCF/share and P/FCF (1.9x,
+    #           a 53% FCF yield) were nonsense, and the fail_fcf test -- the
+    #           load-bearing "does this company generate real cash" claim --
+    #           could not fire.
+    #   SKYW -- aircraft purchases tagged separately from the PP&E line; capex
+    #           read $32M against $940M of OCF for an airline.
+    #   LRN  -- capitalized curriculum/software tagged separately; capex read
+    #           $0.59M against $2.52B of revenue.
+    #
+    # Understated capex overstates FCF, and FCF/share after SBC is the master
+    # metric of the growth screen. A wrong number here propagates to fcf,
+    # fcf_after_sbc, fcf_per_share, both FCF CAGR legs, p_fcf_after_sbc and
+    # ev_fcf_after_sbc -- and it fails OPEN, flattering the company, which is
+    # the direction a quality gate must never fail in.
+    #
+    # The two "ProductiveAssets" tags stay in the flat chain rather than the
+    # component sum: they are BROAD TOTALS that already include PP&E for the
+    # filers that use them, so summing them with the PP&E leg double-counts.
+    # They are the fallback for a filer that reports no itemised leg at all.
     Concept(
         "capex",
         DURATION,
         [
-            "PaymentsToAcquirePropertyPlantAndEquipment",
             "PaymentsToAcquireProductiveAssets",
-            "PaymentsToAcquireOtherPropertyPlantAndEquipment",
-            "PaymentsForCapitalImprovements",
-            "PaymentsToAcquireMachineryAndEquipment",
-            "PaymentsToAcquireRealEstate",
-            "PaymentsToDevelopRealEstateAssets",
+            "PaymentsForProceedsFromProductiveAssets",
+        ],
+        components=[
+            "PaymentsToAcquirePropertyPlantAndEquipment",
             "PaymentsToAcquireOilAndGasProperty",
             "PaymentsToExploreAndDevelopOilAndGasProperties",
-            "PaymentsForProceedsFromProductiveAssets",
+            "PaymentsToAcquireMachineryAndEquipment",
+            "PaymentsForCapitalImprovements",
             "PaymentsToAcquireBuildings",
+            "PaymentsToAcquireRealEstate",
+            "PaymentsToDevelopRealEstateAssets",
+            "PaymentsToDevelopSoftware",
+            "PaymentsToAcquireSoftware",
+            # The residual "other PP&E" line. It is a COMPLEMENT to the PP&E
+            # tag above, never a substitute for it, which is exactly why it
+            # must be summed and must never be reachable as a lone winner.
+            "PaymentsToAcquireOtherPropertyPlantAndEquipment",
         ],
+        partial_ok=True,
         # Second tag verified against Copa Holdings (CIK 1345105, 20-F): an
         # airline reporting PP&E, intangibles and investment-property
         # purchases as one combined investing-activities line rather than

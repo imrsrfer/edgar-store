@@ -198,15 +198,40 @@ def apply_quality(frame):
 
 
 def apply_band(frame, min_mktcap, max_mktcap):
+    """Market-cap band, with "too big/small" and "no market cap at all" kept
+    as DIFFERENT rejections.
+
+    They used to share the label ``band:market_cap``, and that one shared
+    label cost twelve weeks. The store carries no market caps of its own --
+    EDGAR does not publish them -- so without a price file every survivor of
+    the quality legs arrives here with a null and is rejected. On 2026-08-19
+    all four lanes were found to have produced ZERO shortlisted names, with
+    115 companies that had cleared every growth, margin and quality leg
+    rejected at this gate, 100% of them for a null rather than a size. The
+    run reported "shortlist empty," which is indistinguishable from "the
+    market contains nothing worth owning" -- and was read as exactly that.
+
+    A missing input and a failed test are not the same finding. Anything that
+    reports them identically will eventually be believed.
+    """
     if min_mktcap is None and max_mktcap is None:
         return frame, frame.filter(pl.lit(False))
-    ok = pl.col("market_cap").is_not_null()
+
+    missing = pl.col("market_cap").is_null()
+    no_cap = frame.filter(missing).with_columns(
+        pl.lit("band:market_cap_missing").alias("rejected_because")
+    )
+    remaining = frame.filter(~missing)
+
+    ok = pl.lit(True)
     if min_mktcap is not None:
         ok = ok & (pl.col("market_cap") >= min_mktcap)
     if max_mktcap is not None:
         ok = ok & (pl.col("market_cap") <= max_mktcap)
-    rejected = frame.filter(~ok).with_columns(pl.lit("band:market_cap").alias("rejected_because"))
-    return frame.filter(ok), rejected
+    out_of_band = remaining.filter(~ok).with_columns(
+        pl.lit("band:market_cap").alias("rejected_because")
+    )
+    return remaining.filter(ok), pl.concat([no_cap, out_of_band], how="diagonal_relaxed")
 
 
 # --------------------------------------------------------------------------
@@ -353,6 +378,26 @@ def load_prices(path, known_tickers, unmatched_out):
     return prices.filter(pl.col("ticker").is_in(list(known_tickers)))
 
 
+def merge_price_frames(frames):
+    """One price table from several files, freshest as_of winning per ticker.
+
+    load_prices already rejects a duplicate ticker WITHIN a file; across files
+    a duplicate is expected and is resolved rather than rejected, because the
+    normal reason to pass two files is that a later fetch refreshed some of
+    the same names.
+    """
+    if not frames:
+        return None
+    if len(frames) == 1:
+        return frames[0]
+    combined = pl.concat(frames, how="diagonal_relaxed")
+    return (
+        combined.sort("as_of", descending=True, nulls_last=True)
+        .unique(subset=["ticker"], keep="first")
+        .sort("ticker")
+    )
+
+
 def apply_prices(frame, prices):
     """market_cap = price supplied, or price x shares_diluted from the store
     (market_cap_derived=True) when the price file omits it -- the store's
@@ -448,8 +493,15 @@ def run_screen(frame, args, exclude_tickers, prices, eps):
 
     if prices is not None:
         survivors = apply_prices(survivors, prices)
+    pre_band = survivors.height
     survivors, band_rejects = apply_band(survivors, args.min_mktcap, args.max_mktcap)
     funnel["band"] = survivors.height
+    funnel["_no_market_cap"] = (
+        int((band_rejects["rejected_because"] == "band:market_cap_missing").sum())
+        if band_rejects.height
+        else 0
+    )
+    funnel["_pre_band"] = pre_band
 
     survivors, momentum_rejects = apply_momentum(survivors, prices is not None)
     funnel["momentum"] = survivors.height
@@ -505,8 +557,14 @@ def main(argv=None):
     )
     parser.add_argument(
         "--price-csv",
+        action="append",
         default=None,
-        help="ticker,price,ma_200,market_cap,as_of -- see PRICES_SCHEMA.md",
+        metavar="PATH",
+        help="ticker,price,ma_200,market_cap,as_of -- see PRICES_SCHEMA.md. "
+        "REPEATABLE: pass it once per file and they are merged, freshest "
+        "as_of winning. It used to take a single path, and on 2026-08-14 a "
+        "90-row price file sat unused next to the 33-row one the run loaded, "
+        "so 90 companies went through the band gate with a null cap.",
     )
     parser.add_argument(
         "--eps-csv",
@@ -537,15 +595,52 @@ def main(argv=None):
     known_tickers = set(frame["ticker"].drop_nulls().to_list())
     prices = None
     if args.price_csv:
-        prices = load_prices(
-            args.price_csv, known_tickers, str(paths.root / "prices_unmatched.csv")
-        )
+        loaded = [
+            load_prices(path, known_tickers, str(paths.root / "prices_unmatched.csv"))
+            for path in args.price_csv
+        ]
+        prices = merge_price_frames(loaded)
+        if len(loaded) > 1:
+            print(
+                f"  merged {len(loaded)} price files -> {prices.height:,} tickers "
+                "(freshest as_of wins per ticker)"
+            )
     eps = load_eps(args.eps_csv) if args.eps_csv else None
 
     result, funnel = run_screen(frame, args, exclude_tickers, prices, eps)
     result.write_csv(args.out)
 
     shortlisted = (result["rejected_because"] == "").sum()
+
+    # 🔴 An empty shortlist caused by missing prices must never read like an
+    # empty shortlist caused by a picky market. Say which one it was, on the
+    # run's own output, every time.
+    no_cap = funnel.get("_no_market_cap", 0)
+    if no_cap:
+        print(
+            f"  WARNING: {no_cap:,} of {funnel.get('_pre_band', 0):,} companies that "
+            "cleared every growth/margin/quality leg were rejected at the band gate "
+            "because they have NO MARKET CAP -- the store has none and the price "
+            "file did not cover them. This is a MISSING INPUT, not a screening "
+            "result. Supply --price-csv covering them (repeat the flag for several "
+            "files) and re-run before concluding anything about the shortlist."
+        )
+    if not shortlisted and no_cap:
+        print(
+            "  🔴 SHORTLIST IS EMPTY AND THE CAUSE IS MISSING PRICES. Do not report "
+            "this run as 'nothing passed'."
+        )
+    if "capex_suspect" in result.columns:
+        flagged = int(
+            result.filter((pl.col("rejected_because") == "") & pl.col("capex_suspect")).height
+        )
+        if flagged:
+            print(
+                f"  WARNING: {flagged} shortlisted name(s) carry capex_suspect -- their "
+                "FCF, FCF/share and every P/FCF multiple derived from it are unverified. "
+                "Check capex against the cash-flow statement before scoring them."
+            )
+
     log_stage(
         "screen:funnel",
         lane=args.lane,

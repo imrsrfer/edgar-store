@@ -355,12 +355,19 @@ def _resolve_one(concept, fiscal_year, period, index):
 
 
 def _resolve_components(concept, fiscal_year, period, index):
-    """Sum a composite concept's components (currently only total_debt).
+    """Sum a composite concept's components (total_debt, capex).
 
-    Both parts present is the clean case. When only one is present we still use
-    it -- a company with no current maturities genuinely omits that tag -- but
-    ``source_tag`` is marked ``(partial)``, so a partial figure is never mistaken
-    for a complete one.
+    Both parts present is the clean case for total_debt. When only one is
+    present we still use it -- a company with no current maturities genuinely
+    omits that tag -- but ``source_tag`` is marked ``(partial)``, so a partial
+    figure is never mistaken for a complete one.
+
+    ``partial_ok`` concepts suppress that marker. capex has eleven disjoint
+    legs and virtually every filer reports one or two, so marking those
+    "(partial)" would attach the degraded-data marker to the ordinary case and
+    make it meaningless where it matters. The sum itself is unchanged: what
+    the filer reported is added up, and what it did not report contributes
+    nothing -- never zero-substituted, never guessed.
     """
     found = []
     for tag in concept.components:
@@ -371,7 +378,7 @@ def _resolve_components(concept, fiscal_year, period, index):
         return None
 
     tags = "+".join(entry[0] for entry in found)
-    if len(found) < len(concept.components):
+    if len(found) < len(concept.components) and not getattr(concept, "partial_ok", False):
         tags += " (partial)"
     anchor = max(found, key=lambda entry: abs(entry[1]["value"]))[1]
     row = _make_row(concept, anchor, tags, ())

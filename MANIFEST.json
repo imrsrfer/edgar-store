@@ -1,8 +1,8 @@
 {
   "contains": "reference data only: code + SEC-derived store. NO queue, NO portfolio data.",
-  "synced_utc": "2026-08-19T23:22:56Z",
-  "store_built_utc_oldest": "2026-08-08T05:02:21Z",
-  "store_built_utc_newest": "2026-08-19T23:22:54Z",
+  "synced_utc": "2026-08-19T23:27:09Z",
+  "store_built_utc_oldest": "2026-08-19T23:04:13Z",
+  "store_built_utc_newest": "2026-08-19T23:27:06Z",
   "code": {
     "fetch_edgar.py": {
       "bytes": 9115,
@@ -20,9 +20,9 @@
       "sha256_16": "444bb43526a712a5"
     },
     "screen.py": {
-      "bytes": 26486,
-      "mtime_utc": "2026-08-19T22:50:21Z",
-      "sha256_16": "aa2a60845221b0e3"
+      "bytes": 27795,
+      "mtime_utc": "2026-08-19T23:23:35Z",
+      "sha256_16": "16460801e6e1128b"
     },
     "concepts.py": {
       "bytes": 14865,
@@ -62,24 +62,24 @@
       "sha256_16": "14b93c66d76a0915"
     },
     "shortlist_main.csv": {
-      "bytes": 5731222,
-      "mtime_utc": "2026-08-08T05:02:21Z",
-      "sha256_16": "edd2ddb60292e445"
+      "bytes": 5872906,
+      "mtime_utc": "2026-08-19T23:26:57Z",
+      "sha256_16": "df686755a73916db"
     },
     "shortlist_inflection.csv": {
-      "bytes": 5729614,
-      "mtime_utc": "2026-08-08T05:02:24Z",
-      "sha256_16": "903e445a9b84d58c"
+      "bytes": 5866876,
+      "mtime_utc": "2026-08-19T23:27:04Z",
+      "sha256_16": "5ce1232e3a3e7541"
     },
     "shortlist_shorthist.csv": {
-      "bytes": 738875,
-      "mtime_utc": "2026-08-08T05:02:22Z",
-      "sha256_16": "43af437143f015a1"
+      "bytes": 770746,
+      "mtime_utc": "2026-08-19T23:27:06Z",
+      "sha256_16": "e304038a4967efde"
     },
     "shortlist_ifrs.csv": {
-      "bytes": 512665,
-      "mtime_utc": "2026-08-08T05:02:23Z",
-      "sha256_16": "b0f4e1a8467ad54c"
+      "bytes": 526980,
+      "mtime_utc": "2026-08-19T23:27:01Z",
+      "sha256_16": "be24737d6bf9cf53"
     },
     "data_quality.csv": {
       "bytes": 281181,
@@ -108,7 +108,7 @@
     },
     "prices_unmatched.csv": {
       "bytes": 434,
-      "mtime_utc": "2026-08-19T23:22:54Z",
+      "mtime_utc": "2026-08-19T23:27:06Z",
       "sha256_16": "89c60318d9d25a5a"
     }
   },

@@ -23,6 +23,7 @@ unauditable.
 from __future__ import annotations
 
 import argparse
+import os
 from datetime import date, timedelta
 
 import polars as pl
@@ -546,7 +547,13 @@ def main(argv=None):
         "--gate0-csv", default=None, help="input gate0.csv (default: <root>/gate0.csv)"
     )
     parser.add_argument("--lane", required=True, choices=LANES)
-    parser.add_argument("--out", required=True)
+    parser.add_argument(
+        "--out",
+        required=True,
+        help="output CSV. A BARE FILENAME lands in the data root next to "
+        "gate0.csv, not in the current directory -- pass a path with a "
+        "separator to override.",
+    )
     parser.add_argument("--min-mktcap", type=float, default=None)
     parser.add_argument("--max-mktcap", type=float, default=None)
     parser.add_argument("--min-revenue", type=float, default=DEFAULT_MIN_REVENUE)
@@ -576,6 +583,25 @@ def main(argv=None):
 
     paths = Paths(args.root).ensure()
     gate0_path = args.gate0_csv or str(paths.gate0)
+
+    # 🔴 A BARE --out FILENAME IS ANCHORED TO THE DATA ROOT, not to the shell's
+    # working directory (changed 2026-08-19). gate0.py writes gate0.csv to
+    # paths.root; screen.py used to write its shortlists to wherever the user
+    # happened to be standing, which is normally the CODE directory. Two
+    # sibling scripts in one pipeline, two different destinations.
+    #
+    # That is not a cosmetic split. On 2026-08-19 a full rebuild wrote four
+    # fresh shortlists into the code directory while sync_to_repo.py copied
+    # the STALE ones from the data root into the public repo -- so the repo
+    # carried corrected code, a corrected gate0.csv, and four shortlists from
+    # eleven days earlier that reported zero survivors. Every input was right
+    # and the output was wrong, which is the hardest version of this to see.
+    #
+    # An explicit path (absolute, or containing a separator) is still honoured
+    # exactly as given.
+    out_path = args.out
+    if not os.path.isabs(out_path) and os.path.dirname(out_path) == "":
+        out_path = str(paths.root / out_path)
     frame = pl.read_csv(gate0_path, infer_schema_length=200000)
     if "market_cap" in frame.columns and frame.schema["market_cap"] != pl.Float64:
         # An all-null market_cap column (no price ever joined into gate0.csv)
@@ -587,8 +613,8 @@ def main(argv=None):
         wanted = [t.strip() for t in args.tickers.split(",") if t.strip()]
         matches = [lookup_by_ticker_or_cik(frame, t) for t in wanted]
         result = pl.concat(matches, how="vertical") if matches else frame.filter(pl.lit(False))
-        result.write_csv(args.out)
-        log_stage("screen:tickers", requested=len(wanted), matched=result.height, out=args.out)
+        result.write_csv(out_path)
+        log_stage("screen:tickers", requested=len(wanted), matched=result.height, out=out_path)
         return 0
 
     exclude_tickers = load_exclude_tickers(args.exclude_tickers)
@@ -608,7 +634,7 @@ def main(argv=None):
     eps = load_eps(args.eps_csv) if args.eps_csv else None
 
     result, funnel = run_screen(frame, args, exclude_tickers, prices, eps)
-    result.write_csv(args.out)
+    result.write_csv(out_path)
 
     shortlisted = (result["rejected_because"] == "").sum()
 
@@ -646,7 +672,7 @@ def main(argv=None):
         lane=args.lane,
         **{stage: f"{funnel[stage]:,}" for stage in ("lane_universe", "eligible", *STAGE_ORDER[1:])},
     )
-    log_stage("screen", lane=args.lane, shortlisted=f"{shortlisted:,}", out=args.out)
+    log_stage("screen", lane=args.lane, shortlisted=f"{shortlisted:,}", out=out_path)
     return 0
 
 

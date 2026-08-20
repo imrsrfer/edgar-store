@@ -957,6 +957,54 @@ def build_ttm(facts):
     )
 
 
+def add_ttm_divergence(frame):
+    """Flag names whose FY and TTM cash generation DISAGREE (added 2026-08-19).
+
+    Every growth and quality leg in screen.py runs on the FY figures. The TTM
+    figures are computed here and then never tested, so a company whose cash
+    generation inverted over the last four quarters still shortlists as clean.
+    Found live: 5 of 19 main-lane survivors -- 26% -- had positive FY
+    FCF-after-SBC and NEGATIVE TTM. NOG shortlisted at a clean 11.7x P/FCF
+    while its TTM FCF-after-SBC was -$207M on a capex ramp; a scheduled run
+    caught it by hand, which is expensive work a column does for free across
+    six thousand names.
+
+    TWO flags, because the two cases are genuinely different and conflating
+    them would be the same error this file already carries three post-mortems
+    about:
+
+      ttm_fcf_divergence -- FY positive, TTM not. A REAL disagreement worth
+          diagnosing. NOG (TTM OCF $1,415M against FY $1,505M, capex ramped
+          to $1,606M) and ANF (TTM OCF $135M against FY $619M) are this: the
+          components are plausible and the business genuinely changed.
+
+      ttm_suspect -- TTM OCF is NEGATIVE while FY OCF is positive. That is
+          not a company finding, it is a broken TTM series: KFY came out at
+          -$971M of TTM operating cash against +$414M FY on $2.94B of
+          revenue, and LRN at -$616M against +$434M. Neither business burns
+          that. The four-quarter sum is picking up facts that are not four
+          discrete comparable quarters.
+
+    🔴 Neither flag rejects. A divergence is a MISSING DIAGNOSIS, not a
+    verdict -- and critically, it does not say WHICH of the two numbers is
+    wrong. Deciding that requires the quarterly statements, so this routes a
+    human there rather than guessing.
+    """
+    fy_ocf_positive = pl.col("ocf").is_not_null() & (pl.col("ocf") > 0)
+    ttm_ocf_negative = pl.col("ttm_ocf").is_not_null() & (pl.col("ttm_ocf") < 0)
+    return frame.with_columns(
+        (
+            pl.col("fcf_after_sbc").is_not_null()
+            & (pl.col("fcf_after_sbc") > 0)
+            & pl.col("ttm_fcf_after_sbc").is_not_null()
+            & (pl.col("ttm_fcf_after_sbc") <= 0)
+        )
+        .fill_null(False)
+        .alias("ttm_fcf_divergence"),
+        (fy_ocf_positive & ttm_ocf_negative).fill_null(False).alias("ttm_suspect"),
+    )
+
+
 def _quarter_slope(values):
     """OLS slope of 4 values against x=[1,2,3,4]; null unless all 4 are known.
 
@@ -1387,6 +1435,8 @@ OUTPUT_ORDER = (
     "capex_broken",
     "capex_suspect",
     "capex_vs_dep_amort",
+    "ttm_fcf_divergence",
+    "ttm_suspect",
     "sbc",
     "equity",
     "goodwill",
@@ -1479,6 +1529,16 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False):
     frame = frame.join(fcf_inflection, on="cik", how="left")
     if ttm.width > 1:
         frame = frame.join(ttm, on="cik", how="left")
+    # Must run AFTER the ttm join -- it reads both the FY and the TTM columns.
+    # When no TTM was buildable at all the flags are false, not null: "no TTM
+    # series exists" is not a divergence.
+    if "ttm_fcf_after_sbc" in frame.columns:
+        frame = add_ttm_divergence(frame)
+    else:
+        frame = frame.with_columns(
+            pl.lit(False).alias("ttm_fcf_divergence"),
+            pl.lit(False).alias("ttm_suspect"),
+        )
     frame = frame.join(provenance, on="cik", how="left")
     if acceleration.width > 1:
         frame = frame.join(acceleration, on="cik", how="left")

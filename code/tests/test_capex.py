@@ -286,3 +286,65 @@ def test_ordinary_capex_is_neither_broken_nor_suspect():
     assert out["capex_broken"][0] is False
     assert out["capex_suspect"][0] is False
     assert out["fcf"][0] == pytest.approx(293_000_000.0)
+
+
+# --------------------------------------------------------------------------
+# FY vs TTM divergence (added 2026-08-19)
+#
+# Every screen.py leg runs on the FY figures. gate0 computes the TTM ones and
+# nothing tested them, so a company whose cash generation inverted over the
+# last four quarters still shortlisted as clean -- 5 of 19 main-lane
+# survivors, 26%. A scheduled run caught NOG by hand; these flags do it for
+# the whole universe.
+# --------------------------------------------------------------------------
+
+
+TTM_BASE = {
+    "fcf_after_sbc": 237_500_000.0,
+    "ocf": 1_505_000_000.0,
+    "ttm_ocf": 1_415_000_000.0,
+    "ttm_fcf_after_sbc": -207_100_000.0,
+}
+
+
+def _diverge(row):
+    return gate0.add_ttm_divergence(pl.DataFrame([row]))
+
+
+def test_nog_shape_is_a_real_divergence_not_a_broken_series():
+    """FY positive, TTM negative, but TTM operating cash flow is plausible
+    against FY -- a genuine capex ramp. Flag the divergence, not the data."""
+    out = _diverge(TTM_BASE)
+    assert out["ttm_fcf_divergence"][0] is True
+    assert out["ttm_suspect"][0] is False
+
+
+def test_kfy_shape_is_a_broken_ttm_series_not_a_finding():
+    """Korn Ferry came out at -$971M of TTM operating cash against +$414M FY
+    on $2.94B of revenue. No such business burns that; the four-quarter sum
+    is wrong, and saying so is different from saying the company is."""
+    out = _diverge({**TTM_BASE, "ocf": 414_000_000.0, "ttm_ocf": -971_000_000.0,
+                    "fcf_after_sbc": 276_600_000.0, "ttm_fcf_after_sbc": -1_083_300_000.0})
+    assert out["ttm_fcf_divergence"][0] is True
+    assert out["ttm_suspect"][0] is True
+
+
+def test_agreeing_fy_and_ttm_raise_nothing():
+    out = _diverge({**TTM_BASE, "ttm_fcf_after_sbc": 208_100_000.0})
+    assert out["ttm_fcf_divergence"][0] is False
+    assert out["ttm_suspect"][0] is False
+
+
+def test_absent_ttm_is_not_a_divergence():
+    """A company with no buildable four-quarter series has an UNKNOWN TTM.
+    Unknown is not negative, and must not be flagged as a disagreement."""
+    out = _diverge({**TTM_BASE, "ttm_ocf": None, "ttm_fcf_after_sbc": None})
+    assert out["ttm_fcf_divergence"][0] is False
+    assert out["ttm_suspect"][0] is False
+
+
+def test_negative_fy_is_not_a_divergence():
+    """The flag is about a FY pass contradicted by the TTM. A name already
+    failing on FY is caught by fail_fcf and needs no second signal."""
+    out = _diverge({**TTM_BASE, "fcf_after_sbc": -50_000_000.0})
+    assert out["ttm_fcf_divergence"][0] is False

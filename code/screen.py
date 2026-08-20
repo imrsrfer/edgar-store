@@ -656,6 +656,32 @@ def main(argv=None):
             "  🔴 SHORTLIST IS EMPTY AND THE CAUSE IS MISSING PRICES. Do not report "
             "this run as 'nothing passed'."
         )
+    for column, label, why in (
+        (
+            "ttm_fcf_divergence",
+            "FY/TTM FCF DIVERGENCE",
+            "positive FY FCF-after-SBC but NEGATIVE trailing-twelve-month. Every "
+            "growth and quality leg above ran on the FY figures only, so this "
+            "name passed on a picture the last four quarters contradict. "
+            "Diagnose which of the two is right before scoring it.",
+        ),
+        (
+            "ttm_suspect",
+            "TTM SERIES UNRELIABLE",
+            "TTM operating cash flow is negative while FY operating cash flow is "
+            "positive. That is a broken four-quarter sum far more often than it "
+            "is a real business, so do NOT quote the TTM figure for these -- and "
+            "do not assume the FY one is therefore right either.",
+        ),
+    ):
+        if column not in result.columns:
+            continue
+        hits = result.filter((pl.col("rejected_because") == "") & pl.col(column))
+        if hits.height:
+            names = ", ".join(sorted(hits["ticker"].drop_nulls().to_list()))
+            print(f"  WARNING: {hits.height} shortlisted name(s) flagged {label} -- {why}")
+            print(f"           {names}")
+
     if "capex_suspect" in result.columns:
         flagged = int(
             result.filter((pl.col("rejected_because") == "") & pl.col("capex_suspect")).height

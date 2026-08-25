@@ -1,8 +1,8 @@
 {
   "contains": "reference data only: code + SEC-derived store. NO queue, NO portfolio data.",
-  "synced_utc": "2026-08-20T03:49:45Z",
-  "store_built_utc_oldest": "2026-08-19T23:04:13Z",
-  "store_built_utc_newest": "2026-08-20T03:49:11Z",
+  "synced_utc": "2026-08-25T06:17:18Z",
+  "store_built_utc_oldest": "2026-08-19T23:17:57Z",
+  "store_built_utc_newest": "2026-08-25T06:17:12Z",
   "code": {
     "fetch_edgar.py": {
       "bytes": 9115,
@@ -47,19 +47,19 @@
   },
   "store": {
     "gate0.csv": {
-      "bytes": 6909514,
-      "mtime_utc": "2026-08-20T03:49:05Z",
-      "sha256_16": "9d3773e97c15cb2f"
+      "bytes": 6921835,
+      "mtime_utc": "2026-08-25T06:17:12Z",
+      "sha256_16": "09b0d83d54d77646"
     },
     "facts.parquet": {
-      "bytes": 15418858,
-      "mtime_utc": "2026-08-19T23:04:13Z",
-      "sha256_16": "d6bcaf4c5bf0ea50"
+      "bytes": 15465139,
+      "mtime_utc": "2026-08-25T06:17:11Z",
+      "sha256_16": "1b0daae88a9948b3"
     },
     "meta.parquet": {
-      "bytes": 317157,
-      "mtime_utc": "2026-08-19T23:04:14Z",
-      "sha256_16": "14b93c66d76a0915"
+      "bytes": 317428,
+      "mtime_utc": "2026-08-25T06:17:11Z",
+      "sha256_16": "ae4bdfac86d45343"
     },
     "shortlist_main.csv": {
       "bytes": 5929859,
@@ -82,23 +82,23 @@
       "sha256_16": "b4169317b3663f7e"
     },
     "data_quality.csv": {
-      "bytes": 281181,
-      "mtime_utc": "2026-08-20T03:49:05Z",
-      "sha256_16": "2da8ef5764410b37"
+      "bytes": 283341,
+      "mtime_utc": "2026-08-25T06:17:12Z",
+      "sha256_16": "aced52a66b1a7d55"
     },
     "inactive_filers.csv": {
-      "bytes": 169334,
-      "mtime_utc": "2026-08-20T03:49:05Z",
-      "sha256_16": "2606730cfe693b0e"
+      "bytes": 169155,
+      "mtime_utc": "2026-08-25T06:17:12Z",
+      "sha256_16": "cf6f56be2bb60e79"
     },
     "duplicate_filers.csv": {
-      "bytes": 3257,
-      "mtime_utc": "2026-08-20T03:49:05Z",
-      "sha256_16": "553bb4360c02af70"
+      "bytes": 3197,
+      "mtime_utc": "2026-08-25T06:17:12Z",
+      "sha256_16": "3182b4192f48a42f"
     },
     "invalid_fiscal_years.csv": {
       "bytes": 196563,
-      "mtime_utc": "2026-08-19T23:04:13Z",
+      "mtime_utc": "2026-08-25T06:17:11Z",
       "sha256_16": "b80fd67cca8ea812"
     },
     "prices.csv": {

@@ -35,6 +35,24 @@ CAPEX_SUSPECT_OCF_RATIO = 0.05
 # 76 post-quality rows the broken names sat at 0.00 and 0.09 and the nearest
 # genuine one at 0.29 -- the gap is real, so the threshold is not a guess.
 CAPEX_VS_DA_FLOOR = 0.25
+# The short margin window. Two years, not three: the point is to catch a turn
+# the five-year window cannot see, and a three-year window on a five-year
+# comparison is not enough separation to be worth a second column.
+MARGIN_SHORT_YEARS = 2
+# 🔴 income_quality (OCF/NI) is tested from BELOW only -- Gate 0 asks for
+# >= 0.90 and imposes no ceiling. As net income collapses toward zero the
+# ratio explodes, so a company whose earnings have nearly vanished scores as
+# HIGHER quality than one earning normally. Measured on the 2026-08-25 store,
+# the relationship is monotonic and stark: median net margin falls 13.22% ->
+# 8.31% -> 4.50% -> 2.05% -> 0.67% across the 0.9-1.5 / 1.5-3 / 3-5 / 5-10 /
+# >10 bands, and 83% of the >10 group earns under 2% of revenue. The ratio is
+# measuring a vanishing denominator, not cash conversion.
+#
+# This is the exact MIRROR of the JOYY discard, which was correctly caught at
+# 0.14x -- one-off gain carrying the bottom line. Nothing caught 38x, and NOG
+# is live on the watchlist with "income quality 38.8x" cited as a STRENGTH in
+# the same entry that describes its earnings collapse as a red flag.
+INCOME_QUALITY_CEILING = 5.0
 
 INCOME_QUALITY_FLOOR = 0.80
 SBC_FAIL = 0.15
@@ -298,6 +316,23 @@ def compute_metrics(frame, assume_absent_zero=False):
     capex_ratio = _safe_div(pl.col("capex"), pl.col("revenue"))
     ocf_ratio = _safe_div(pl.col("ocf"), pl.col("revenue"))
     capex_vs_da = _safe_div(pl.col("capex"), pl.col("dep_amort"))
+    # 🔴 income_quality has no CEILING -- see INCOME_QUALITY_CEILING. This
+    # flags the top end and carries the two numbers that tell a reader WHICH
+    # of the two causes it is, because they need opposite responses:
+    #
+    #   NOG  -- op margin 9.9%, net margin 1.57%, ni/oi 15.8%. Both margins
+    #           depressed and consistent with each other: a REAL earnings
+    #           collapse. The 38.8x is a symptom of it, not a strength.
+    #   TSM  -- op margin 45.7%, net margin 1.22%, ni/oi 2.7%. A world-class
+    #           operating margin next to a rounding-error net margin is not a
+    #           collapse, it is a MIS-EXTRACTED net income (TSMC does not earn
+    #           1.2% of revenue). Same symptom, different disease: one needs
+    #           diagnosis, the other needs the tag fixed.
+    #
+    # A healthy operating margin beside a vanishing net margin points to the
+    # extraction; both depressed together points to the business. The flag
+    # does not try to classify it -- it states both and routes to a human,
+    # because guessing which is exactly the Fix 1 mistake.
     frame = frame.with_columns(
         capex_broken.fill_null(False).alias("capex_broken"),
         (
@@ -370,6 +405,13 @@ def compute_metrics(frame, assume_absent_zero=False):
         _safe_div(pl.col("fcf_after_sbc"), pl.col("shares_diluted")).alias(
             "fcf_per_share"
         ),
+        _safe_div(pl.col("net_income"), pl.col("revenue")).alias("net_margin"),
+        (
+            pl.col("income_quality").is_not_null()
+            & (pl.col("income_quality") > INCOME_QUALITY_CEILING)
+        )
+        .fill_null(False)
+        .alias("income_quality_suspect"),
     )
 
 
@@ -455,6 +497,18 @@ def build_trends(frame):
         pl.col("operating_margin").last().alias("operating_margin_latest"),
         _nth_back(pl.col("operating_margin"), CAGR_LONG_YEARS).alias(
             "operating_margin_5y_ago"
+        ),
+        # 🔴 A TWO-YEAR window as well as the five (added 2026-08-26).
+        # The 5-year comparison is structurally blind to a turn that started
+        # recently: a company whose margin collapsed four years ago and has
+        # been recovering hard for two still reads as "margin down vs 5y ago"
+        # and is rejected by the expansion leg. That is the same blind spot
+        # growth_basis already documents for spin-offs, one metric over.
+        # Coverage is BETTER than the 5-year column, not worse -- 5,150
+        # companies have a 2-year window against 3,362 with a 5-years-ago
+        # figure -- because two years of history is a far lower bar.
+        _nth_back(pl.col("operating_margin"), MARGIN_SHORT_YEARS).alias(
+            "operating_margin_2y_ago"
         ),
         pl.col("income_quality")
         .filter(pl.col("fiscal_year") > latest_year - INCOME_QUALITY_WINDOW)
@@ -1437,6 +1491,9 @@ OUTPUT_ORDER = (
     "capex_vs_dep_amort",
     "ttm_fcf_divergence",
     "ttm_suspect",
+    "net_margin",
+    "income_quality_suspect",
+    "operating_margin_2y_ago",
     "sbc",
     "equity",
     "goodwill",

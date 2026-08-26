@@ -31,7 +31,7 @@ import polars as pl
 from edgar_lib import Paths, log_stage
 from gate0 import DEFAULT_EXCLUDE_SIC, parse_sic_ranges
 
-LANES = ("main", "shorthist", "ifrs", "inflection", "value")
+LANES = ("main", "shorthist", "ifrs", "inflection", "value", "accel", "margin2y", "unevaluated")
 
 DEFAULT_MIN_REVENUE = 50e6
 GROWTH_MIN_REVENUE_CAGR = 0.02
@@ -41,6 +41,15 @@ GROWTH_MIN_FCF_CAGR = 0.05
 # drops; the decline guard is what it must not. See apply_growth.
 VALUE_MIN_REVENUE_CAGR = 0.0
 VALUE_MIN_FCF_CAGR = 0.0
+# Lane accel: consecutive quarters of accelerating revenue required.
+ACCEL_MIN_QUARTERS = 2
+# 🔴 Lane margin2y: the largest 2-year margin swing the lane will treat as a
+# business inflection. Above this it is almost always a one-off ROLLING OFF --
+# an IPO-year SBC charge, an impairment base effect -- and those dominate the
+# top of the ranking, where they are most likely to be acted on. CART +83.7pp,
+# EBS +82.7pp, SNDK +68.2pp are the shape. Anything above the cap is not
+# dropped, it is routed to a bucket that owes a base-year check first.
+MARGIN2Y_MAX_DELTA = 0.30
 QUALITY_MIN_INCOME_QUALITY = 0.90
 # Prior years with negative tangible book that a name may still carry.
 # 🔴 NOT zero, and NOT dropped (set 2026-08-26). Dropping the history leg
@@ -95,7 +104,21 @@ def apply_eligibility(frame, args, exclude_tickers):
         )
         remaining = remaining.filter(~is_financial)
 
-    status_ok = pl.col("gate0_status").is_in(list(ELIGIBLE_STATUSES))
+    if getattr(args, "lane", None) == "unevaluated":
+        # 🔴 Fix 4. 744 rows carry gate0_status='unknown' -- their latest
+        # stored filing is a 10-Q, 20-F or 40-F, so the ANNUAL Gate 0 legs
+        # never computed. 537 of them trip no fail flag at all: they are
+        # silently absent from every screen, which is the null-market_cap
+        # defect at a different gate. "Could not evaluate" is not "failed."
+        #
+        # 🔴 BUT gate0_status='unknown' IS A LICENCE TO LOOK, NOT A PASS.
+        # The store's own legs never ran on these names, so every row this
+        # lane produces carries gate0_unevaluated=True and MUST clear Gate 0
+        # from the statements before it is scored or queued. Admitting them
+        # as though they had passed would be worse than leaving them out.
+        status_ok = pl.col("gate0_status") == "unknown"
+    else:
+        status_ok = pl.col("gate0_status").is_in(list(ELIGIBLE_STATUSES))
     batches.append(
         remaining.filter(~status_ok).with_columns(
             pl.lit("ineligible:gate0_status").alias("rejected_because")
@@ -144,6 +167,75 @@ def apply_growth(frame, lane):
     """
     revenue_cagr = _effective_cagr("revenue")
     revenue_ok = revenue_cagr.is_not_null() & (revenue_cagr > GROWTH_MIN_REVENUE_CAGR)
+
+    if lane == "accel":
+        # 🔴 REVENUE legs only. The FCF acceleration columns this lane was
+        # first sketched with are DEAD in the store: fcf_accel_4q is populated
+        # on 51 of 6,031 rows (0.8%), and quarters_of_accelerating_fcf is 90%
+        # populated but 99.5% zeros -- 28 rows reach 1. Screening on either
+        # would have rejected ~99% of the universe and reported it as
+        # "nothing passed," which is the 2026-08-19 post-mortem exactly.
+        # VERIFY POPULATION BEFORE ADDING A COLUMN TO A FILTER.
+        #
+        # What survives is revenue accelerating WITH earnings increasingly
+        # converting to cash: growth going to cash rather than to receivables.
+        # Both columns are 88-90% populated.
+        ok = (
+            pl.col("quarters_of_accelerating_revenue").is_not_null()
+            & (pl.col("quarters_of_accelerating_revenue") >= ACCEL_MIN_QUARTERS)
+            & (pl.col("income_quality_direction") == "rising")
+        )
+        rejected = frame.filter(~ok).with_columns(
+            pl.lit("accel:not_accelerating").alias("rejected_because")
+        )
+        return frame.filter(ok), rejected
+
+    if lane == "margin2y":
+        if "operating_margin_2y_ago" not in frame.columns:
+            raise SystemExit(
+                "lane 'margin2y' needs the column operating_margin_2y_ago, which "
+                "this gate0.csv does not have -- the store predates 2026-08-26.\n"
+                "  Re-run:  python gate0.py   (seconds; no fetch or rebuild needed)\n"
+                "  A missing INPUT is not an empty result; this lane refuses to "
+                "run rather than report zero names and let that read as "
+                "'nothing passed'."
+            )
+        # Disjoint from main BY CONSTRUCTION: a name that already passes the
+        # 5-year expansion test belongs to main and is excluded here, so this
+        # lane contains only the recent turns the long window cannot see.
+        # Measured 0.0% overlap with main, 99 of 104 names new to the book.
+        delta2y = pl.col("operating_margin_latest") - pl.col("operating_margin_2y_ago")
+        passes_5y = (
+            pl.col("operating_margin_delta").is_not_null()
+            & (pl.col("operating_margin_delta") > 0)
+            & pl.col("operating_margin_latest").is_not_null()
+            & (pl.col("operating_margin_latest") > 0)
+        )
+        ok = (
+            pl.col("operating_margin_2y_ago").is_not_null()
+            & pl.col("operating_margin_latest").is_not_null()
+            & (delta2y > 0)
+            & (pl.col("operating_margin_latest") > 0)
+            & ~passes_5y.fill_null(False)
+        )
+        rejected = frame.filter(~ok).with_columns(
+            pl.lit("margin2y:no_recent_turn").alias("rejected_because")
+        )
+        return frame.filter(ok), rejected
+
+    if lane == "unevaluated":
+        # Fix 4. The growth leg is the MAIN lane's, unchanged -- what makes
+        # this lane different is its eligibility (gate0_status = unknown),
+        # handled in apply_eligibility, not its growth bar.
+        fcf_cagr = _effective_cagr("fcf_per_share")
+        ok = (
+            revenue_cagr.is_not_null()
+            & (revenue_cagr > GROWTH_MIN_REVENUE_CAGR)
+            & fcf_cagr.is_not_null()
+            & (fcf_cagr > GROWTH_MIN_FCF_CAGR)
+        )
+        rejected = frame.filter(~ok).with_columns(pl.lit("growth").alias("rejected_because"))
+        return frame.filter(ok), rejected
 
     if lane == "value":
         # 🔴 A DECLINE GUARD, not a growth screen -- and deliberately not
@@ -233,6 +325,38 @@ def apply_margin_expansion(frame):
 # --------------------------------------------------------------------------
 # Gate 0 quality screen
 # --------------------------------------------------------------------------
+
+
+def apply_quality_unevaluated(frame):
+    """Quality legs for the `unevaluated` lane: reject only on a metric that
+    is PRESENT and fails. A null passes through, flagged.
+
+    🔴 The ordinary quality leg zeroes this lane by construction, and that is
+    not a subtle bug -- it is guaranteed. These names are here BECAUSE their
+    annual Gate 0 legs never computed, so income_quality, sbc_pct_revenue and
+    tangible_book are null for most of them; requiring those very fields
+    rejects every row. Measured before the fix: 41 names reached the quality
+    gate and 0 survived, and the lane would have reported "nothing passed."
+
+    That is the null-versus-failure rule for the third time in this file, and
+    the first two cost twelve weeks between them. A lane built to admit
+    not-yet-evaluated companies must not then demand the evaluation.
+
+    A metric that IS present and IS bad still rejects -- being unevaluated on
+    one leg is not a licence to ignore a leg that did compute and did fail.
+    """
+    iq = pl.col("income_quality")
+    sbc = pl.col("sbc_pct_revenue")
+    tb = pl.col("tangible_book")
+    fails = (
+        (iq.is_not_null() & (iq < QUALITY_MIN_INCOME_QUALITY))
+        | (sbc.is_not_null() & (sbc > QUALITY_MAX_SBC_PCT_REVENUE))
+        | (tb.is_not_null() & (tb <= 0))
+    ).fill_null(False)
+    rejected = frame.filter(fails).with_columns(
+        pl.lit("quality:evaluable_leg_failed").alias("rejected_because")
+    )
+    return frame.filter(~fails), rejected
 
 
 def apply_quality(frame):
@@ -578,6 +702,20 @@ def load_eps(path):
 # --------------------------------------------------------------------------
 
 
+# Extractive / energy SIC bands. A commodity name is NOT disqualified -- it is
+# Tier 2 at a 30% MOS, and §G's 60% SMID rule is a floor on EFFORT, so these
+# should be visible but should not eat the quota. Flagged, never dropped.
+EXTRACTIVE_SIC = ((1000, 1499), (2911, 2911))
+
+
+def _is_extractive():
+    sic = pl.col("sic").cast(pl.Int32, strict=False)
+    expr = pl.lit(False)
+    for low, high in EXTRACTIVE_SIC:
+        expr = expr | sic.is_between(low, high)
+    return expr.fill_null(False)
+
+
 def rank_by_cheapness(frame):
     """Recompute P/FCF-after-SBC on the live cap and sort the value lane
     ascending -- cheapest first, NULLS LAST.
@@ -657,13 +795,20 @@ def run_screen(frame, args, exclude_tickers, prices, eps):
     survivors, growth_rejects = apply_growth(eligible, args.lane)
     funnel["growth"] = survivors.height
 
-    if args.lane == "value":
+    if args.lane in ("value", "accel", "margin2y"):
+        # accel and margin2y each carry their own margin logic in apply_growth
+        # (margin2y IS a margin test; accel is deliberately margin-agnostic on
+        # direction), so both need only the profitability FLOOR here -- never
+        # the 5-year delta, which would undo the point of either lane.
         survivors, margin_rejects = apply_margin_profitable(survivors)
     else:
         survivors, margin_rejects = apply_margin_expansion(survivors)
     funnel["margin_expansion"] = survivors.height
 
-    survivors, quality_rejects = apply_quality(survivors)
+    if args.lane == "unevaluated":
+        survivors, quality_rejects = apply_quality_unevaluated(survivors)
+    else:
+        survivors, quality_rejects = apply_quality(survivors)
     funnel["quality"] = survivors.height
 
     if prices is not None:
@@ -692,6 +837,22 @@ def run_screen(frame, args, exclude_tickers, prices, eps):
 
     if args.lane == "value":
         survivors = rank_by_cheapness(survivors)
+
+    if args.lane == "margin2y":
+        delta2y = pl.col("operating_margin_latest") - pl.col("operating_margin_2y_ago")
+        survivors = survivors.with_columns(
+            delta2y.alias("operating_margin_delta_2y"),
+            (delta2y > MARGIN2Y_MAX_DELTA).alias("margin_swing_unverified"),
+            # Extractive and commodity SIC bands: not disqualified, but Tier 2
+            # at a 30% MOS and they should not consume the SMID effort quota.
+            _is_extractive().alias("tier2_commodity"),
+        ).sort("operating_margin_delta_2y", descending=True, nulls_last=True)
+
+    if args.lane == "unevaluated":
+        survivors = survivors.with_columns(
+            pl.lit(True).alias("gate0_unevaluated"),
+            _is_extractive().alias("tier2_commodity"),
+        )
 
     survivors = survivors.with_columns(pl.lit("").alias("rejected_because"))
 
@@ -854,6 +1015,34 @@ def main(argv=None):
             "this run as 'nothing passed'."
         )
     for column, label, why in (
+        (
+            "income_quality_suspect",
+            "INCOME QUALITY TOO HIGH TO TRUST",
+            "OCF/NI above 5. Gate 0 tests this ratio from BELOW only, so a "
+            "company whose net income has nearly vanished scores as HIGHER "
+            "quality than one earning normally -- 83% of the >10 band earns "
+            "under 2% of revenue. Read `net_margin` and `ni_vs_oi` on the row: "
+            "both margins depressed together is a real earnings collapse (NOG), "
+            "a healthy operating margin beside a rounding-error net margin is a "
+            "MIS-EXTRACTED net income (TSM). Never quote the ratio as a "
+            "strength without the net margin beside it.",
+        ),
+        (
+            "gate0_unevaluated",
+            "GATE 0 NEVER RAN",
+            "gate0_status was 'unknown' -- the annual legs never computed "
+            "because the latest stored filing is a 10-Q/20-F/40-F. This is a "
+            "LICENCE TO LOOK, NOT A PASS. Clear Gate 0 from the statements "
+            "before scoring or queuing this name.",
+        ),
+        (
+            "margin_swing_unverified",
+            "MARGIN SWING TOO LARGE TO BE A TURN",
+            "the 2-year operating-margin move exceeds 30pp. That size of swing "
+            "is almost always a one-off ROLLING OFF -- an IPO-year SBC charge, "
+            "an impairment base effect -- not a business inflection. Verify the "
+            "BASE year before treating it as one.",
+        ),
         (
             "warn_inorganic",
             "ORGANIC/INORGANIC SPLIT OWED",

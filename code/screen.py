@@ -31,12 +31,28 @@ import polars as pl
 from edgar_lib import Paths, log_stage
 from gate0 import DEFAULT_EXCLUDE_SIC, parse_sic_ranges
 
-LANES = ("main", "shorthist", "ifrs", "inflection")
+LANES = ("main", "shorthist", "ifrs", "inflection", "value")
 
 DEFAULT_MIN_REVENUE = 50e6
 GROWTH_MIN_REVENUE_CAGR = 0.02
 GROWTH_MIN_FCF_CAGR = 0.05
+# The value lane's bars. NOT zero-as-in-absent -- zero as in "must not be
+# SHRINKING". The compounding bars above are what this lane deliberately
+# drops; the decline guard is what it must not. See apply_growth.
+VALUE_MIN_REVENUE_CAGR = 0.0
+VALUE_MIN_FCF_CAGR = 0.0
 QUALITY_MIN_INCOME_QUALITY = 0.90
+# Prior years with negative tangible book that a name may still carry.
+# 🔴 NOT zero, and NOT dropped (set 2026-08-26). Dropping the history leg
+# entirely admits 21 names but contradicts the book's OWN logged standard:
+# FLO and UPBD sit in discarded.csv with the re-look condition "tangible book
+# positive for TWO CONSECUTIVE YEARS". A single bad year now behind a company
+# is not the chronic shape that condition guards against; three or four is.
+# At 1 this admits 10 of the 21 and still rejects every name with 3+ negative
+# years. The column counts years across the window rather than testing
+# recency, so this is a proxy for that standard, not an expression of it --
+# stated because the difference matters if the column ever changes meaning.
+TANGIBLE_BOOK_MAX_YRS_NEGATIVE = 1
 QUALITY_MAX_SBC_PCT_REVENUE = 0.10
 EPS_GUARD_RATIO = 0.60
 PRICE_STALE_DAYS = 7
@@ -129,6 +145,29 @@ def apply_growth(frame, lane):
     revenue_cagr = _effective_cagr("revenue")
     revenue_ok = revenue_cagr.is_not_null() & (revenue_cagr > GROWTH_MIN_REVENUE_CAGR)
 
+    if lane == "value":
+        # 🔴 A DECLINE GUARD, not a growth screen -- and deliberately not
+        # "no growth test at all", which is what a cheapness-ranked lane
+        # wants to be and must not be. The book has already discarded FIZZ
+        # for exactly this: "nominal FCF-after-SBC yield 5.31% is not a
+        # genuine margin of safety against a shrinking earnings base --
+        # value-trap risk." A lane that ranks by cheapness with no floor
+        # under the business is a value-trap generator, and it would rank
+        # the traps FIRST, because a shrinking business is cheap on
+        # trailing numbers by construction.
+        #
+        # So the COMPOUNDING bars (2% revenue, 5% FCF/share) come off --
+        # that is the whole point, they are what makes the main lane blind
+        # to flat-but-cheap quality -- and a zero floor goes under both.
+        revenue_ok = revenue_cagr.is_not_null() & (revenue_cagr >= VALUE_MIN_REVENUE_CAGR)
+        fcf_cagr = _effective_cagr("fcf_per_share")
+        fcf_ok = fcf_cagr.is_not_null() & (fcf_cagr >= VALUE_MIN_FCF_CAGR)
+        ok = revenue_ok & fcf_ok
+        rejected = frame.filter(~ok).with_columns(
+            pl.lit("value:declining").alias("rejected_because")
+        )
+        return frame.filter(ok), rejected
+
     if lane == "inflection":
         fcf_ok = pl.col("fcf_inflection").fill_null(False) & (
             pl.col("fcf_per_share_delta_abs").is_not_null()
@@ -147,6 +186,26 @@ def apply_growth(frame, lane):
 # Screen 3: margin expansion -- the PERF bug, fixed and made impossible to
 # reintroduce by living in exactly one function.
 # --------------------------------------------------------------------------
+
+
+def apply_margin_profitable(frame):
+    """The value lane's margin leg: operating_margin_latest > 0 ONLY.
+
+    Requiring margin EXPANSION here would defeat the lane -- a stable, cheap,
+    already-high-margin business is precisely what it exists to find, and a
+    flat margin is not a defect in one. But the LEVEL test stays, and stays
+    mandatory: without it this lane admits unprofitable companies and then
+    ranks them by a P/FCF multiple, which is the PERF failure of 2026-08-07
+    rebuilt in a new place. Direction is optional here; profitability is not.
+    """
+    ok = (
+        pl.col("operating_margin_latest").is_not_null()
+        & (pl.col("operating_margin_latest") > 0)
+    )
+    rejected = frame.filter(~ok).with_columns(
+        pl.lit("value:unprofitable").alias("rejected_because")
+    )
+    return frame.filter(ok), rejected
 
 
 def apply_margin_expansion(frame):
@@ -178,7 +237,33 @@ def apply_margin_expansion(frame):
 
 def apply_quality(frame):
     """income_quality >= 0.9, sbc_pct_revenue <= 0.10, tangible_book > 0,
-    tangible_book_yrs_negative = 0, not warn_inorganic."""
+    tangible_book_yrs_negative <= TANGIBLE_BOOK_MAX_YRS_NEGATIVE.
+
+    🔴 warn_inorganic NO LONGER REJECTS (changed 2026-08-26). It is a WARNING
+    being used as a DISQUALIFIER, and it was killing 43 otherwise-clean names
+    -- more than the whole surviving shortlist. ACQUISITION_INTENSITY_WARN
+    trips when goodwill+intangibles rise by 5% of revenue in ANY of three
+    years, so one bolt-on flags a company for three years running.
+
+    The Framework's actual disqualifier is "inorganic growth MASKING ORGANIC
+    STAGNATION" -- two legs. This flag tests one.
+
+    🔴 AND IT IS NOT REPLACED BY A GROWTH OVERRIDE, which is the tempting fix
+    and the wrong one. Admitting a flagged name when total revenue CAGR
+    clears some bar is CIRCULAR: total revenue INCLUDES acquired revenue, so
+    the test certifies as organic exactly the roll-ups it is meant to catch.
+    Measured on the 2026-08-25 store: of the 38 flagged names a >5% revenue
+    CAGR override would have admitted, 22 (58%) had acquisition intensity
+    above 5% of revenue -- LNTH added goodwill+intangibles equal to 48% of
+    revenue, NICE spent 29.1% of revenue on acquisitions, AYI 27.4%, FSS
+    23.0%. The store carries NO organic revenue series, so nothing here can
+    settle the organic/inorganic split, and a screen must not pretend to.
+
+    So the flag is carried onto the shortlist with both acquisition-intensity
+    measures instead: a SILENT KILL becomes a STATED OBLIGATION, which is
+    what a warning was always for. The underwrite owes the split; the screen
+    does not get to guess it.
+    """
     ok = (
         pl.col("income_quality").is_not_null()
         & (pl.col("income_quality") >= QUALITY_MIN_INCOME_QUALITY)
@@ -186,8 +271,10 @@ def apply_quality(frame):
         & (pl.col("sbc_pct_revenue") <= QUALITY_MAX_SBC_PCT_REVENUE)
         & pl.col("tangible_book").is_not_null()
         & (pl.col("tangible_book") > 0)
-        & (pl.col("tangible_book_yrs_negative").fill_null(0) == 0)
-        & ~pl.col("warn_inorganic").fill_null(False)
+        & (
+            pl.col("tangible_book_yrs_negative").fill_null(0)
+            <= TANGIBLE_BOOK_MAX_YRS_NEGATIVE
+        )
     )
     rejected = frame.filter(~ok).with_columns(pl.lit("quality").alias("rejected_because"))
     return frame.filter(ok), rejected
@@ -240,21 +327,60 @@ def apply_band(frame, min_mktcap, max_mktcap):
 # --------------------------------------------------------------------------
 
 
-def apply_momentum(frame, prices_supplied):
-    """pct_vs_200ma > 0, requires --price-csv.
+def apply_momentum(frame, prices_supplied, mode="flag"):
+    """pct_vs_200ma, requires --price-csv.
 
     Without a price file this is not "passed", it is not evaluated --
     momentum_not_evaluated makes that explicit rather than a bare null that
-    reads the same as "computed and clean". With a price file, a company
-    below its 200-day average is a real rejection, not skipped.
+    reads the same as "computed and clean".
+
+    🔴 DEFAULT CHANGED TO "flag" 2026-08-26. This gate used to reject every
+    name below its 200-day average. The Framework's Momentum screen says
+    "never propose an UN-DIAGNOSED drawdown" -- that is a requirement to
+    DIAGNOSE, not a requirement to exclude, and the difference decides
+    whether the pipeline can see a whole category of idea.
+
+    The proof is the book's own best name: LOPE, which the console records as
+    the strongest find of the 2026-08-14 sweep and flags for the next full
+    underwrite slot, sits roughly 11% BELOW its 200-day average. It was found
+    by hand. The deterministic pipeline could not see it and never could --
+    it was structurally blind to precisely the cohort a value-oriented
+    framework exists to buy.
+
+    In flag mode a sub-200d-MA name carries drawdown_undiagnosed=True and
+    reaches the shortlist with the diagnosis owed. mode="hard" restores the
+    old rejecting behaviour.
     """
     if not prices_supplied:
         return (
-            frame.with_columns(pl.lit(True).alias("momentum_not_evaluated")),
+            frame.with_columns(
+                pl.lit(True).alias("momentum_not_evaluated"),
+                pl.lit(False).alias("drawdown_undiagnosed"),
+                pl.lit(True).alias("momentum_unknown"),
+            ),
             frame.filter(pl.lit(False)),
         )
     frame = frame.with_columns(pl.lit(False).alias("momentum_not_evaluated"))
     ok = pl.col("pct_vs_200ma").is_not_null() & (pl.col("pct_vs_200ma") > 0)
+    if mode == "flag":
+        # 🔴 UNKNOWN IS NOT BELOW. An earlier version of this wrote
+        # (~ok).fill_null(True), which labelled a name with NO 200-day
+        # average as being in a drawdown -- the missing-input-versus-failed-
+        # test error, in the very function added to stop a gate from
+        # conflating those two. A name whose price file carries no ma_200
+        # has an UNEVALUATED momentum screen, and says so.
+        below = pl.col("pct_vs_200ma").is_not_null() & (pl.col("pct_vs_200ma") <= 0)
+        return (
+            frame.with_columns(
+                below.alias("drawdown_undiagnosed"),
+                pl.col("pct_vs_200ma").is_null().alias("momentum_unknown"),
+            ),
+            frame.filter(pl.lit(False)),
+        )
+    frame = frame.with_columns(
+        pl.lit(False).alias("drawdown_undiagnosed"),
+        pl.col("pct_vs_200ma").is_null().alias("momentum_unknown"),
+    )
     rejected = frame.filter(~ok).with_columns(pl.lit("momentum").alias("rejected_because"))
     return frame.filter(ok), rejected
 
@@ -452,6 +578,45 @@ def load_eps(path):
 # --------------------------------------------------------------------------
 
 
+def rank_by_cheapness(frame):
+    """Recompute P/FCF-after-SBC on the live cap and sort the value lane
+    ascending -- cheapest first, NULLS LAST.
+
+    Two traps, both already paid for once:
+
+    1. 🔴 NULLS LAST IS NOT COSMETIC. On 2026-08-06 a blank cell topped a
+       P/FCF sort and BELFB reached a shortlist on a multiple that did not
+       exist -- its true figure was ~43x. The standing rule reads "null
+       values pass every numeric filter AND SORT TO THE TOP." A lane whose
+       entire output is a cheapness ranking puts that trap at position one
+       by construction, so the sort states it rather than relying on a
+       default.
+
+    2. The stored p_fcf_after_sbc is computed against whatever cap the store
+       had -- which is none. apply_prices drops it for exactly that reason,
+       so it is recomputed here from the live market cap, and is null when
+       either input is.
+
+    A NEGATIVE multiple is not cheap, it is a loss, and it would sort ahead
+    of every genuine bargain. Those are pushed to the bottom with the nulls.
+    """
+    if "market_cap" not in frame.columns or "fcf_after_sbc" not in frame.columns:
+        return frame
+    multiple = (
+        pl.when(
+            pl.col("market_cap").is_null()
+            | pl.col("fcf_after_sbc").is_null()
+            | (pl.col("fcf_after_sbc") <= 0)
+        )
+        .then(None)
+        .otherwise(pl.col("market_cap") / pl.col("fcf_after_sbc"))
+    )
+    return frame.with_columns(
+        multiple.alias("p_fcf_after_sbc_live"),
+        (1.0 / multiple).alias("fcf_after_sbc_yield"),
+    ).sort("p_fcf_after_sbc_live", descending=False, nulls_last=True)
+
+
 def apply_lane_filter(frame, lane):
     """The subset each lane draws from before the named screens apply.
 
@@ -462,6 +627,12 @@ def apply_lane_filter(frame, lane):
     (main universe, spin-off lane, IFRS lane).
     inflection: no extra filter; the inflection condition itself (in
     apply_growth) is the filter.
+    value: no extra filter either -- the lane is defined by which legs it
+    DROPS (the compounding bars and the margin-delta test), not by a subset
+    of the universe. It exists because a deterministic AND-chain over a
+    slow-moving store returns the same names every week: 21 of 22 survivors
+    on 2026-08-26 were already tracked. Rotating the LENS surfaces a
+    different cohort from the same universe at no extra data cost.
     """
     if lane == "shorthist":
         return frame.filter(pl.col("short_history") == True)  # noqa: E712
@@ -486,7 +657,10 @@ def run_screen(frame, args, exclude_tickers, prices, eps):
     survivors, growth_rejects = apply_growth(eligible, args.lane)
     funnel["growth"] = survivors.height
 
-    survivors, margin_rejects = apply_margin_expansion(survivors)
+    if args.lane == "value":
+        survivors, margin_rejects = apply_margin_profitable(survivors)
+    else:
+        survivors, margin_rejects = apply_margin_expansion(survivors)
     funnel["margin_expansion"] = survivors.height
 
     survivors, quality_rejects = apply_quality(survivors)
@@ -504,7 +678,9 @@ def run_screen(frame, args, exclude_tickers, prices, eps):
     )
     funnel["_pre_band"] = pre_band
 
-    survivors, momentum_rejects = apply_momentum(survivors, prices is not None)
+    survivors, momentum_rejects = apply_momentum(
+        survivors, prices is not None, mode=getattr(args, "momentum", "flag")
+    )
     funnel["momentum"] = survivors.height
 
     survivors = apply_eps_guard(survivors, eps is not None)
@@ -513,6 +689,9 @@ def run_screen(frame, args, exclude_tickers, prices, eps):
         survivors = apply_eps_guard(
             survivors.drop("fwd_trail_ratio", "adjusted_eps_guard"), True
         )
+
+    if args.lane == "value":
+        survivors = rank_by_cheapness(survivors)
 
     survivors = survivors.with_columns(pl.lit("").alias("rejected_because"))
 
@@ -554,7 +733,25 @@ def main(argv=None):
         "gate0.csv, not in the current directory -- pass a path with a "
         "separator to override.",
     )
-    parser.add_argument("--min-mktcap", type=float, default=None)
+    parser.add_argument(
+        "--min-mktcap",
+        type=float,
+        default=None,
+        help="market-cap floor. 🔴 $500M is a SCREENING-EFFORT QUOTA (\u00a7G), not a "
+        "universe filter, and it does not bind at this book's size: the only "
+        "floor the rules impose is \u00a7F-2 liquidity. At a NAV near $28.5k a 10%% "
+        "entry is ~$2,846, so \u00a7F-2 needs 30-day dollar volume above ~$57k -- "
+        "RCMT, NCSM and SMID clear that by 7x to 50x and were excluded anyway. "
+        "Prefer 100e6 and enforce liquidity per name from IBKR volume.",
+    )
+    parser.add_argument(
+        "--momentum",
+        choices=("hard", "flag"),
+        default="flag",
+        help="flag (default): a name below its 200d MA reaches the shortlist "
+        "tagged drawdown_undiagnosed. hard: reject it, the pre-2026-08-26 "
+        "behaviour that made LOPE invisible.",
+    )
     parser.add_argument("--max-mktcap", type=float, default=None)
     parser.add_argument("--min-revenue", type=float, default=DEFAULT_MIN_REVENUE)
     parser.add_argument("--include-financials", action="store_true")
@@ -657,6 +854,30 @@ def main(argv=None):
             "this run as 'nothing passed'."
         )
     for column, label, why in (
+        (
+            "warn_inorganic",
+            "ORGANIC/INORGANIC SPLIT OWED",
+            "goodwill+intangibles rose materially against revenue. This no longer "
+            "rejects -- it never should have, the Framework's test is inorganic "
+            "growth MASKING ORGANIC STAGNATION and this measures one leg. The "
+            "underwrite owes the split; check acq_intensity and bs_acq_intensity "
+            "on the row. Do NOT settle it with total revenue growth, which "
+            "includes the acquired revenue.",
+        ),
+        (
+            "drawdown_undiagnosed",
+            "DRAWDOWN TO DIAGNOSE",
+            "below the 200-day moving average. Reaching the shortlist is correct "
+            "-- \u00a7D#1 forbids proposing an UN-diagnosed drawdown, not owning a "
+            "diagnosed one -- but the diagnosis is owed before any level is set.",
+        ),
+        (
+            "momentum_unknown",
+            "MOMENTUM NOT EVALUATED",
+            "no 200-day moving average in the price file, so the momentum screen "
+            "did not run on this name. It is UNEVALUATED, not passing and not in "
+            "a drawdown -- supply an ma_200 before treating the screen as clean.",
+        ),
         (
             "ttm_fcf_divergence",
             "FY/TTM FCF DIVERGENCE",

@@ -1,8 +1,8 @@
 {
   "contains": "reference data only: code + SEC-derived store. NO queue, NO portfolio data.",
-  "synced_utc": "2026-08-25T06:17:18Z",
-  "store_built_utc_oldest": "2026-08-19T23:17:57Z",
-  "store_built_utc_newest": "2026-08-25T06:17:12Z",
+  "synced_utc": "2026-08-26T06:56:53Z",
+  "store_built_utc_oldest": "2026-08-20T03:49:06Z",
+  "store_built_utc_newest": "2026-08-26T06:56:50Z",
   "code": {
     "fetch_edgar.py": {
       "bytes": 9115,
@@ -20,9 +20,9 @@
       "sha256_16": "bc4eda736e15a355"
     },
     "screen.py": {
-      "bytes": 29012,
-      "mtime_utc": "2026-08-20T02:32:03Z",
-      "sha256_16": "2106311dec882145"
+      "bytes": 40112,
+      "mtime_utc": "2026-08-26T06:55:14Z",
+      "sha256_16": "c7e0fbe346235c60"
     },
     "concepts.py": {
       "bytes": 14865,
@@ -102,14 +102,14 @@
       "sha256_16": "b80fd67cca8ea812"
     },
     "prices.csv": {
-      "bytes": 6225,
-      "mtime_utc": "2026-08-19T23:17:57Z",
-      "sha256_16": "1c2ca069ee834953"
+      "bytes": 10553,
+      "mtime_utc": "2026-08-26T06:55:14Z",
+      "sha256_16": "4b2b84e6eda9a11d"
     },
     "prices_unmatched.csv": {
-      "bytes": 434,
-      "mtime_utc": "2026-08-20T03:49:11Z",
-      "sha256_16": "89c60318d9d25a5a"
+      "bytes": 402,
+      "mtime_utc": "2026-08-26T06:56:50Z",
+      "sha256_16": "0fc0ce8642bd1109"
     }
   },
   "missing": {

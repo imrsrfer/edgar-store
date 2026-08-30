@@ -102,14 +102,33 @@ def test_january_year_end_resolves_to_the_prior_fiscal_year():
     assert build_facts.label_fact(unseen, annual, quarterly, offset) == (2023, "FY")
 
 
-def test_year_to_date_duration_is_dropped_not_treated_as_a_quarter():
-    """A nine-month cumulative figure must not be mistaken for a discrete quarter."""
-    # Arrange
-    ytd = make_fact("Revenues", date(2025, 1, 1), date(2025, 9, 30), 300.0, 2025, "Q3",
-                    "10-Q", date(2025, 10, 30))
+def test_year_to_date_duration_is_labelled_ytd_never_a_quarter():
+    """A cumulative figure is RETAINED under its own label, never as a quarter.
 
-    # Act / Assert
-    assert build_facts.label_fact(ytd, {}, {}, 0) is None
+    Changed 2026-08-27. This test used to assert the fact was dropped entirely.
+    Dropping it was the safe half of a correct instinct and the expensive half
+    of a wrong one: filers report cash flow only as YTD, so discarding these
+    left Q1 as the only surviving quarterly cash-flow fact, and build_ttm's
+    four-row sum silently became four Q1s from four different years. The
+    invariant that matters is unchanged and is what is asserted here -- a
+    cumulative span must never carry a Q1..Q4 label, because every filter in
+    this pipeline matches on those.
+    """
+    # Arrange
+    ytd9 = make_fact("Revenues", date(2025, 1, 1), date(2025, 9, 30), 300.0, 2025, "Q3",
+                     "10-Q", date(2025, 10, 30))
+    ytd6 = make_fact("Revenues", date(2025, 1, 1), date(2025, 6, 30), 200.0, 2025, "Q2",
+                     "10-Q", date(2025, 7, 30))
+
+    # Act
+    label9 = build_facts.label_fact(ytd9, {}, {}, 0)
+    label6 = build_facts.label_fact(ytd6, {}, {}, 0)
+
+    # Assert
+    assert label9 == (2025, "YTD3")
+    assert label6 == (2025, "YTD2")
+    assert label9[1] not in ("Q1", "Q2", "Q3", "Q4", "FY")
+    assert label6[1] not in ("Q1", "Q2", "Q3", "Q4", "FY")
 
 
 def test_instant_at_year_end_joins_the_annual_period():

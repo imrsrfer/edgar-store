@@ -996,61 +996,196 @@ TTM_TILE_TOLERANCE_DAYS = 10  # summed durations must equal the span: no gap, no
 TTM_AVERAGED_CONCEPTS = frozenset({"shares_diluted", "shares_basic"})
 
 
+# The rollforward identity. TTM = FY(prior) - YTD(prior) + YTD(current), where
+# the two interims are the SAME cumulative span one year apart and the annual
+# closed between them. It needs only ONE interim per year, which is why it
+# reaches almost every filer where the four-quarter tiling path reaches three.
+TTM_INTERIM_PERIODS = ("Q1", "YTD2", "YTD3")  # all cumulative from year start
+TTM_SPAN_MATCH_DAYS = 10   # the two interims must be the same length
+TTM_YEAR_APART_DAYS = (330, 400)  # ...and one year apart
+
+
+def build_ttm_rollforward(facts):
+    """TTM = FY(prior) - YTD(prior) + YTD(current). Additive flow concepts only.
+
+    Every leg is validated rather than assumed: the two interims must match in
+    length within TTM_SPAN_MATCH_DAYS and sit TTM_YEAR_APART_DAYS apart, and the
+    annual period must CLOSE BETWEEN THEM. That last condition is what makes the
+    identity true, and it is checked, not inferred from labels.
+    """
+    interim = facts.filter(
+        pl.col("fiscal_period").is_in(list(TTM_INTERIM_PERIODS))
+        & pl.col("period_start").is_not_null()
+        & ~pl.col("concept").is_in(list(TTM_AVERAGED_CONCEPTS))
+    ).with_columns(
+        (pl.col("period_end") - pl.col("period_start")).dt.total_days().alias("_days")
+    )
+    annual = facts.filter(
+        (pl.col("fiscal_period") == "FY") & pl.col("period_start").is_not_null()
+    ).select(["cik", "concept", "period_end", "value"])
+    if interim.is_empty() or annual.is_empty():
+        return pl.DataFrame(schema={"cik": pl.Int64})
+
+    current = (
+        interim.sort(["cik", "concept", "period_end"])
+        .group_by(["cik", "concept"])
+        .last()
+        .select(["cik", "concept", "period_end", "_days", "value"])
+        .rename({"period_end": "_cur_end", "_days": "_cur_days", "value": "_cur"})
+    )
+    prior = interim.select(
+        ["cik", "concept", "period_end", "_days", "value"]
+    ).rename({"period_end": "_pri_end", "_days": "_pri_days", "value": "_pri"})
+
+    paired = (
+        current.join(prior, on=["cik", "concept"], how="inner")
+        .filter(
+            ((pl.col("_cur_days") - pl.col("_pri_days")).abs() <= TTM_SPAN_MATCH_DAYS)
+            & ((pl.col("_cur_end") - pl.col("_pri_end")).dt.total_days()
+               >= TTM_YEAR_APART_DAYS[0])
+            & ((pl.col("_cur_end") - pl.col("_pri_end")).dt.total_days()
+               <= TTM_YEAR_APART_DAYS[1])
+        )
+        .sort(["cik", "concept", "_pri_end"])
+        .group_by(["cik", "concept"])
+        .last()
+    )
+    if paired.is_empty():
+        return pl.DataFrame(schema={"cik": pl.Int64})
+
+    joined = paired.join(
+        annual.rename({"period_end": "_fy_end", "value": "_fy"}),
+        on=["cik", "concept"],
+        how="inner",
+    ).filter(
+        # 🔴 The annual must CLOSE BETWEEN the two interims. Without this the
+        # identity silently pairs an annual from the wrong year and the result
+        # looks like a plausible number.
+        (pl.col("_fy_end") > pl.col("_pri_end")) & (pl.col("_fy_end") < pl.col("_cur_end"))
+    )
+    if joined.is_empty():
+        return pl.DataFrame(schema={"cik": pl.Int64})
+
+    out = (
+        joined.sort(["cik", "concept", "_fy_end"])
+        .group_by(["cik", "concept"])
+        .last()
+        .with_columns((pl.col("_fy") - pl.col("_pri") + pl.col("_cur")).alias("ttm_value"))
+        .select(["cik", "concept", "ttm_value"])
+    )
+    return out
+
+
+def build_latest_quarter(facts):
+    """Most recent quarterly value for BALANCES and for non-additive rates.
+
+    A balance is a snapshot and a weighted-average share count is a rate;
+    neither is a trailing sum, and both were previously summed into a ttm_*
+    column reading ~4x the truth. They are emitted under a DIFFERENT PREFIX on
+    purpose -- a balance must never again be reachable under a name that says
+    trailing sum.
+    """
+    interim = facts.filter(
+        pl.col("fiscal_period").is_in(["Q1", "Q2", "Q3", "Q4", "YTD2", "YTD3"])
+    )
+    wanted = interim.filter(
+        pl.col("period_start").is_null()
+        | pl.col("concept").is_in(list(TTM_AVERAGED_CONCEPTS))
+    )
+    if wanted.is_empty():
+        return pl.DataFrame(schema={"cik": pl.Int64})
+    latest = (
+        wanted.sort(["cik", "concept", "period_end"])
+        .group_by(["cik", "concept"])
+        .last()
+        .select(["cik", "concept", "value"])
+    )
+    wide = latest.pivot(
+        on="concept", index="cik", values="value", aggregate_function="first"
+    )
+    return wide.rename({c: f"latest_q_{c}" for c in wide.columns if c != "cik"})
+
+
 def build_ttm(facts):
-    """Trailing-twelve-month sums, where four quarters genuinely TILE a year.
+    """Trailing-twelve-month sums for additive FLOW concepts.
 
-    Requires all four of: four quarterly rows, a known period_start on each,
-    a first-start-to-last-end span inside TTM_SPAN_DAYS, and summed durations
-    equal to that span within TTM_TILE_TOLERANCE_DAYS. The last bound is what
-    rejects a same-quarter stack: four Q1s span ~1,100 days and sum to ~360,
-    so the gap between the two is enormous and the disagreement is the signal.
+    Two paths, in priority order:
 
-    🔴 Where the quarters do not tile, the TTM columns are NULL and
+      1. ROLLFORWARD (primary) -- FY(prior) - YTD(prior) + YTD(current). Needs
+         only one interim per fiscal year, so it reaches almost every filer.
+      2. TILING (fallback) -- four discrete quarters that genuinely cover a
+         year: span inside TTM_SPAN_DAYS AND summed durations equal to that
+         span within TTM_TILE_TOLERANCE_DAYS. For filers who really do publish
+         discrete quarters.
+
+    Balances and rate concepts are excluded entirely; they belong to
+    build_latest_quarter under the latest_q_ prefix.
+
+    🔴 Where neither path holds, the TTM columns are NULL and
     ``ttm_unavailable`` is TRUE. A null here means NOT MEASURED. It does not
     mean measured and fine, and nothing downstream may read it as agreement.
     """
-    quarters = facts.filter(pl.col("fiscal_period").is_in(["Q1", "Q2", "Q3", "Q4"]))
+    empty = pl.DataFrame(
+        schema={"cik": pl.Int64, "concept": pl.Utf8, "ttm_value": pl.Float64}
+    )
+    quarters = facts.filter(
+        pl.col("fiscal_period").is_in(["Q1", "Q2", "Q3", "Q4"])
+        & pl.col("period_start").is_not_null()
+        & ~pl.col("concept").is_in(list(TTM_AVERAGED_CONCEPTS))
+    )
     if quarters.is_empty():
-        return pl.DataFrame(schema={"cik": pl.Int64})
+        recent = empty
+    else:
+        last_four = (
+            quarters.sort(["cik", "concept", "period_end"])
+            .group_by(["cik", "concept"])
+            .tail(4)
+        )
+        recent = (
+            last_four.group_by(["cik", "concept"])
+            .agg(
+                pl.col("value").sum().alias("ttm_value"),
+                pl.len().alias("n_quarters"),
+                pl.col("period_start").min().alias("_span_start"),
+                pl.col("period_end").max().alias("_span_end"),
+                (pl.col("period_end") - pl.col("period_start"))
+                .dt.total_days()
+                .sum()
+                .alias("_covered_days"),
+            )
+            .with_columns(
+                (pl.col("_span_end") - pl.col("_span_start"))
+                .dt.total_days()
+                .alias("_span_days")
+            )
+            .filter(
+                (pl.col("n_quarters") == 4)
+                & (pl.col("_span_days") >= TTM_SPAN_DAYS[0])
+                & (pl.col("_span_days") <= TTM_SPAN_DAYS[1])
+                & (
+                    (pl.col("_covered_days") - pl.col("_span_days")).abs()
+                    <= TTM_TILE_TOLERANCE_DAYS
+                )
+            )
+            .select(["cik", "concept", "ttm_value"])
+        )
 
-    last_four = (
-        quarters.filter(pl.col("period_start").is_not_null())
-        .sort(["cik", "concept", "period_end"])
-        .group_by(["cik", "concept"])
-        .tail(4)
-    )
-    if last_four.is_empty():
-        return pl.DataFrame(schema={"cik": pl.Int64})
-
-    recent = (
-        last_four.group_by(["cik", "concept"])
-        .agg(
-            pl.when(pl.col("concept").first().is_in(list(TTM_AVERAGED_CONCEPTS)))
-            .then(pl.col("value").mean())
-            .otherwise(pl.col("value").sum())
-            .alias("ttm_value"),
-            pl.len().alias("n_quarters"),
-            pl.col("period_start").min().alias("_span_start"),
-            pl.col("period_end").max().alias("_span_end"),
-            (pl.col("period_end") - pl.col("period_start"))
-            .dt.total_days()
-            .sum()
-            .alias("_covered_days"),
+    # 🔴 ROLLFORWARD WINS where both are available. Tiling is the fallback, not
+    # the primary path it used to be: on the 2026-08-27 store tiling reached 3
+    # companies for ocf and the rollforward reaches 7,749.
+    rolled = build_ttm_rollforward(facts)
+    if rolled.height:
+        recent = pl.concat(
+            [
+                rolled.select(["cik", "concept", "ttm_value"]),
+                recent.join(
+                    rolled.select(["cik", "concept"]),
+                    on=["cik", "concept"],
+                    how="anti",
+                ).select(["cik", "concept", "ttm_value"]),
+            ],
+            how="vertical_relaxed",
         )
-        .with_columns(
-            (pl.col("_span_end") - pl.col("_span_start"))
-            .dt.total_days()
-            .alias("_span_days")
-        )
-        .filter(
-            (pl.col("n_quarters") == 4)
-            & (pl.col("_span_days") >= TTM_SPAN_DAYS[0])
-            & (pl.col("_span_days") <= TTM_SPAN_DAYS[1])
-            & ((pl.col("_covered_days") - pl.col("_span_days")).abs()
-               <= TTM_TILE_TOLERANCE_DAYS)
-        )
-        .select(["cik", "concept", "ttm_value"])
-    )
     if recent.is_empty():
         return pl.DataFrame(schema={"cik": pl.Int64})
 
@@ -1063,9 +1198,7 @@ def build_ttm(facts):
             wide = wide.with_columns(pl.lit(None, dtype=pl.Float64).alias(needed))
     # Same integrity guard as the annual path: a negative TTM capex is a
     # broken extraction, not a capex-free year, and it would flatter
-    # ttm_fcf_after_sbc in exactly the same direction. Guarding one path and
-    # not the other leaves the defect alive in whichever number the reader
-    # happens to quote.
+    # ttm_fcf_after_sbc in exactly the same direction.
     ttm_capex_usable = pl.when(pl.col("ttm_capex") < 0).then(None).otherwise(
         pl.col("ttm_capex")
     )
@@ -1613,6 +1746,14 @@ OUTPUT_ORDER = (
     "ttm_capex",
     "ttm_sbc",
     "ttm_fcf_after_sbc",
+    # Balances and rate concepts: a snapshot, NOT a trailing sum. Deliberately
+    # a different prefix -- two different things must not share a label.
+    "latest_q_goodwill",
+    "latest_q_intangibles",
+    "latest_q_equity",
+    "latest_q_cash",
+    "latest_q_total_debt",
+    "latest_q_shares_diluted",
     "revenue_growth_yoy_q1",
     "revenue_growth_yoy_q2",
     "revenue_growth_yoy_q3",
@@ -1652,6 +1793,7 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False):
         latest = resolve_goodwill_intangibles(annual, latest)
     latest = add_flags(latest)
     ttm = build_ttm(facts)
+    latest_q = build_latest_quarter(facts)
     provenance = _company_provenance(facts)
     acceleration = build_quarterly_acceleration(facts)
 
@@ -1659,6 +1801,8 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False):
     frame = frame.join(fcf_inflection, on="cik", how="left")
     if ttm.width > 1:
         frame = frame.join(ttm, on="cik", how="left")
+    if latest_q.width > 1:
+        frame = frame.join(latest_q, on="cik", how="left")
     # Must run AFTER the ttm join -- it reads both the FY and the TTM columns.
     # When no TTM was buildable at all the flags are false, not null: "no TTM
     # series exists" is not a divergence.

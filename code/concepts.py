@@ -27,6 +27,13 @@ QUARTERS = ("Q1", "Q2", "Q3", "Q4")
 # so these are deliberately loose rather than exact.
 ANNUAL_DAYS = (340, 400)
 QUARTER_DAYS = (80, 100)
+# 🔴 CUMULATIVE YEAR-TO-DATE SPANS, retained rather than dropped (2026-08-27).
+# Filers report cash flow ONLY as YTD, so before this existed the sole surviving
+# quarterly cash-flow fact was Q1 -- 113,702 Q1 rows against 22,774 Q2 -- and
+# build_ttm's four-row sum was four Q1s from four different YEARS. These spans
+# are what make a real TTM constructible: FY(prior) - YTD(prior) + YTD(current).
+YTD2_DAYS = (170, 200)  # six months from fiscal-year start
+YTD3_DAYS = (260, 290)  # nine months from fiscal-year start
 
 
 class Concept:

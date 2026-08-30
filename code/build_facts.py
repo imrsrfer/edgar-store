@@ -39,7 +39,16 @@ except ImportError:  # stdlib fallback; correct, just slower
 
 import re
 
-from concepts import ANNUAL_DAYS, CONCEPTS, FY, QUARTER_DAYS, UNIT_SHARES, WANTED_TAGS
+from concepts import (
+    ANNUAL_DAYS,
+    CONCEPTS,
+    FY,
+    QUARTER_DAYS,
+    UNIT_SHARES,
+    WANTED_TAGS,
+    YTD2_DAYS,
+    YTD3_DAYS,
+)
 from edgar_lib import Paths, log_stage, manifest_download_date
 
 # Only annual and quarterly reports. Amendments (10-K/A) are excluded so one
@@ -230,10 +239,16 @@ def _year_offset(annual):
 
 
 def _duration_kind(start, end):
-    """Classify a duration fact as annual, quarterly, or neither.
+    """Classify a duration fact as annual, quarterly, cumulative YTD, or neither.
 
-    Nine-month year-to-date figures and other cumulative spans fall in the gap
-    between the two ranges and are dropped rather than mistaken for a quarter.
+    Six- and nine-month year-to-date spans are RETAINED under their own labels
+    (2026-08-27). They must never be mistaken for a discrete quarter -- that is
+    what the separate YTD2/YTD3 labels guarantee, since every existing filter
+    in this pipeline matches on "Q1".."Q4" or "FY" and so cannot pick them up --
+    but dropping them entirely was worse. Filers report operating cash flow only
+    as YTD, so discarding them left Q1 as the only surviving quarterly cash-flow
+    fact and made a genuine trailing-twelve-month figure unconstructible for
+    all but 3 companies in the store.
     """
     if start is None:
         return None
@@ -242,6 +257,10 @@ def _duration_kind(start, end):
         return FY
     if QUARTER_DAYS[0] <= days <= QUARTER_DAYS[1]:
         return "Q"
+    if YTD2_DAYS[0] <= days <= YTD2_DAYS[1]:
+        return "YTD2"
+    if YTD3_DAYS[0] <= days <= YTD3_DAYS[1]:
+        return "YTD3"
     return None
 
 
@@ -267,6 +286,15 @@ def label_fact(fact, annual, quarterly, offset):
         # year-end date with the annual period.
         if end in annual:
             return annual[end], "Q4"
+        return None
+    if kind in ("YTD2", "YTD3"):
+        # Cumulative from the fiscal-year start. Labelled by SPAN, not by the
+        # quarter it happens to end in, so it can never be summed as a quarter.
+        if end in quarterly:
+            return quarterly[end][0], kind
+        if end in annual:
+            return annual[end], kind
+        return end.year + offset, kind
     return None
 
 

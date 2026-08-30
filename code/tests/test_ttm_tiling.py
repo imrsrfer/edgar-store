@@ -90,19 +90,67 @@ def test_unmeasured_ttm_is_not_reported_as_agreement():
     assert out["ttm_fcf_divergence"].to_list() == [False, False]
 
 
-def test_a_rate_concept_is_averaged_not_summed():
-    """Validity is not additivity. shares_diluted is a weighted average.
+def _row(cik, concept, period, start, end, value):
+    return {
+        "cik": cik, "concept": concept, "fiscal_period": period,
+        "period_start": dt.date.fromisoformat(start) if start else None,
+        "period_end": dt.date.fromisoformat(end), "value": float(value),
+    }
 
-    Four quarters can tile a year perfectly and still not be summable. Summing
-    four quarterly average share counts gives 4x the average and quadruples the
-    denominator of every per-share figure. Measured after the tiling fix alone,
-    ttm_shares_diluted / FY was still 3.976.
-    """
-    rows = []
-    for start, end in [("2025-01-01", "2025-03-31"), ("2025-04-01", "2025-06-30"),
-                       ("2025-07-01", "2025-09-30"), ("2025-10-01", "2025-12-31")]:
-        rows.append(_q(9, "shares_diluted", start, end, 100_000_000))
-        rows.append(_q(9, "ocf", start, end, 25.0))
+
+def test_rollforward_reconstructs_a_real_ttm_from_one_interim_per_year():
+    """The ATRO numbers. FY(prior) - YTD(prior) + YTD(current)."""
+    rows = [
+        _row(8063, "ocf", "Q1", "2025-01-01", "2025-03-29", 20_642_000),
+        _row(8063, "ocf", "FY", "2025-01-01", "2025-12-31", 74_795_000),
+        _row(8063, "ocf", "Q1", "2026-01-01", "2026-04-04", 10_606_000),
+    ]
     out = gate0.build_ttm(_facts(rows))
-    assert out["ttm_shares_diluted"][0] == 100_000_000, "share count was summed, not averaged"
-    assert out["ttm_ocf"][0] == 100.0, "a genuine flow must still be summed"
+    assert abs(out["ttm_ocf"][0] - 64_759_000) < 1, out["ttm_ocf"][0]
+
+
+def test_rollforward_refuses_when_the_annual_does_not_close_between_the_interims():
+    """The identity is only true if the FY sits BETWEEN them. Checked, not assumed."""
+    rows = [
+        _row(1, "ocf", "Q1", "2025-01-01", "2025-03-31", 20.0),
+        _row(1, "ocf", "FY", "2023-01-01", "2023-12-31", 75.0),  # wrong year
+        _row(1, "ocf", "Q1", "2026-01-01", "2026-03-31", 10.0),
+    ]
+    out = gate0.build_ttm(_facts(rows))
+    assert "ttm_ocf" not in out.columns or out["ttm_ocf"].is_null().all()
+
+
+def test_rollforward_refuses_mismatched_interim_lengths():
+    """A 9-month YTD against a 3-month Q1 is not a like-for-like subtraction."""
+    rows = [
+        _row(2, "ocf", "YTD3", "2025-01-01", "2025-09-30", 60.0),
+        _row(2, "ocf", "FY", "2025-01-01", "2025-12-31", 75.0),
+        _row(2, "ocf", "Q1", "2026-01-01", "2026-03-31", 10.0),
+    ]
+    out = gate0.build_ttm(_facts(rows))
+    assert "ttm_ocf" not in out.columns or out["ttm_ocf"].is_null().all()
+
+
+def test_nine_month_ytd_pairs_are_used_when_present():
+    rows = [
+        _row(3, "ocf", "YTD3", "2025-01-01", "2025-09-30", 60.0),
+        _row(3, "ocf", "FY", "2025-01-01", "2025-12-31", 100.0),
+        _row(3, "ocf", "YTD3", "2026-01-01", "2026-09-30", 80.0),
+    ]
+    out = gate0.build_ttm(_facts(rows))
+    assert out["ttm_ocf"][0] == 120.0  # 100 - 60 + 80
+
+
+def test_balances_go_to_latest_q_not_ttm():
+    """A balance is a snapshot. It must not be reachable under a ttm_ name."""
+    rows = [
+        _row(4, "goodwill", "Q1", None, "2025-03-31", 280.0),
+        _row(4, "goodwill", "Q1", None, "2026-03-31", 300.0),
+        _row(4, "shares_diluted", "Q1", "2026-01-01", "2026-03-31", 1_000_000),
+    ]
+    ttm = gate0.build_ttm(_facts(rows))
+    latest = gate0.build_latest_quarter(_facts(rows))
+    assert "ttm_goodwill" not in ttm.columns
+    assert "ttm_shares_diluted" not in ttm.columns
+    assert latest["latest_q_goodwill"][0] == 300.0
+    assert latest["latest_q_shares_diluted"][0] == 1_000_000

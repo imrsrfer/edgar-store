@@ -967,24 +967,89 @@ def add_verdict(frame, allow_imputed=False):
     return frame.drop("_gate0_pass_raw")
 
 
-def build_ttm(facts):
-    """Trailing-twelve-month sums, where four discrete quarters actually exist.
+# 🔴 A TTM IS FOUR QUARTERS THAT TILE A YEAR, NOT FOUR ROWS TAGGED "Q".
+# (Added 2026-08-27.) The previous build counted rows -- n_quarters == 4 --
+# and summed whatever the last four were. For every cash-flow concept that is
+# four FIRST quarters from four different fiscal years, because _duration_kind
+# in build_facts.py deliberately drops 6- and 9-month year-to-date spans so
+# they cannot be mistaken for a quarter, and filers report operating cash flow
+# only as YTD. Q1 (a genuine 3-month span) is therefore the ONLY quarter that
+# survives for most filers: 113,702 Q1 rows against 22,774 Q2 and 20,644 Q3.
+#
+# Measured on the 2026-08-27 store: of 91,867 concept-level four-row sums,
+# 1,982 tiled a year -- 2.2%. For ocf, 3 of 6,050. ATRO's "TTM OCF" of
+# $14.104M was Q1-2023 (-$19.181M) + Q1-2024 ($2.037M) + Q1-2025 ($20.642M)
+# + Q1-2026 ($10.606M), a four-YEAR stack of one quarter. FIGS was the same
+# shape. Both then tripped ttm_fcf_divergence against a correct FY figure, so
+# the flag routed a human to diagnose a business that had not changed.
+#
+# The row count was never the test. These four bounds are:
+TTM_SPAN_DAYS = (330, 400)  # first start to last end must cover ~a year
+TTM_TILE_TOLERANCE_DAYS = 10  # summed durations must equal the span: no gap, no overlap
 
-    Many filers report year-to-date rather than discrete quarters, and a discrete
-    Q4 is never filed on its own. Where four quarters are not available the TTM
-    columns stay null rather than being stitched together from mismatched periods.
+# 🔴 AND VALIDITY IS NOT ADDITIVITY. Four quarters can tile a year perfectly and
+# still not be summable. shares_diluted is a weighted AVERAGE share count over
+# its period, not a flow: summing four quarters gives four times the average,
+# not a trailing-twelve-month count, and it quadruples the denominator of every
+# per-share figure built on it. Measured after the tiling fix alone, the
+# ttm/FY ratio was still 3.976. Averaging is the correct reduction for a rate.
+TTM_AVERAGED_CONCEPTS = frozenset({"shares_diluted", "shares_basic"})
+
+
+def build_ttm(facts):
+    """Trailing-twelve-month sums, where four quarters genuinely TILE a year.
+
+    Requires all four of: four quarterly rows, a known period_start on each,
+    a first-start-to-last-end span inside TTM_SPAN_DAYS, and summed durations
+    equal to that span within TTM_TILE_TOLERANCE_DAYS. The last bound is what
+    rejects a same-quarter stack: four Q1s span ~1,100 days and sum to ~360,
+    so the gap between the two is enormous and the disagreement is the signal.
+
+    🔴 Where the quarters do not tile, the TTM columns are NULL and
+    ``ttm_unavailable`` is TRUE. A null here means NOT MEASURED. It does not
+    mean measured and fine, and nothing downstream may read it as agreement.
     """
     quarters = facts.filter(pl.col("fiscal_period").is_in(["Q1", "Q2", "Q3", "Q4"]))
     if quarters.is_empty():
         return pl.DataFrame(schema={"cik": pl.Int64})
 
-    recent = (
-        quarters.sort(["cik", "concept", "period_end"])
+    last_four = (
+        quarters.filter(pl.col("period_start").is_not_null())
+        .sort(["cik", "concept", "period_end"])
         .group_by(["cik", "concept"])
         .tail(4)
-        .group_by(["cik", "concept"])
-        .agg(pl.col("value").sum().alias("ttm_value"), pl.len().alias("n_quarters"))
-        .filter(pl.col("n_quarters") == 4)
+    )
+    if last_four.is_empty():
+        return pl.DataFrame(schema={"cik": pl.Int64})
+
+    recent = (
+        last_four.group_by(["cik", "concept"])
+        .agg(
+            pl.when(pl.col("concept").first().is_in(list(TTM_AVERAGED_CONCEPTS)))
+            .then(pl.col("value").mean())
+            .otherwise(pl.col("value").sum())
+            .alias("ttm_value"),
+            pl.len().alias("n_quarters"),
+            pl.col("period_start").min().alias("_span_start"),
+            pl.col("period_end").max().alias("_span_end"),
+            (pl.col("period_end") - pl.col("period_start"))
+            .dt.total_days()
+            .sum()
+            .alias("_covered_days"),
+        )
+        .with_columns(
+            (pl.col("_span_end") - pl.col("_span_start"))
+            .dt.total_days()
+            .alias("_span_days")
+        )
+        .filter(
+            (pl.col("n_quarters") == 4)
+            & (pl.col("_span_days") >= TTM_SPAN_DAYS[0])
+            & (pl.col("_span_days") <= TTM_SPAN_DAYS[1])
+            & ((pl.col("_covered_days") - pl.col("_span_days")).abs()
+               <= TTM_TILE_TOLERANCE_DAYS)
+        )
+        .select(["cik", "concept", "ttm_value"])
     )
     if recent.is_empty():
         return pl.DataFrame(schema={"cik": pl.Int64})
@@ -1046,6 +1111,12 @@ def add_ttm_divergence(frame):
     """
     fy_ocf_positive = pl.col("ocf").is_not_null() & (pl.col("ocf") > 0)
     ttm_ocf_negative = pl.col("ttm_ocf").is_not_null() & (pl.col("ttm_ocf") < 0)
+    # 🔴 A company with no buildable TTM is UNMEASURED, not in agreement.
+    # Both flags below are False for such a row -- they have to be, they test
+    # a disagreement that cannot be evaluated -- so the third column is what
+    # carries the distinction. Without it a null TTM and a checked-and-clean
+    # TTM report identically, which is the same defect class as the null
+    # market cap at the band gate and the capex chain that failed open.
     return frame.with_columns(
         (
             pl.col("fcf_after_sbc").is_not_null()
@@ -1056,6 +1127,7 @@ def add_ttm_divergence(frame):
         .fill_null(False)
         .alias("ttm_fcf_divergence"),
         (fy_ocf_positive & ttm_ocf_negative).fill_null(False).alias("ttm_suspect"),
+        pl.col("ttm_ocf").is_null().alias("ttm_unavailable"),
     )
 
 
@@ -1491,6 +1563,7 @@ OUTPUT_ORDER = (
     "capex_vs_dep_amort",
     "ttm_fcf_divergence",
     "ttm_suspect",
+    "ttm_unavailable",
     "net_margin",
     "income_quality_suspect",
     "operating_margin_2y_ago",
@@ -1595,6 +1668,7 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False):
         frame = frame.with_columns(
             pl.lit(False).alias("ttm_fcf_divergence"),
             pl.lit(False).alias("ttm_suspect"),
+            pl.lit(True).alias("ttm_unavailable"),
         )
     frame = frame.join(provenance, on="cik", how="left")
     if acceleration.width > 1:

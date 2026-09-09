@@ -1,8 +1,8 @@
 {
   "contains": "reference data only: code + SEC-derived store. NO queue, NO portfolio data.",
-  "synced_utc": "2026-09-09T04:52:08Z",
+  "synced_utc": "2026-09-09T04:53:28Z",
   "store_built_utc_oldest": "2026-08-30T17:12:27Z",
-  "store_built_utc_newest": "2026-09-09T04:51:32Z",
+  "store_built_utc_newest": "2026-09-09T04:53:23Z",
   "code": {
     "fetch_edgar.py": {
       "bytes": 9115,
@@ -47,9 +47,9 @@
   },
   "store": {
     "gate0.csv": {
-      "bytes": 7515274,
-      "mtime_utc": "2026-09-09T02:06:51Z",
-      "sha256_16": "14349a98a16248d7"
+      "bytes": 7515275,
+      "mtime_utc": "2026-09-09T04:53:23Z",
+      "sha256_16": "c4abd6cc6b4f9176"
     },
     "facts.parquet": {
       "bytes": 20317008,
@@ -102,18 +102,18 @@
       "sha256_16": "fcd15e270c1e4f3c"
     },
     "data_quality.csv": {
-      "bytes": 140,
-      "mtime_utc": "2026-09-09T04:51:12Z",
-      "sha256_16": "75bcbe82a82910fe"
+      "bytes": 283341,
+      "mtime_utc": "2026-09-09T04:53:23Z",
+      "sha256_16": "aced52a66b1a7d55"
     },
     "inactive_filers.csv": {
-      "bytes": 74,
-      "mtime_utc": "2026-09-09T04:51:12Z",
-      "sha256_16": "add7bce9a78ca8c9"
+      "bytes": 169155,
+      "mtime_utc": "2026-09-09T04:53:23Z",
+      "sha256_16": "cf6f56be2bb60e79"
     },
     "duplicate_filers.csv": {
       "bytes": 3197,
-      "mtime_utc": "2026-09-09T04:51:12Z",
+      "mtime_utc": "2026-09-09T04:53:23Z",
       "sha256_16": "3182b4192f48a42f"
     },
     "invalid_fiscal_years.csv": {

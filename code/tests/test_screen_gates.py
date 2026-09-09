@@ -225,3 +225,65 @@ def test_unknown_momentum_is_not_reported_as_a_drawdown():
     assert survivors.height == 1 and rejected.height == 0
     assert survivors["drawdown_undiagnosed"][0] is False
     assert survivors["momentum_unknown"][0] is True
+
+
+# --------------------------------------------------------------------------
+# 2026-09-09 -- the price-file identity check (owed since the 2026-09-02
+# dual-class note). implied_shares = market_cap / price, against shares_diluted.
+# --------------------------------------------------------------------------
+
+
+def _identity(price, cap, shares):
+    frame = pl.DataFrame([{
+        "ticker": "T", "price": price, "market_cap_supplied": cap,
+        "shares_diluted": shares,
+    }])
+    return screen._add_shares_identity(frame).to_dicts()[0]
+
+
+def test_agreeing_share_count_and_market_cap_are_not_flagged():
+    row = _identity(100.0, 1_000_000_000.0, 10_000_000.0)
+    assert row["implied_shares"] == 10_000_000.0
+    assert row["implied_shares_ratio"] == 1.0
+    assert row["shares_identity_suspect"] is False
+
+
+def test_thousands_scale_share_count_is_caught():
+    """🔴 The HUBG shape. shares_diluted is tagged 61,104 with unit='shares'
+    when the truth is 61,104 THOUSAND, so a real market cap implies ~1,000x the
+    stored count. This must fire WITHOUT reference to net_income -- that is the
+    whole point of having it beside shares_scale_suspect rather than instead."""
+    row = _identity(36.06, 2_205_000_000.0, 61_104.0)
+    assert row["implied_shares_ratio"] > 900
+    assert row["shares_identity_suspect"] is True
+
+
+def test_ordinary_buyback_drift_is_not_flagged():
+    """The band is wide on purpose: shares_diluted is a weighted-average count
+    from the last filed period, so a few percent of buyback drift is the
+    ordinary case, not a defect."""
+    assert _identity(100.0, 940_000_000.0, 10_000_000.0)["shares_identity_suspect"] is False
+
+
+def test_dual_class_factor_of_two_is_flagged():
+    """A cap covering both share classes against a shares_diluted covering one
+    is a real disagreement. The flag does not claim which source is wrong."""
+    assert _identity(50.0, 1_000_000_000.0, 10_000_000.0)["shares_identity_suspect"] is True
+
+
+def test_unevaluable_identity_is_null_rather_than_passed():
+    """🔴 NULL, not False. A derived cap is price x shares_diluted by
+    construction, so the ratio would be exactly 1.00 and the check would be
+    confirming its own arithmetic. Same lesson as momentum_unknown: an
+    unevaluated test that reports what a passed one reports has become a pass."""
+    for cap, shares in ((None, 10_000_000.0), (1e9, None), (1e9, 0.0)):
+        row = _identity(100.0, cap, shares)
+        assert row["shares_identity_suspect"] is None, (cap, shares)
+        assert row["implied_shares_ratio"] is None
+
+
+def test_missing_price_does_not_divide_by_zero():
+    for price in (None, 0.0):
+        row = _identity(price, 1e9, 10_000_000.0)
+        assert row["implied_shares"] is None
+        assert row["shares_identity_suspect"] is None

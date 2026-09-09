@@ -65,6 +65,26 @@ TANGIBLE_BOOK_MAX_YRS_NEGATIVE = 1
 QUALITY_MAX_SBC_PCT_REVENUE = 0.10
 EPS_GUARD_RATIO = 0.60
 PRICE_STALE_DAYS = 7
+# 🔴 THE ONLY PLACE A SHARE COUNT AND A MARKET CAP MEET. (Added 2026-09-09,
+# owed since the 2026-09-02 dual-class note.) A supplied market_cap and a price
+# imply a share count -- market_cap / price -- and that number can be checked
+# against the store's own shares_diluted. They come from independent sources:
+# the cap and price from the hand-built price file, shares_diluted from the
+# filed 10-K/10-Q. When they disagree by a FACTOR, one of them is wrong.
+#
+# HUBG is the worked case: it tags shares_diluted as 61,104 with unit="shares"
+# when the truth is 61,104 THOUSAND, so the implied count is ~1,000x the stored
+# one. This check catches that independently of shares_scale_suspect, which
+# infers the same defect from the other direction (an implausible EPS). Two
+# independent detectors for a fail-open defect is the right number, not a
+# redundancy -- shares_scale_suspect needs net_income, and this one does not.
+#
+# The band is deliberately WIDE and ASYMMETRIC. shares_diluted is a DILUTED,
+# weighted-average count from the last filed period; the implied count is
+# current. So the honest cases skew: buybacks pull the real count below the
+# stored one, issuance pushes it above. This is hunting factor-of-ten errors,
+# not percentage drift, and a tight band would flag ordinary corporate action.
+SHARES_IDENTITY_BAND = (0.80, 1.25)
 
 ELIGIBLE_STATUSES = ("pass", "pass_stale")
 
@@ -679,7 +699,53 @@ def apply_prices(frame, prices):
         .otherwise(None)
         .alias("pct_vs_200ma"),
     )
-    return frame.drop("market_cap_supplied")
+    return _add_shares_identity(frame).drop("market_cap_supplied")
+
+
+def _add_shares_identity(frame):
+    """implied_shares = market_cap / price, checked against shares_diluted.
+
+    See SHARES_IDENTITY_BAND. Only a SUPPLIED market_cap can be checked: a
+    derived one is price x shares_diluted by construction, so the ratio would
+    be exactly 1.00 and the test would confirm nothing but its own arithmetic.
+    That is the whole reason the check lives here and not in the loader -- the
+    loader cannot see shares_diluted, and it cannot tell supplied from derived.
+
+    🔴 The flag is NULL, not False, wherever it could not be computed. A missing
+    price, a derived cap or an absent share count means NOT CHECKED, and the
+    2026-08-26 momentum lesson applies unchanged: an unevaluated test that
+    reports the same value as a passed one has quietly become a pass.
+
+    It is a FLAG, not a correction -- the same posture as shares_scale_suspect.
+    The ratio says the two sources disagree; it does not say which one is wrong,
+    and on a dual-class filer the honest answer is often "the cap covers both
+    classes and shares_diluted covers one".
+    """
+    lo, hi = SHARES_IDENTITY_BAND
+    checkable = (
+        pl.col("market_cap_supplied").is_not_null()
+        & pl.col("price").is_not_null()
+        & (pl.col("price") > 0)
+    )
+    implied = (
+        pl.when(checkable)
+        .then(pl.col("market_cap_supplied") / pl.col("price"))
+        .otherwise(None)
+    )
+    has_shares = pl.col("shares_diluted").is_not_null() & (pl.col("shares_diluted") > 0)
+    ratio = (
+        pl.when(checkable & has_shares)
+        .then(implied / pl.col("shares_diluted"))
+        .otherwise(None)
+    )
+    return frame.with_columns(
+        implied.alias("implied_shares"),
+        ratio.alias("implied_shares_ratio"),
+        pl.when(ratio.is_null())
+        .then(None)
+        .otherwise((ratio < lo) | (ratio > hi))
+        .alias("shares_identity_suspect"),
+    )
 
 
 def load_eps(path):
@@ -1026,6 +1092,19 @@ def main(argv=None):
             "a healthy operating margin beside a rounding-error net margin is a "
             "MIS-EXTRACTED net income (TSM). Never quote the ratio as a "
             "strength without the net margin beside it.",
+        ),
+        (
+            "shares_identity_suspect",
+            "SHARE COUNT AND MARKET CAP DISAGREE",
+            "market_cap / price implies a share count that is outside "
+            f"{SHARES_IDENTITY_BAND[0]:.2f}-{SHARES_IDENTITY_BAND[1]:.2f} of the "
+            "store's shares_diluted. Two independent sources disagree, so ONE "
+            "OF THEM IS WRONG and every per-share figure on the row is built on "
+            "the wrong one. A ratio near 1,000 is the thousands-scale tagging "
+            "defect (HUBG); a ratio near 2 is usually a dual-class filer whose "
+            "cap covers both classes and whose shares_diluted covers one. Read "
+            "implied_shares_ratio on the row and settle which source is right "
+            "before quoting FCF/share, P/FCF or EV/FCF.",
         ),
         (
             "gate0_unevaluated",

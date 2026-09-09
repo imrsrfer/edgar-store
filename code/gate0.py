@@ -54,6 +54,14 @@ MARGIN_SHORT_YEARS = 2
 # the same entry that describes its earnings collapse as a red flag.
 INCOME_QUALITY_CEILING = 5.0
 
+# Investing-statement reconciliation. A residual must clear BOTH bars to flag:
+# a percentage alone screams at tiny filers, an absolute alone ignores large
+# ones. 2% and $1M were chosen on the 2026-08-25 store, where they flag 426 of
+# 1,717 evaluable filers; loosening to 5% moves that only to 403, so the result
+# is not sensitive to the exact bar -- the residuals are either ~0 or large.
+INVESTING_RESIDUAL_PCT = 0.02
+INVESTING_RESIDUAL_ABS = 1e6
+
 INCOME_QUALITY_FLOOR = 0.80
 SBC_FAIL = 0.15
 SBC_WARN = 0.10
@@ -107,6 +115,10 @@ ALL_CONCEPTS = (
     "tax_expense",
     "pretax_income",
     "shares_diluted",
+    "investing_cf",
+    "investing_outflows",
+    "investing_inflows",
+    "investing_portfolio",
 )
 
 FLAG_COLUMNS = (
@@ -451,6 +463,91 @@ def compute_metrics(frame, assume_absent_zero=False):
         )
         .fill_null(False)
         .alias("income_quality_suspect"),
+    )
+
+
+def _add_investing_reconciliation(frame):
+    """investing_unreconciled (bool) + investing_residual (signed $).
+
+    The identity is:
+
+        investing_cf + investing_outflows - investing_inflows == 0
+
+    i.e. does the investing statement CLOSE using only tags this pipeline can
+    read? A non-zero residual means a leg is reported under a tag we never see
+    -- in practice a COMPANY EXTENSION TAG, which the SEC companyfacts archive
+    excludes entirely. OMNICELL is the worked case: its external-use software
+    development costs ($17.5M FY2025) carry omcl:PaymentsForSoftwareForExternalUse
+    and land in the residual, leaving its capex understated by 43%.
+
+    🔴 THIS IS A FLAG, NOT A CORRECTION -- the same posture as capex_suspect,
+    shares_scale_suspect and shares_identity_suspect. The residual is a signed
+    dollar amount and an obligation to read the filing. It is NOT added to
+    capex, and nothing downstream consumes it as a number. A measurement of
+    this residual across the universe found it contaminated in BOTH directions
+    by parent/component double-counting, and establishing which side is wrong
+    needs each filing's calculation linkbase, which is not in the store. So the
+    honest output is "this does not close, go and look" -- publishing a
+    corrected capex from an arithmetic we know to be unreliable would be the
+    opposite of what the measurement supports.
+
+    🔴 NULL, NEVER FALSE, wherever it could not be evaluated. Three ways:
+
+      * the filer reports securities or lending activity (investing_portfolio
+        is non-null). Those statements tag a parent total AND its components,
+        so a flat sum double-counts -- PayPal's named legs came to +$61.0bn
+        against a +$0.80bn investing total. This is the single biggest reason
+        the flag abstains, and it is the right abstention: False here would
+        assert a reconciliation nobody performed.
+      * investing_cf itself is absent -- no total, no identity.
+      * reporting_currency is not USD. investing_cf can resolve through the
+        any-currency ifrs_chain while the leg components are USD-gated, and a
+        residual mixing EUR against USD is arithmetic about nothing.
+
+    Coverage, measured on the 2026-08-25 store: of 272 filers carrying the
+    OMNICELL shape (simple statement, PP&E-only capex tag, unexplained
+    outflow), the flag catches 137. Of the 135 it misses, 111 carry a
+    portfolio tag and go NULL and 24 sit under the tolerance. Half the class,
+    stated -- not a detector anyone should mistake for complete.
+    """
+    for column in ("investing_cf", "investing_outflows", "investing_inflows",
+                   "investing_portfolio"):
+        if column not in frame.columns:
+            # An older store built before these concepts existed. A missing
+            # INPUT is not a passing test: the flag goes NULL for every row
+            # rather than False, and the residual with it.
+            return frame.with_columns(
+                pl.lit(None, dtype=pl.Float64).alias("investing_residual"),
+                pl.lit(None, dtype=pl.Boolean).alias("investing_unreconciled"),
+            )
+
+    # 🔴 Cast before arithmetic. A column that is entirely null carries polars
+    # dtype Null, where .abs() raises rather than returning null -- and "every
+    # value is null" is exactly the shape of a store built before these
+    # concepts existed, i.e. the case this function most needs to survive.
+    total = pl.col("investing_cf").cast(pl.Float64, strict=False)
+    portfolio = pl.col("investing_portfolio").cast(pl.Float64, strict=False)
+    # An absent leg is a line the filer does not have, so it contributes
+    # nothing -- but an absent TOTAL is a missing input and voids the test.
+    outflows = pl.col("investing_outflows").cast(pl.Float64, strict=False).fill_null(0.0)
+    inflows = pl.col("investing_inflows").cast(pl.Float64, strict=False).fill_null(0.0)
+    residual = total + outflows - inflows
+
+    evaluable = (
+        total.is_not_null()
+        & portfolio.is_null()
+        & (pl.col("reporting_currency") == "USD")
+    )
+    residual_evaluable = pl.when(evaluable).then(residual).otherwise(None)
+    return frame.with_columns(
+        residual_evaluable.alias("investing_residual"),
+        pl.when(evaluable)
+        .then(
+            (residual.abs() > INVESTING_RESIDUAL_ABS)
+            & (residual.abs() > INVESTING_RESIDUAL_PCT * total.abs())
+        )
+        .otherwise(None)
+        .alias("investing_unreconciled"),
     )
 
 
@@ -1892,6 +1989,8 @@ OUTPUT_ORDER = (
     "capex_broken",
     "capex_suspect",
     "shares_scale_suspect",
+    "investing_unreconciled",
+    "investing_residual",
     "capex_vs_dep_amort",
     "ttm_fcf_divergence",
     "ttm_suspect",
@@ -2016,7 +2115,9 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False):
             pl.lit(False).alias("ttm_suspect"),
             pl.lit(True).alias("ttm_unavailable"),
         )
-    frame = frame.join(provenance, on="cik", how="left")
+    # Must run AFTER the provenance join: the reconciliation abstains on a
+    # non-USD reporting currency, and reporting_currency arrives here.
+    frame = _add_investing_reconciliation(frame.join(provenance, on="cik", how="left"))
     if acceleration.width > 1:
         frame = frame.join(acceleration, on="cik", how="left")
     return add_verdict(frame.join(meta, on="cik", how="left"), allow_imputed=allow_imputed)

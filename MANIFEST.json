@@ -1,6 +1,6 @@
 {
   "contains": "reference data only: code + SEC-derived store. NO queue, NO portfolio data.",
-  "synced_utc": "2026-09-09T15:07:56Z",
+  "synced_utc": "2026-09-09T16:11:34Z",
   "store_built_utc_oldest": "2026-09-09T04:50:58Z",
   "store_built_utc_newest": "2026-09-09T05:14:33Z",
   "code": {
@@ -15,19 +15,24 @@
       "sha256_16": "babe5fad28af3e43"
     },
     "gate0.py": {
-      "bytes": 93562,
-      "mtime_utc": "2026-09-09T02:06:01Z",
-      "sha256_16": "bab2fdca5cd13297"
+      "bytes": 98974,
+      "mtime_utc": "2026-09-09T16:10:23Z",
+      "sha256_16": "0178f37dd7fa6f19"
     },
     "screen.py": {
       "bytes": 53905,
       "mtime_utc": "2026-09-09T04:47:54Z",
       "sha256_16": "456e3f56ab1d70cb"
     },
+    "build_prices.py": {
+      "bytes": 15178,
+      "mtime_utc": "2026-09-09T15:51:10Z",
+      "sha256_16": "0eaf03b7aa146beb"
+    },
     "concepts.py": {
-      "bytes": 20743,
-      "mtime_utc": "2026-09-09T05:11:22Z",
-      "sha256_16": "5f578402727b8489"
+      "bytes": 33278,
+      "mtime_utc": "2026-09-09T16:05:15Z",
+      "sha256_16": "f334d565f7cc148f"
     },
     "edgar_lib.py": {
       "bytes": 9577,
@@ -35,9 +40,9 @@
       "sha256_16": "74187493723a6a39"
     },
     "README.md": {
-      "bytes": 18860,
-      "mtime_utc": "2026-08-08T05:02:51Z",
-      "sha256_16": "97a959d3ab0f87af"
+      "bytes": 19534,
+      "mtime_utc": "2026-09-09T16:11:13Z",
+      "sha256_16": "3629f5648d19675b"
     },
     "PRICES_SCHEMA.md": {
       "bytes": 3981,

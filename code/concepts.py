@@ -132,6 +132,187 @@ class Concept:
         return f"Concept({self.name!r}, {self.period_type!r}, {len(self.chain)} tags)"
 
 
+# --------------------------------------------------------------------------
+# Investing-statement reconciliation (added 2026-09-09)
+#
+# These four concepts exist to support ONE FLAG, not a correction:
+# investing_unreconciled / investing_residual in gate0. The residual is
+#
+#     investing_cf + investing_outflows - investing_inflows
+#
+# which is ZERO when every dollar on the investing statement is carried by a
+# tag this pipeline can read. It is NOT zero when a leg is reported under a
+# COMPANY EXTENSION TAG, and that class is invisible by construction: the SEC
+# companyfacts archive carries only standard taxonomies (us-gaap, ifrs-full,
+# dei, srt, ...) and no company extension namespaces at all. Verified across a
+# 400-filer sample: zero custom namespaces. OMNICELL is the worked example --
+# its recurring "External-use software development costs" ($17.5M FY25) is
+# tagged omcl:PaymentsForSoftwareForExternalUse and reaches nothing here, so
+# its capex reads $40.4M against a real $57.9M.
+#
+# 🔴 NO TAG ADDED TO capex CAN EVER CLOSE THAT GAP. The fact is not in the
+# archive. So the honest output is an obligation to go and read the filing,
+# which is what the flag is.
+#
+# INVESTING_PORTFOLIO_TAGS is the VOID condition, not a leg list. A filer with
+# securities or lending activity tags a parent total AND its components, so a
+# flat sum double-counts: PayPal's named legs came to +$61.0bn against a
+# +$0.80bn investing total. Presence of any of these makes the flag NULL --
+# never False, which would assert a reconciliation nobody performed.
+# --------------------------------------------------------------------------
+
+INVESTING_OUTFLOW_TAGS = (
+    "PaymentsToAcquireProductiveAssets",
+    "PaymentsForProceedsFromProductiveAssets",
+    "PaymentsToAcquirePropertyPlantAndEquipment",
+    "PaymentsToAcquireOilAndGasProperty",
+    "PaymentsToExploreAndDevelopOilAndGasProperties",
+    "PaymentsToAcquireMachineryAndEquipment",
+    "PaymentsForCapitalImprovements",
+    "PaymentsToAcquireBuildings",
+    "PaymentsToAcquireRealEstate",
+    "PaymentsToDevelopRealEstateAssets",
+    "PaymentsToDevelopSoftware",
+    "PaymentsToAcquireSoftware",
+    "PaymentsToAcquireOtherPropertyPlantAndEquipment",
+    "PaymentsToAcquireIntangibleAssets",
+    "PaymentsToAcquireBusinessesNetOfCashAcquired",
+    "PaymentsToAcquireBusinessesGross",
+    "PaymentsToAcquireBusinessesAndInterestInAffiliates",
+    "PaymentsForProceedsFromBusinessesAndInterestInAffiliates",
+    "PaymentsForProceedsFromOtherInvestingActivities",
+    "PaymentsToAcquireOtherProductiveAssets",
+    "PaymentsForAdvanceToAffiliate",
+    "PaymentsForSoftware",
+    "PaymentsToAcquireMiningAssets",
+    "PaymentsToAcquireWaterAndLandRights",
+    "PaymentsToAcquireLandHeldForUse",
+    "PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities",
+    "PurchaseOfIntangibleAssetsClassifiedAsInvestingActivities",
+    "CashFlowsUsedInObtainingControlOfSubsidiariesOrOtherBusinessesClassifiedAsInvestingActivities",
+    "PurchaseOfFinancialInstrumentsClassifiedAsInvestingActivities",
+    "PurchaseOfOtherLongtermAssetsClassifiedAsInvestingActivities",
+    "OtherCashPaymentsToAcquireEquityOrDebtInstrumentsOfOtherEntitiesClassifiedAsInvestingActivities",
+    "CashAdvancesAndLoansMadeToOtherPartiesClassifiedAsInvestingActivities",
+    "OtherCashPaymentsToAcquireInterestsInJointVenturesClassifiedAsInvestingActivities",
+    "PurchaseOfFinancialAssetsMeasuredAtFairValueThroughProfitOrLossClassifiedAsInvestingActivities",
+    "InterestPaidClassifiedAsInvestingActivities",
+    "IncomeTaxesPaidRefundClassifiedAsInvestingActivities",
+    "PurchaseOfFinancialAssetsMeasuredAtAmortisedCostClassifiedAsInvestingActivities",
+    "CashPaymentsForFutureContractsForwardContractsOptionContractsAndSwapContractsClassifiedAsInvestingActivities",
+    "PurchaseOfFinancialAssetsMeasuredAtFairValueThroughOtherComprehensiveIncomeClassifiedAsInvestingActivities",
+)
+
+INVESTING_INFLOW_TAGS = (
+    "ProceedsFromSaleOfPropertyPlantAndEquipment",
+    "ProceedsFromSaleOfProductiveAssets",
+    "ProceedsFromDivestitureOfBusinesses",
+    "ProceedsFromDivestitureOfBusinessesNetOfCashDivested",
+    "ProceedsFromSaleOfIntangibleAssets",
+    "ProceedsFromSaleOfOtherPropertyPlantAndEquipment",
+    "ProceedsFromInsuranceSettlementInvestingActivities",
+    "ProceedsFromSaleOfRealEstateHeldforinvestment",
+    "ProceedsFromSaleOfMachineryAndEquipment",
+    "ProceedsFromSaleOfOilAndGasPropertyAndEquipment",
+    "ProceedsFromSaleOfLandHeldForUse",
+    "ProceedsFromSaleOfPropertyHeldForSale",
+    "NetCashProvidedByUsedInInvestingActivitiesDiscontinuedOperations",
+    "ProceedsFromSalesOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities",
+    "InterestReceivedClassifiedAsInvestingActivities",
+    "OtherInflowsOutflowsOfCashClassifiedAsInvestingActivities",
+    "CashFlowsFromLosingControlOfSubsidiariesOrOtherBusinessesClassifiedAsInvestingActivities",
+    "DividendsReceivedClassifiedAsInvestingActivities",
+    "ProceedsFromSalesOrMaturityOfFinancialInstrumentsClassifiedAsInvestingActivities",
+    "CashReceiptsFromRepaymentOfAdvancesAndLoansMadeToOtherPartiesClassifiedAsInvestingActivities",
+    "ProceedsFromOtherLongtermAssetsClassifiedAsInvestingActivities",
+    "ProceedsFromSalesOfIntangibleAssetsClassifiedAsInvestingActivities",
+    "OtherCashReceiptsFromSalesOfEquityOrDebtInstrumentsOfOtherEntitiesClassifiedAsInvestingActivities",
+    "DividendsReceivedFromAssociatesClassifiedAsInvestingActivities",
+    "DividendsReceivedFromInvestmentsAccountedForUsingEquityMethodClassifiedAsInvestingActivities",
+    "ProceedsFromGovernmentGrantsClassifiedAsInvestingActivities",
+    "CashFlowsFromUsedInExplorationForAndEvaluationOfMineralResourcesClassifiedAsInvestingActivities",
+    "ProceedsFromSalesOrMaturityOfFinancialAssetsMeasuredAtFairValueThroughProfitOrLossClassifiedAsInvestingActivities",
+    "OtherCashReceiptsFromSalesOfInterestsInJointVenturesClassifiedAsInvestingActivities",
+    "DividendsReceivedFromJointVenturesClassifiedAsInvestingActivities",
+    "ProceedsFromSalesOrMaturityOfFinancialAssetsMeasuredAtFairValueThroughOtherComprehensiveIncomeClassifiedAsInvestingActivities",
+    "ProceedsFromSalesOrMaturityOfFinancialAssetsMeasuredAtAmortisedCostClassifiedAsInvestingActivities",
+    "CashReceiptsFromFutureContractsForwardContractsOptionContractsAndSwapContractsClassifiedAsInvestingActivities",
+)
+
+INVESTING_PORTFOLIO_TAGS = (
+    "PaymentsToAcquireMarketableSecurities",
+    "PaymentsToAcquireAvailableForSaleSecuritiesDebt",
+    "ProceedsFromSaleAndMaturityOfMarketableSecurities",
+    "PaymentsToAcquireInvestments",
+    "PaymentsToAcquireShortTermInvestments",
+    "ProceedsFromSaleOfAvailableForSaleSecuritiesDebt",
+    "ProceedsFromMaturitiesPrepaymentsAndCallsOfAvailableForSaleSecurities",
+    "PaymentsToAcquireEquityMethodInvestments",
+    "ProceedsFromSaleMaturityAndCollectionsOfInvestments",
+    "ProceedsFromSaleAndMaturityOfAvailableForSaleSecurities",
+    "ProceedsFromSaleOfShortTermInvestments",
+    "ProceedsFromEquityMethodInvestmentDividendsOrDistributionsReturnOfCapital",
+    "ProceedsFromSaleOfEquityMethodInvestments",
+    "PaymentsToAcquireOtherInvestments",
+    "ProceedsFromMaturitiesPrepaymentsAndCallsOfShorttermInvestments",
+    "PaymentsToAcquireLongtermInvestments",
+    "PaymentsToAcquireHeldToMaturitySecurities",
+    "ProceedsFromSaleOfEquitySecuritiesFvNi",
+    "PaymentsToAcquireEquitySecuritiesFvNi",
+    "PaymentsToAcquireNotesReceivable",
+    "PaymentsForProceedsFromInvestments",
+    "ProceedsFromSaleMaturityAndCollectionOfShorttermInvestments",
+    "ProceedsFromCollectionOfNotesReceivable",
+    "ProceedsFromMaturitiesPrepaymentsAndCallsOfHeldToMaturitySecurities",
+    "PaymentsToAcquireLoansReceivable",
+    "PaymentsForProceedsFromShortTermInvestments",
+    "PaymentsToAcquireInterestInJointVenture",
+    "ProceedsFromSaleAndMaturityOfOtherInvestments",
+    "ProceedsFromLifeInsurancePolicies",
+    "PaymentsForProceedsFromLoansReceivable",
+    "ProceedsFromSaleOfLongtermInvestments",
+    "ProceedsFromSaleOfOtherInvestments",
+    "ProceedsFromCollectionOfLoansReceivable",
+    "ProceedsFromSaleAndMaturityOfHeldToMaturitySecurities",
+    "PaymentsToAcquireRestrictedInvestments",
+    "ProceedsFromSaleOfHeldToMaturitySecurities",
+    "PaymentsForProceedsFromLoansAndLeases",
+    "PaymentsToAcquireLifeInsurancePolicies",
+    "ProceedsFromPrincipalRepaymentsOnLoansAndLeasesHeldForInvestment",
+    "ProceedsFromSaleOfRestrictedInvestments",
+    "ProceedsFromSalesOfInvestmentsOtherThanInvestmentsAccountedForUsingEquityMethod",
+    "ProceedsFromFederalHomeLoanBankBorrowings",
+    "PaymentsToAcquireTradingSecuritiesHeldforinvestment",
+    "ProceedsFromDivestitureOfInterestInJointVenture",
+    "ProceedsFromSaleOfNotesReceivable",
+    "PaymentsForProceedsFromLongtermInvestments",
+    "ProceedsFromSaleOfTradingSecuritiesHeldforinvestment",
+    "ProceedsFromSaleOfLoansReceivable",
+    "ProceedsFromSaleAndCollectionOfNotesReceivable",
+    "ProceedsFromPaymentsForSecuritiesPurchasedUnderAgreementsToResell",
+    "PaymentsToAcquireFederalHomeLoanBankStock",
+    "PaymentsToAcquireMortgageNotesReceivable",
+    "ProceedsFromSalesOfInvestmentsAccountedForUsingEquityMethod",
+    "ProceedsFromSaleAndCollectionOfMortgageNotesReceivable",
+    "ProceedsFromSaleMaturityAndCollectionOfLongtermInvestments",
+    "ProceedsFromFederalHomeLoanBankAdvances",
+    "ProceedsFromMaturitiesRepaymentsAndCallsOfTradingSecuritiesHeldforinvestment",
+    "PaymentsForProceedsFromFederalHomeLoanBankStock",
+    "ProceedsFromSaleOfFederalHomeLoanBankStock",
+    "PaymentsForFederalHomeLoanBankAdvances",
+    "ProceedsFromSaleAndMaturityOfTradingSecuritiesHeldforinvestment",
+    "PaymentsForProceedsFromLifeInsurancePolicies",
+    "ProceedsFromPaymentsForTradingSecurities",
+    "ProceedsFromLimitedPartnershipInvestments",
+    "ProceedsFromMaturitiesPrepaymentsAndCallsOfOtherInvestments",
+    "ProceedsFromSaleOfInsuranceInvestments",
+    "PaymentsForProceedsFromOtherLoansAndLeases",
+    "ProceedsFromMaturitiesPrepaymentsAndCallsOfLongtermInvestments",
+    "PaymentsForBondsTransferredToOtherOtherFederalHomeLoanBanks",
+    "ProceedsFromBondsTransferredFromOtherOtherFederalHomeLoanBanks",
+)
+
+
 CONCEPTS = (
     Concept(
         "equity",
@@ -412,11 +593,56 @@ CONCEPTS = (
         unit=UNIT_SHARES,
         ifrs_chain=["DilutedAverageSharesOutstanding", "WeightedAverageShares"],
     ),
+    Concept(
+        "investing_cf",
+        DURATION,
+        [
+            "NetCashProvidedByUsedInInvestingActivities",
+            "NetCashProvidedByUsedInInvestingActivitiesContinuingOperations",
+        ],
+        ifrs_chain=["CashFlowsFromUsedInInvestingActivities"],
+    ),
+    # 🔴 The IFRS legs sit in `components`, NOT in `ifrs_chain`. ifrs_chain is
+    # a FIRST-MATCH chain, and an investing statement is a SUM -- an IFRS filer
+    # reporting both a PP&E purchase and an intangibles purchase would have had
+    # the second silently dropped. They cannot collide with the us-gaap tags
+    # because no filer reports both taxonomies.
+    #
+    # The consequence is that these legs are USD-gated like every other
+    # component, while investing_cf's ifrs_chain accepts any currency. gate0
+    # therefore refuses to evaluate the flag unless reporting_currency is USD;
+    # a residual computed from a EUR total and USD legs would be arithmetic
+    # about nothing.
+    Concept(
+        "investing_outflows",
+        DURATION,
+        [],
+        components=list(INVESTING_OUTFLOW_TAGS),
+        partial_ok=True,
+    ),
+    Concept(
+        "investing_inflows",
+        DURATION,
+        [],
+        components=list(INVESTING_INFLOW_TAGS),
+        partial_ok=True,
+    ),
+    # Presence-only. The VALUE is never used for anything -- a non-null here
+    # means "this filer's investing statement is hierarchical, do not attempt
+    # the flat identity."
+    Concept(
+        "investing_portfolio",
+        DURATION,
+        [],
+        components=list(INVESTING_PORTFOLIO_TAGS),
+        partial_ok=True,
+    ),
 )
 
 CONCEPTS_BY_NAME = {c.name: c for c in CONCEPTS}
 
 # Flat whitelist of every us-gaap tag the parser needs to retain.
+
 WANTED_TAGS = frozenset(tag for c in CONCEPTS for tag in c.all_tags)
 
 # Tag -> the concepts that may source from it (a tag can serve more than one).

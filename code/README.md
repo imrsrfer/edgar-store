@@ -27,6 +27,7 @@ cd edgar
 python fetch_edgar.py       # ~15 min cold, seconds when cached
 python build_facts.py       # ~1.2 min
 python gate0.py             # <1 s
+python build_prices.py --from-lanes   # prices every lane's quality-stage survivors
 ```
 
 Outputs land in `C:\Users\Fer\claude\Projects\Portfolio\edgar\` (override with
@@ -375,6 +376,7 @@ tangible-book verdict for every filer that omits those tags.
 | `fetch_edgar.py` | Stage 1 — download and cache raw SEC data |
 | `build_facts.py` | Stage 2 — parse the archive into `facts.parquet` + `meta.parquet` |
 | `gate0.py` | Stage 3 — compute the tests, write `gate0.csv` + `data_quality.csv` |
-| `screen.py` | Stage 4 — apply the shortlisting screens (`--lane main/shorthist/ifrs/inflection`) to `gate0.csv`. See its module docstring and `PRICES_SCHEMA.md` |
+| `build_prices.py` | Stage 4 — build `prices.csv` for a named ticker list and REPORT ITS COVERAGE. Without it `market_cap` is null and every size-banded lane returns zero filers rather than zero matches |
+| `screen.py` | Stage 5 — apply the shortlisting screens (`--lane main/shorthist/ifrs/inflection`) to `gate0.csv`. See its module docstring and `PRICES_SCHEMA.md` |
 | `PRICES_SCHEMA.md` | The `ticker,price,ma_200,market_cap,as_of` contract `screen.py --price-csv` expects |
 | `tests/test_gate0.py` | Unit and pinned-value tests |

@@ -115,6 +115,12 @@ ALL_CONCEPTS = (
     "tax_expense",
     "pretax_income",
     "shares_diluted",
+)
+
+# Concepts that DESCRIBE a filing without scoring it. They are joined onto the
+# rows the scoring concepts form -- see widen -- so adding one can never change
+# which fiscal year a company is judged on.
+DIAGNOSTIC_CONCEPTS = (
     "investing_cf",
     "investing_outflows",
     "investing_inflows",
@@ -194,9 +200,28 @@ def _safe_div(numerator, denominator):
 
 
 def widen(facts, period="FY"):
-    """One row per (cik, fiscal_year) with a column per concept, plus tag witnesses."""
+    """One row per (cik, fiscal_year) with a column per concept, plus tag witnesses.
+
+    🔴 DIAGNOSTIC_CONCEPTS ARE JOINED ON, NEVER PIVOTED INTO THE INDEX.
+    (Added 2026-09-09.) The row index and its period_end come from the scoring
+    concepts alone; the investing_* concepts are then left-joined onto whatever
+    rows already exist.
+
+    Adding a concept must not move a company's latest reported year, and this
+    function is where it otherwise would. Two mechanisms, both measured when
+    the investing_* concepts were added: a (cik, fiscal_year) group with ONLY
+    diagnostic facts becomes a brand-new row, and ``period_end.max()`` over a
+    group lets a diagnostic fact at a later date drag an existing row forward.
+    Between them they moved four filers -- KMB, INTZ, LIFD, EDTK -- off a
+    scored fiscal year onto a later interim period where the scoring concepts
+    are null, taking three of them from ``fail`` to ``unknown``. A concept
+    added to DESCRIBE the data had silently changed which data was scored.
+    """
     annual = facts.filter(pl.col("fiscal_period") == period)
-    values = annual.pivot(
+    is_diagnostic = pl.col("concept").is_in(DIAGNOSTIC_CONCEPTS)
+    scoring = annual.filter(~is_diagnostic)
+
+    values = scoring.pivot(
         on="concept",
         index=["cik", "fiscal_year"],
         values="value",
@@ -206,10 +231,26 @@ def widen(facts, period="FY"):
         if concept not in values.columns:
             values = values.with_columns(pl.lit(None, dtype=pl.Float64).alias(concept))
 
-    ends = annual.group_by(["cik", "fiscal_year"]).agg(
+    ends = scoring.group_by(["cik", "fiscal_year"]).agg(
         pl.col("period_end").max().alias("period_end")
     )
     frame = values.join(ends, on=["cik", "fiscal_year"], how="left")
+
+    diagnostics = annual.filter(is_diagnostic)
+    if diagnostics.height:
+        frame = frame.join(
+            diagnostics.pivot(
+                on="concept",
+                index=["cik", "fiscal_year"],
+                values="value",
+                aggregate_function="first",
+            ),
+            on=["cik", "fiscal_year"],
+            how="left",
+        )
+    for concept in DIAGNOSTIC_CONCEPTS:
+        if concept not in frame.columns:
+            frame = frame.with_columns(pl.lit(None, dtype=pl.Float64).alias(concept))
 
     witnesses = annual.filter(pl.col("concept").is_in(TAG_WITNESS_CONCEPTS)).pivot(
         on="concept",
@@ -2082,6 +2123,19 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False):
     facts = pl.read_parquet(paths.facts)
     meta = pl.read_parquet(paths.meta)
 
+    # 🔴 Everything below widen() reads the fact table DIRECTLY, and each of
+    # those builders picks a "latest" period or summarises which concepts are
+    # present. A diagnostic concept must not participate in any of that, so it
+    # is stripped here once rather than guarded in four places.
+    #
+    # Measured when the investing_* concepts were added and this was NOT done:
+    # ttm_stale_concepts changed on 1,215 rows (the new concepts were being
+    # named as stale work items), latest_q_shares_diluted on 146, the quarterly
+    # revenue-acceleration columns on up to 17, and reporting_currency on 3 --
+    # none of which has anything to do with the reconciliation flag. A concept
+    # added to DESCRIBE the data had begun to change what the data said.
+    scoring_facts = facts.filter(~pl.col("concept").is_in(DIAGNOSTIC_CONCEPTS))
+
     annual = compute_metrics(widen(facts), assume_absent_zero)
     trends = build_trends(annual)
     fcf_inflection = build_fcf_inflection(annual)
@@ -2093,10 +2147,10 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False):
         # what they asked for, not have it second-guessed by inference.
         latest = resolve_goodwill_intangibles(annual, latest)
     latest = add_flags(latest)
-    ttm = build_ttm(facts)
-    latest_q = build_latest_quarter(facts)
-    provenance = _company_provenance(facts)
-    acceleration = build_quarterly_acceleration(facts)
+    ttm = build_ttm(scoring_facts)
+    latest_q = build_latest_quarter(scoring_facts)
+    provenance = _company_provenance(scoring_facts)
+    acceleration = build_quarterly_acceleration(scoring_facts)
 
     frame = latest.join(trends, on=["cik", "latest_fiscal_year"], how="left")
     frame = frame.join(fcf_inflection, on="cik", how="left")

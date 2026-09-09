@@ -42,6 +42,7 @@ import re
 from concepts import (
     ANNUAL_DAYS,
     CONCEPTS,
+    DIAGNOSTIC_ONLY_TAGS,
     FY,
     QUARTER_DAYS,
     UNIT_SHARES,
@@ -534,12 +535,19 @@ def process_member(args):
     if not facts:
         return {"cik": int(cik), "entity_name": entity_name, "rows": []}
 
-    invalid_years = find_invalid_fiscal_years(facts)
+    # 🔴 Period LABELS and fiscal-year validation come from the scoring facts
+    # only. See concepts.DIAGNOSTIC_ONLY_TAGS: a diagnostic tag must never be
+    # able to relabel -- or invalidate -- a period that the scoring concepts
+    # are then read at. Its own values are resolved against those labels below,
+    # so the diagnostic is described by the calendar, never a vote on it.
+    labelling_facts = [f for f in facts if f["tag"] not in DIAGNOSTIC_ONLY_TAGS]
+
+    invalid_years = find_invalid_fiscal_years(labelling_facts)
     for reject in invalid_years:
         reject["cik"] = int(cik)
         reject["entity_name"] = entity_name
 
-    annual, quarterly, offset = build_period_labels(facts)
+    annual, quarterly, offset = build_period_labels(labelling_facts)
     rows = resolve_concepts(facts, annual, quarterly, offset)
     for row in rows:
         row["cik"] = int(cik)

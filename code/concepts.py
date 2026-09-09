@@ -645,6 +645,37 @@ CONCEPTS_BY_NAME = {c.name: c for c in CONCEPTS}
 
 WANTED_TAGS = frozenset(tag for c in CONCEPTS for tag in c.all_tags)
 
+# Concepts that DESCRIBE a filing without scoring it. Kept in one place because
+# both gate0 (which must not let them pick a company's latest period) and
+# build_facts (which must not let them label its periods) need the same list.
+DIAGNOSTIC_CONCEPT_NAMES = (
+    "investing_cf",
+    "investing_outflows",
+    "investing_inflows",
+    "investing_portfolio",
+)
+
+# 🔴 Tags reachable ONLY through a diagnostic concept.
+#
+# build_period_labels derives a company's fiscal-year and quarter labels from
+# the accessions of every RETAINED fact, so the set of tags collected decides
+# how every other concept's periods are labelled. Adding a concept is therefore
+# NOT additive: when the investing_* concepts were added without this,
+# rebuilding the same archive moved four filers onto a later interim period
+# (EDTK landed on fiscal year 2029, reached through a corrupt fy on an
+# accession only a new tag pulled in), changed latest_q_shares_diluted on 146
+# rows and shifted ~100 columns on a handful of rows each.
+#
+# Overlapping tags are excluded from this set: PaymentsToAcquirePropertyPlant-
+# AndEquipment belongs to capex as well, so it labels periods as it always did.
+_DIAGNOSTIC_TAGS = {
+    tag for c in CONCEPTS if c.name in DIAGNOSTIC_CONCEPT_NAMES for tag in c.all_tags
+}
+_SCORING_TAGS = {
+    tag for c in CONCEPTS if c.name not in DIAGNOSTIC_CONCEPT_NAMES for tag in c.all_tags
+}
+DIAGNOSTIC_ONLY_TAGS = frozenset(_DIAGNOSTIC_TAGS - _SCORING_TAGS)
+
 # Tag -> the concepts that may source from it (a tag can serve more than one).
 TAG_TO_CONCEPTS = {}
 for _c in CONCEPTS:

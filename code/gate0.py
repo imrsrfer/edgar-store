@@ -54,13 +54,42 @@ MARGIN_SHORT_YEARS = 2
 # the same entry that describes its earnings collapse as a red flag.
 INCOME_QUALITY_CEILING = 5.0
 
-# Investing-statement reconciliation. A residual must clear BOTH bars to flag:
-# a percentage alone screams at tiny filers, an absolute alone ignores large
-# ones. 2% and $1M were chosen on the 2026-08-25 store, where they flag 426 of
-# 1,717 evaluable filers; loosening to 5% moves that only to 403, so the result
-# is not sensitive to the exact bar -- the residuals are either ~0 or large.
-INVESTING_RESIDUAL_PCT = 0.02
-INVESTING_RESIDUAL_ABS = 1e6
+# Investing-statement reconciliation: the residual an investing statement fails
+# to close by.
+#
+# 🔴 READ FROM THE GAP BETWEEN THE POPULATIONS, NOT FROM THE CASES.
+#
+# The first version of this was 2% of investing CF AND $1M, both bars. Neither
+# number was derived from anything: a four-point sweep showed the flag count
+# moving only 426 -> 403, that was read as robustness, and a round number was
+# picked. The sweep varied the PERCENTAGE bar; the ABSOLUTE bar was never taken
+# below $250k, so what it suppressed was never visible.
+#
+# Measured properly on the 2026-09-09 store, the two populations separate
+# cleanly, and they separate at ZERO:
+#
+#     |residual| exactly 0 (<$1) : 1,232 filers   <- 52.7% of the 2,336 evaluable
+#     $1 - $1k                   :     7
+#     $1k - $100k                :   138
+#     $100k - $1M                :   188
+#     > $1M                      :   771
+#
+# An investing statement either closes to the dollar or it does not. The next
+# non-zero residual above zero is $21, then $49, then $100 -- so the gap is
+# between $0 and $21, and the old $1M bar sat deep INSIDE the non-zero
+# population, suppressing 380 filers whose statements demonstrably do not close.
+#
+# $1,000 is therefore not a tuning parameter, it is ONE REPORTING UNIT: filings
+# state cash-flow figures in thousands, so a residual below the smallest number
+# a filer can express is rounding rather than a missing leg. It discards only
+# the 7 rows in the $1-$1k band.
+#
+# There is no percentage bar. A percentage of the investing total is not what
+# makes a statement fail to close, and adding one only re-admits the arbitrary
+# choice this replaced -- on the same store it changed the OMCL-shape catch by
+# one filer (214 of 272 against 213 for the absolute bar alone) while
+# suppressing hundreds.
+INVESTING_RESIDUAL_ABS = 1_000
 
 INCOME_QUALITY_FLOOR = 0.80
 SBC_FAIL = 0.15
@@ -584,8 +613,7 @@ def _add_investing_reconciliation(frame):
         residual_evaluable.alias("investing_residual"),
         pl.when(evaluable)
         .then(
-            (residual.abs() > INVESTING_RESIDUAL_ABS)
-            & (residual.abs() > INVESTING_RESIDUAL_PCT * total.abs())
+            residual.abs() > INVESTING_RESIDUAL_ABS
         )
         .otherwise(None)
         .alias("investing_unreconciled"),

@@ -95,27 +95,49 @@ def test_absent_leg_contributes_nothing_rather_than_voiding_the_test():
 
 
 # --------------------------------------------------------------------------
-# Tolerance: both bars, not either
+# Tolerance: ONE bar, and it is one reporting unit
+#
+# 🔴 These tests changed on 2026-09-09 and the change was deliberate. They used
+# to pin a two-bar tolerance (2% of investing CF AND $1M) that suppressed 380
+# filers whose statements demonstrably do not close. The populations separate
+# at ZERO -- 1,232 of 2,336 evaluable filers reconcile to the exact dollar and
+# the next residual up is $21 -- so the only defensible floor is the smallest
+# number a filer can express. See INVESTING_RESIDUAL_ABS in gate0.
 # --------------------------------------------------------------------------
 
 
-def test_small_absolute_residual_does_not_flag_a_large_filer():
-    """$0.5M against $10bn of investing is rounding, not a missing leg."""
-    flag, _ = _flag(
+def test_residual_below_one_reporting_unit_is_rounding_not_a_missing_leg():
+    """Filings state cash flows in thousands. Under $1,000 is unexpressible."""
+    flag, _ = _flag(investing_cf=-7_000_000.0, investing_outflows=7_000_500.0)
+    assert flag is False
+
+
+def test_a_small_residual_on_a_huge_filer_still_flags():
+    """The old $1M bar called this rounding. $0.5M is 500 reporting units, and
+    a statement that misses by half a million has a leg nobody can name."""
+    flag, residual = _flag(
         investing_cf=-10_000.0 * MILLION, investing_outflows=10_000.5 * MILLION
     )
-    assert flag is False
-
-
-def test_large_percentage_but_tiny_dollars_does_not_flag():
-    """A percentage bar alone screams at micro-caps."""
-    flag, _ = _flag(investing_cf=-1.0 * MILLION, investing_outflows=0.5 * MILLION)
-    assert flag is False
-
-
-def test_residual_must_clear_both_bars_to_flag():
-    flag, _ = _flag(investing_cf=-100.0 * MILLION, investing_outflows=50.0 * MILLION)
     assert flag is True
+    assert residual == pytest.approx(0.5 * MILLION, rel=1e-6)
+
+
+def test_a_large_residual_on_a_tiny_filer_still_flags():
+    """And the old percentage bar is gone: size does not buy an exemption in
+    either direction."""
+    flag, _ = _flag(investing_cf=-1.0 * MILLION, investing_outflows=0.5 * MILLION)
+    assert flag is True
+
+
+def test_residual_at_the_reporting_unit_boundary():
+    """Strictly greater than one unit, so exactly $1,000 is still rounding."""
+    assert _flag(investing_cf=-1_000_000.0, investing_outflows=1_001_000.0)[0] is False
+    assert _flag(investing_cf=-1_000_000.0, investing_outflows=1_001_001.0)[0] is True
+
+
+def test_exact_closure_is_still_the_common_case():
+    flag, _ = _flag(investing_cf=-100.0 * MILLION, investing_outflows=100.0 * MILLION)
+    assert flag is False
 
 
 # --------------------------------------------------------------------------

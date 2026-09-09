@@ -1,8 +1,8 @@
 {
   "contains": "reference data only: code + SEC-derived store. NO queue, NO portfolio data.",
-  "synced_utc": "2026-09-09T17:20:55Z",
+  "synced_utc": "2026-09-09T18:07:22Z",
   "store_built_utc_oldest": "2026-09-09T04:50:58Z",
-  "store_built_utc_newest": "2026-09-09T17:20:27Z",
+  "store_built_utc_newest": "2026-09-09T18:06:23Z",
   "code": {
     "fetch_edgar.py": {
       "bytes": 9115,
@@ -15,9 +15,9 @@
       "sha256_16": "96fc1eff37a5046f"
     },
     "gate0.py": {
-      "bytes": 101752,
-      "mtime_utc": "2026-09-09T17:17:33Z",
-      "sha256_16": "6478d41c8ea4e1df"
+      "bytes": 103102,
+      "mtime_utc": "2026-09-09T18:04:45Z",
+      "sha256_16": "e0b0eee38280f1eb"
     },
     "screen.py": {
       "bytes": 53905,
@@ -52,18 +52,18 @@
   },
   "store": {
     "gate0.csv": {
-      "bytes": 7730277,
-      "mtime_utc": "2026-09-09T17:20:27Z",
-      "sha256_16": "5d481fed51b98ed4"
+      "bytes": 7729907,
+      "mtime_utc": "2026-09-09T18:06:23Z",
+      "sha256_16": "c75cbe67e28e122d"
     },
     "facts.parquet": {
       "bytes": 23483423,
-      "mtime_utc": "2026-09-09T17:20:25Z",
+      "mtime_utc": "2026-09-09T18:06:21Z",
       "sha256_16": "955ec14045cae5ef"
     },
     "meta.parquet": {
       "bytes": 317428,
-      "mtime_utc": "2026-09-09T17:20:25Z",
+      "mtime_utc": "2026-09-09T18:06:21Z",
       "sha256_16": "000de947e02a2111"
     },
     "shortlist_main.csv": {
@@ -108,22 +108,22 @@
     },
     "data_quality.csv": {
       "bytes": 283341,
-      "mtime_utc": "2026-09-09T17:20:27Z",
+      "mtime_utc": "2026-09-09T18:06:23Z",
       "sha256_16": "717d4b7877cf7b3b"
     },
     "inactive_filers.csv": {
       "bytes": 169155,
-      "mtime_utc": "2026-09-09T17:20:27Z",
+      "mtime_utc": "2026-09-09T18:06:23Z",
       "sha256_16": "80a175ae3df0fa12"
     },
     "duplicate_filers.csv": {
       "bytes": 3197,
-      "mtime_utc": "2026-09-09T17:20:27Z",
+      "mtime_utc": "2026-09-09T18:06:23Z",
       "sha256_16": "3182b4192f48a42f"
     },
     "invalid_fiscal_years.csv": {
       "bytes": 198142,
-      "mtime_utc": "2026-09-09T17:20:25Z",
+      "mtime_utc": "2026-09-09T18:06:21Z",
       "sha256_16": "1b8faec0ab90bdfe"
     },
     "prices.csv": {

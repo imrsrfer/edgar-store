@@ -70,6 +70,11 @@ INCOME_QUALITY_WINDOW = 3
 # Financial-sector SIC range excluded unless --include-financials.
 DEFAULT_EXCLUDE_SIC = "6000-6799"
 
+# Implied EPS above which a diluted share count is presumed to be reported in
+# thousands (or in a different currency) rather than in shares. See
+# shares_scale_suspect in add_flags for the measurement and the controls.
+SHARES_SCALE_EPS_CEILING = 1000.0
+
 # Concepts whose chosen XBRL tag is echoed into the output, because these are
 # the ones that drive a pass/fail verdict.
 TAG_WITNESS_CONCEPTS = (
@@ -351,6 +356,40 @@ def compute_metrics(frame, assume_absent_zero=False):
             )
         ).alias("capex_suspect"),
         capex_vs_da.alias("capex_vs_dep_amort"),
+        # 🔴 SHARE COUNTS ARRIVE IN THOUSANDS UNDER A UNIT THAT SAYS "shares".
+        # (Added 2026-09-08.) HUB GROUP tags WeightedAverageNumberOfDiluted...
+        # as 61,104 with unit="shares"; the truth is 61,104 THOUSAND. The unit
+        # field cannot discriminate -- all 218,668 shares_diluted facts in the
+        # store declare "shares" -- so scale has to be inferred from what the
+        # count implies. Measured on the 2026-08-30 store: 53 rows imply an EPS
+        # above $1,000 and 33 of them publish a non-null fcf_per_share, which
+        # is the MASTER METRIC of the Growth screen (§D#2). McDonald's reads
+        # 716 shares and $9,800,390 of FCF per share; Spire 59; Valhi 28.
+        #
+        # Direction: it UNDERSTATES the denominator, so it OVERSTATES
+        # fcf_per_share and understates p_fcf_after_sbc -- it fails OPEN, in
+        # the company's favour, exactly like capex, the TTM sums and the
+        # dual-class share count before it, and it pulls the affected name UP a
+        # cheapness-ranked queue.
+        #
+        # Negative control, run before trusting the threshold: the genuine
+        # high-EPS US filers sit far below it -- SEB $520, NVR $437, BKNG $166,
+        # AZO $145 -- so the flag separates a scale error from a real small
+        # share count rather than just flagging whoever is expensive.
+        #
+        # It is a FLAG, not a correction: some hits (PKX, BANCOLOMBIA, GRVY)
+        # are a reporting-CURRENCY mismatch rather than a share scale, and the
+        # per-share figure is unusable either way. Naming the obligation is
+        # right; guessing the factor of 1,000 and silently applying it is not.
+        (
+            pl.col("shares_diluted").is_not_null()
+            & (pl.col("shares_diluted") > 0)
+            & pl.col("net_income").is_not_null()
+            & (
+                pl.col("net_income").abs() / pl.col("shares_diluted")
+                > SHARES_SCALE_EPS_CEILING
+            )
+        ).alias("shares_scale_suspect"),
     )
     capex_usable = pl.when(pl.col("capex_broken")).then(None).otherwise(pl.col("capex"))
 
@@ -486,6 +525,21 @@ def build_trends(frame):
             _nth_back(pl.col("fcf_per_share"), CAGR_LONG_YEARS),
             CAGR_LONG_YEARS,
         ).alias("fcf_per_share_cagr_5y"),
+        # 🔴 The endpoints the CAGRs actually rest on, published beside them.
+        # (Added 2026-09-08.) fcf_per_share_earliest/_latest are series[0] and
+        # series[-1] -- the WHOLE history, which for ALG is 7 years, not 5. A
+        # 2026-09-08 run read the two pairs as one and reported the row as
+        # self-contradictory: earliest $4.59 -> latest $11.34 implies +19.8%
+        # against a stored -3.71%. Both numbers were right and the reader was
+        # wrong -- the real 5-year base is FY2020's $13.71, and -3.71% is exact.
+        # A field that invites that misreading is a defect in the OUTPUT even
+        # when the arithmetic behind it is sound, so the base is now in the row.
+        _nth_back(pl.col("fcf_per_share"), CAGR_SHORT_YEARS).alias(
+            "fcf_per_share_3y_ago"
+        ),
+        _nth_back(pl.col("fcf_per_share"), CAGR_LONG_YEARS).alias(
+            "fcf_per_share_5y_ago"
+        ),
         # Whether a fiscal year CAGR_LONG_YEARS back from the latest even
         # exists -- the precise, structural test for "not enough history",
         # using the same shift the CAGRs themselves use. A CAGR can also be
@@ -964,7 +1018,73 @@ def add_verdict(frame, allow_imputed=False):
     else:
         frame = frame.with_columns(pl.col("_gate0_pass_raw").alias("gate0_pass"))
 
-    return frame.drop("_gate0_pass_raw")
+    return add_framework_verdict(frame.drop("_gate0_pass_raw"))
+
+
+# The three legs add_verdict deliberately reports without gating on. Its stated
+# reason -- "some filers (banks, insurers, REITs) genuinely cannot produce them"
+# -- is sound for the class it names and over-broad for everyone else.
+# name -> the flag column that carries it. Spelled out because the flag column
+# for ni_vs_oi is fail_ni_OVER_oi, and deriving one from the other by f-string
+# is exactly the kind of near-miss that returns an empty result rather than an
+# error.
+FRAMEWORK_ONLY_LEGS = (
+    ("tax_anomaly", "fail_tax_anomaly"),
+    ("sbc", "fail_sbc"),
+    ("ni_vs_oi", "fail_ni_over_oi"),
+)
+FRAMEWORK_EXEMPT_SIC = (6000, 6799)  # the class the add_verdict docstring names
+
+
+def add_framework_verdict(frame):
+    """gate0_pass answers a NARROWER question than its name suggests.
+
+    It means "the three load-bearing legs cleared", not "Gate 0 cleared". The
+    Framework's Gate 0 also disqualifies a zero-or-negative effective tax rate
+    and SBC above 15% of revenue, and add_verdict reports both without gating.
+
+    Measured on the 2026-08-30 store, 6,031 rows: 100 reach gate0_pass=true
+    while failing tax_anomaly (55 of them at a zero or negative effective
+    rate), 25 while failing sbc -- and 16 of those 25 are software or biotech
+    (DDOG 21.9%, LSCC 22.1%, PINS 20.9%, OKTA 18.6%, ...), which the
+    banks/insurers/REITs rationale does not reach. screen.py never re-applies
+    any of them, so a row that failed a Framework leg travels into a queue slot
+    with no surviving marker but the test_ column. GLP arrived that way on
+    2026-09-08 at a 1.07% effective tax rate.
+
+    So: keep gate0_pass exactly as it is -- it is load-bearing for the lanes and
+    changing it would silently move every historical comparison -- and publish
+    the Framework's answer BESIDE it, with the exemption applied to the
+    population the rationale was written for and to nobody else.
+    """
+    if "sic" not in frame.columns:
+        return frame
+    sic_num = pl.col("sic").cast(pl.Int64, strict=False)
+    exempt = sic_num.is_between(*FRAMEWORK_EXEMPT_SIC) & sic_num.is_not_null()
+    present = [(col, leg) for leg, col in FRAMEWORK_ONLY_LEGS if col in frame.columns]
+    if not present:
+        return frame
+    any_leg_failed = pl.any_horizontal(
+        [pl.col(c).fill_null(False) for c, _ in present]
+    )
+    failed_list = (
+        pl.concat_list(
+            [
+                pl.when(pl.col(c).fill_null(False)).then(pl.lit(leg)).otherwise(None)
+                for c, leg in present
+            ]
+        )
+        .list.drop_nulls()
+        .list.join(",")
+    )
+    return frame.with_columns(
+        pl.when(exempt).then(pl.lit("")).otherwise(failed_list).alias(
+            "framework_leg_failed"
+        ),
+        (pl.col("gate0_pass") & (exempt | ~any_leg_failed)).alias(
+            "gate0_framework_pass"
+        ),
+    )
 
 
 # 🔴 A TTM IS FOUR QUARTERS THAT TILE A YEAR, NOT FOUR ROWS TAGGED "Q".
@@ -1003,6 +1123,23 @@ TTM_AVERAGED_CONCEPTS = frozenset({"shares_diluted", "shares_basic"})
 TTM_INTERIM_PERIODS = ("Q1", "YTD2", "YTD3")  # all cumulative from year start
 TTM_SPAN_MATCH_DAYS = 10   # the two interims must be the same length
 TTM_YEAR_APART_DAYS = (330, 400)  # ...and one year apart
+
+# 🔴 AND A VALID IDENTITY IS NOT A CURRENT ONE. (Added 2026-09-08.) Every leg of
+# the rollforward can validate perfectly and still describe a window that closed
+# years before the row it is published on, because nothing in the identity ties
+# the window to the filer's most recent reporting date. Measured on the
+# 2026-08-30 store: KOHL'S (CIK 885639) published no buyback fact after FY2022,
+# so the identity legitimately paired FY2021 (1,355) - YTD3-2021 (807) +
+# YTD3-2022 (658) and emitted ttm_buybacks = 1,206,000,000 for a window ending
+# 2022-10-29 -- onto a row whose period_end is 2026-01-31, against $5M actually
+# repurchased in FY2026. Every validation passed. The number was four years old.
+#
+# This is the 2026-08-27 lesson in a new place: a test that cannot see the
+# defect has not tested anything. The span checks compare the interims to EACH
+# OTHER and never to the present, so they return the same answer whether the
+# window is current or ancient. A stale window is NOT MEASURED: it is nulled and
+# NAMED in ttm_stale_concepts, never published as a trailing-twelve-month figure.
+TTM_RECENCY_MAX_DAYS = 400  # window end vs the filer's latest reported period_end
 
 
 def build_ttm_rollforward(facts):
@@ -1071,7 +1208,10 @@ def build_ttm_rollforward(facts):
         .group_by(["cik", "concept"])
         .last()
         .with_columns((pl.col("_fy") - pl.col("_pri") + pl.col("_cur")).alias("ttm_value"))
-        .select(["cik", "concept", "ttm_value"])
+        .select(
+            ["cik", "concept", "ttm_value",
+             pl.col("_cur_end").alias("ttm_window_end")]
+        )
     )
     return out
 
@@ -1126,7 +1266,12 @@ def build_ttm(facts):
     mean measured and fine, and nothing downstream may read it as agreement.
     """
     empty = pl.DataFrame(
-        schema={"cik": pl.Int64, "concept": pl.Utf8, "ttm_value": pl.Float64}
+        schema={
+            "cik": pl.Int64,
+            "concept": pl.Utf8,
+            "ttm_value": pl.Float64,
+            "ttm_window_end": pl.Date,
+        }
     )
     quarters = facts.filter(
         pl.col("fiscal_period").is_in(["Q1", "Q2", "Q3", "Q4"])
@@ -1167,7 +1312,10 @@ def build_ttm(facts):
                     <= TTM_TILE_TOLERANCE_DAYS
                 )
             )
-            .select(["cik", "concept", "ttm_value"])
+            .select(
+                ["cik", "concept", "ttm_value",
+                 pl.col("_span_end").alias("ttm_window_end")]
+            )
         )
 
     # 🔴 ROLLFORWARD WINS where both are available. Tiling is the fallback, not
@@ -1177,22 +1325,70 @@ def build_ttm(facts):
     if rolled.height:
         recent = pl.concat(
             [
-                rolled.select(["cik", "concept", "ttm_value"]),
+                rolled.select(["cik", "concept", "ttm_value", "ttm_window_end"]),
                 recent.join(
                     rolled.select(["cik", "concept"]),
                     on=["cik", "concept"],
                     how="anti",
-                ).select(["cik", "concept", "ttm_value"]),
+                ).select(["cik", "concept", "ttm_value", "ttm_window_end"]),
             ],
             how="vertical_relaxed",
         )
     if recent.is_empty():
         return pl.DataFrame(schema={"cik": pl.Int64})
 
+    # 🔴 RECENCY GUARD -- see TTM_RECENCY_MAX_DAYS. The reference is the filer's
+    # own latest reported period across ALL concepts, so a company that simply
+    # stopped reporting one line is caught while a company that stopped filing
+    # altogether is not punished twice.
+    reference = facts.group_by("cik").agg(
+        pl.col("period_end").max().alias("_ref_end")
+    )
+    recent = recent.join(reference, on="cik", how="left").with_columns(
+        (pl.col("_ref_end") - pl.col("ttm_window_end")).dt.total_days().alias("_lag_days")
+    )
+    is_stale = pl.col("_lag_days") > TTM_RECENCY_MAX_DAYS
+    stale = recent.filter(is_stale).select(["cik", "concept"])
+    recent = recent.filter(~is_stale.fill_null(False)).select(
+        ["cik", "concept", "ttm_value"]
+    )
+    stale_names = (
+        stale.sort(["cik", "concept"])
+        .group_by("cik")
+        .agg(pl.col("concept").str.join(",").alias("ttm_stale_concepts"))
+        if stale.height
+        else pl.DataFrame(schema={"cik": pl.Int64, "ttm_stale_concepts": pl.Utf8})
+    )
+    if recent.is_empty():
+        # Every window this filer had was stale. The names still have to travel:
+        # a row that lost its whole TTM set to staleness must not look identical
+        # to one that never had a TTM at all.
+        return stale_names if stale_names.height else pl.DataFrame(schema={"cik": pl.Int64})
+
     wide = recent.pivot(
         on="concept", index="cik", values="ttm_value", aggregate_function="first"
     )
     wide = wide.rename({c: f"ttm_{c}" for c in wide.columns if c != "cik"})
+    # STATE the obligation rather than silently nulling -- same pattern as
+    # capex_suspect and ttm_unavailable. A named stale concept is a work item.
+    # 🔴 FULL join, not left. A filer ALL of whose windows are stale drops out of
+    # the pivot entirely, and a left join would then null every ttm_* on that row
+    # while leaving ttm_stale_concepts blank -- silently, which is the exact
+    # failure this guard exists to prevent, reintroduced one line later. It would
+    # also read as ttm_unavailable ("no TTM could be built") when the truth is
+    # "a TTM was built and it was out of date". Those are different findings and
+    # the store must not conflate them. Caught by verify_fixes.py on 513 rows.
+    if stale.height:
+        wide = wide.join(
+            stale.sort(["cik", "concept"])
+            .group_by("cik")
+            .agg(pl.col("concept").str.join(",").alias("ttm_stale_concepts")),
+            on="cik",
+            how="full",
+            coalesce=True,
+        ).with_columns(pl.col("ttm_stale_concepts").fill_null(""))
+    else:
+        wide = wide.with_columns(pl.lit("").alias("ttm_stale_concepts"))
     for needed in ("ttm_ocf", "ttm_capex", "ttm_sbc"):
         if needed not in wide.columns:
             wide = wide.with_columns(pl.lit(None, dtype=pl.Float64).alias(needed))
@@ -1656,6 +1852,8 @@ OUTPUT_ORDER = (
     "latest_fiscal_year",
     "period_end",
     "gate0_pass",
+    "gate0_framework_pass",
+    "framework_leg_failed",
     "gate0_status",
     "gate0_not_evaluable",
     "imputed_fields",
@@ -1693,10 +1891,12 @@ OUTPUT_ORDER = (
     "capex",
     "capex_broken",
     "capex_suspect",
+    "shares_scale_suspect",
     "capex_vs_dep_amort",
     "ttm_fcf_divergence",
     "ttm_suspect",
     "ttm_unavailable",
+    "ttm_stale_concepts",
     "net_margin",
     "income_quality_suspect",
     "operating_margin_2y_ago",
@@ -1730,6 +1930,8 @@ OUTPUT_ORDER = (
     "revenue_cagr_5y",
     "fcf_per_share_cagr_3y",
     "fcf_per_share_cagr_5y",
+    "fcf_per_share_3y_ago",
+    "fcf_per_share_5y_ago",
     "fcf_per_share_earliest",
     "fcf_per_share_latest",
     "fcf_per_share_delta_abs",

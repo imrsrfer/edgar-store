@@ -3997,6 +3997,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1434647,ZVRA,"Zevra Therapeutics, Inc.",2025,1,acq_cf_bs_disagreement
 1975641,ZYBT,Zhengye Biotechnology Holding Limited,2025,1,sbc
 1540013,,Quipt Home Medical Corp.,2025,1,acq_cf_bs_disagreement
+1703141,,"Despegar.com, Corp.",2024,1,acq_cf_bs_disagreement
 1616318,,Vista Outdoor Inc,2024,1,acq_cf_bs_disagreement
 1701732,,ALTAIR ENGINEERING INC.,2024,1,acq_cf_bs_disagreement
 4447,,HESS CORPORATION,2024,1,operating_income
@@ -4014,12 +4015,11 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1118004,,BANCPLUS CORPORATION,2025,1,operating_income
 1577916,,"Premier, Inc.",2025,1,acq_cf_bs_disagreement
 1723089,,ChampionX Corp,2024,1,acq_cf_bs_disagreement
-1703141,,"Despegar.com, Corp.",2024,1,acq_cf_bs_disagreement
 1066605,,"HEIDRICK & STRUGGLES INTERNATIONAL, INC.",2024,1,acq_cf_bs_disagreement
 716605,,PENNS WOODS BANCORP INC,2024,1,operating_income
 1137547,,UNITED SECURITY BANCSHARES,2025,1,operating_income
-859737,,HOLOGIC INC,2025,1,acq_cf_bs_disagreement
 18349,,SYNOVUS FINANCIAL CORP,2024,1,operating_income
+859737,,HOLOGIC INC,2025,1,acq_cf_bs_disagreement
 712515,,ELECTRONIC ARTS INC.,2026,1,acq_cf_bs_disagreement
 1013462,,"ANSYS, Inc.",2024,1,acq_cf_bs_disagreement
 1339605,,"H&E Equipment Services, Inc.",2024,1,acq_cf_bs_disagreement
@@ -4040,7 +4040,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 896262,,AMEDISYS INC,2024,1,acq_cf_bs_disagreement
 1834494,,"MeridianLink, Inc.",2024,1,acq_cf_bs_disagreement
 1514743,,"IF Bancorp, Inc.",2025,1,operating_income
-1855457,,"KORE Group Holdings, Inc.",2025,1,acq_cf_bs_disagreement
 1473844,,"Stellar Bancorp, Inc.",2025,1,operating_income
 1005757,,"CSG SYSTEMS INTERNATIONAL, INC.",2025,1,acq_cf_bs_disagreement
 1562476,,Taylor Morrison Home Corp,2025,1,operating_income
@@ -4048,7 +4047,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1605607,,"PARAMOUNT GROUP, INC.",2024,1,operating_income
 1382230,,"ESSA Bancorp, Inc.",2024,1,operating_income
 1028918,,PACIFIC PREMIER BANCORP INC,2024,1,operating_income
-917491,,"FARO TECHNOLOGIES, INC",2024,1,acq_cf_bs_disagreement
+1855457,,"KORE Group Holdings, Inc.",2025,1,acq_cf_bs_disagreement
 51644,,"INTERPUBLIC GROUP OF COMPANIES, INC.",2024,1,acq_cf_bs_disagreement
 877422,,SPARTANNASH COMPANY,2024,1,acq_cf_bs_disagreement
 1598110,,CYBERARK SOFTWARE LTD.,2024,1,acq_cf_bs_disagreement
@@ -4056,6 +4055,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 794619,,American Woodmark Corp,2025,1,intangibles
 39899,,TEGNA INC.,2025,1,acq_cf_bs_disagreement
 713425,,"LOGILITY SUPPLY CHAIN SOLUTIONS, INC.",2024,1,acq_cf_bs_disagreement
+917491,,"FARO TECHNOLOGIES, INC",2024,1,acq_cf_bs_disagreement
 1527508,,PACTIV EVERGREEN INC.,2024,1,acq_cf_bs_disagreement
 813828,,Paramount Skydance Corp,2024,1,acq_cf_bs_disagreement
 743238,,"SHYFT GROUP, INC.",2024,1,acq_cf_bs_disagreement

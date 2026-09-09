@@ -161,6 +161,127 @@ def test_total_debt_still_marks_partial():
 
 
 # --------------------------------------------------------------------------
+# 2026-09-09 -- PaymentsToAcquireIntangibleAssets, and the never_alone guard
+# that had to exist before it could safely be added.
+# --------------------------------------------------------------------------
+
+
+def test_intangible_purchases_are_added_to_an_itemised_ppe_leg():
+    """The OMCL shape, and the 2,032-filer case: an intangibles line beside a
+    real PP&E leg. Both are disjoint investing lines, so both are capex."""
+    import build_facts
+
+    row = build_facts._resolve_one(
+        CAPEX, 2025, "FY",
+        _index([
+            ("PaymentsToAcquirePropertyPlantAndEquipment", 10_000_000.0),
+            ("PaymentsToAcquireIntangibleAssets", 4_000_000.0),
+        ]),
+    )
+    assert row["value"] == pytest.approx(14_000_000.0)
+    assert "PaymentsToAcquireIntangibleAssets" in row["source_tag"]
+
+
+def test_intangibles_alone_never_replace_a_broad_productive_assets_total():
+    """🔴 THE BLOCKER, pinned. Measured on the 2026-08-25 archive, 85 filers
+    report an intangibles line and a BROAD total with no itemised PP&E leg.
+    _resolve_components returns on the first component it finds and resolve()
+    then skips the chain entirely, so without never_alone VERIZON's capex would
+    read 450,000,000 instead of 16,658,000,000 -- a 97% cut, in the direction
+    that OVERSTATES FCF. The broad total must win here."""
+    import build_facts
+
+    row = build_facts._resolve_one(
+        CAPEX, 2025, "FY",
+        _index([
+            ("PaymentsToAcquireIntangibleAssets", 450_000_000.0),
+            ("PaymentsToAcquireProductiveAssets", 16_658_000_000.0),
+        ]),
+    )
+    assert row["value"] == pytest.approx(16_658_000_000.0)
+    assert row["source_tag"] == "PaymentsToAcquireProductiveAssets"
+
+
+def test_other_ppe_alone_never_replaces_a_broad_total_either():
+    """The 2026-08-19 comment said this tag "must never be reachable as a lone
+    winner". Nothing enforced it until never_alone existed, so the same
+    substitution was reachable for it all along."""
+    import build_facts
+
+    row = build_facts._resolve_one(
+        CAPEX, 2025, "FY",
+        _index([
+            ("PaymentsToAcquireOtherPropertyPlantAndEquipment", 759_000.0),
+            ("PaymentsToAcquireProductiveAssets", 393_400_000.0),
+        ]),
+    )
+    assert row["value"] == pytest.approx(393_400_000.0)
+
+
+def test_other_ppe_alone_is_still_a_valid_sole_disclosure():
+    """🔴 never_alone must not become never_sole. OtherPP&E IS a PP&E line, so a
+    filer reporting only that is making a real capex disclosure -- LLY discloses
+    7,841,000,000 that way, ALK 309,000,000, ADP 196,600,000. An earlier cut
+    discarded these and cost 51 rows a capex they genuinely had, moving 14 from
+    pass to unevaluable. It loses to a broad total; it does not vanish."""
+    import build_facts
+
+    row = build_facts._resolve_one(
+        CAPEX, 2025, "FY",
+        _index([("PaymentsToAcquireOtherPropertyPlantAndEquipment", 7_841_000_000.0)]),
+    )
+    assert row is not None
+    assert row["value"] == pytest.approx(7_841_000_000.0)
+    assert "_never_alone_only" not in row and "_never_sole_only" not in row
+
+
+def test_intangibles_alone_resolve_to_nothing_rather_than_a_flattering_capex():
+    """🔴 The first cut used a never_alone-only sum as a last resort, reasoning
+    that intangibles are better than nothing. The 2026-09-09 regression run
+    refuted it on five rows: VZ, STM, INCY, SUNB and APP all had a NULL capex
+    and gate0_status="unknown" (latest filing a 10-Q/20-F/40-F, so the annual
+    legs never computed). The fallback manufactured an ANNUAL capex from the one
+    line captured for a partial period and flipped "unknown" into "pass" -- VZ
+    at 450,000,000 against a real capex near 17,000,000,000, STM's FCF at
+    2,059,000,000 on a 93,000,000 capex.
+
+    "Capex could not be determined" and "capex is small" are different findings
+    and only the second flatters the company."""
+    import build_facts
+
+    row = build_facts._resolve_one(
+        CAPEX, 2025, "FY",
+        _index([("PaymentsToAcquireIntangibleAssets", 2_000_000.0)]),
+    )
+    assert row is None
+
+
+def test_never_alone_marker_never_escapes_into_a_stored_row():
+    """The marker is plumbing. A stray key would land in facts.parquet."""
+    import build_facts
+
+    for index in (
+        _index([("PaymentsToAcquirePropertyPlantAndEquipment", 100.0)]),
+        _index([("PaymentsToAcquireIntangibleAssets", 100.0)]),
+        _index([("PaymentsToAcquireIntangibleAssets", 1.0),
+                ("PaymentsToAcquireProductiveAssets", 2.0)]),
+    ):
+        row = build_facts._resolve_one(CAPEX, 2025, "FY", index)
+        assert row is None or ("_never_alone_only" not in row and "_never_sole_only" not in row)
+
+
+def test_dead_sibling_tags_are_not_declared():
+    """PaymentsToAcquireFiniteLivedIntangibleAssets and
+    PaymentsToAcquireIntangibleAssetsExcludingGoodwill appear on ZERO filers
+    anywhere in the 2026-08-25 archive. A declared tag that never occurs is a
+    claim of coverage nothing tests, and the next reader cannot distinguish it
+    from a live one."""
+    for dead in ("PaymentsToAcquireFiniteLivedIntangibleAssets",
+                 "PaymentsToAcquireIntangibleAssetsExcludingGoodwill"):
+        assert dead not in CAPEX.all_tags
+
+
+# --------------------------------------------------------------------------
 # gate0.py -- a broken capex must not produce a flattering FCF
 # --------------------------------------------------------------------------
 

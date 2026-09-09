@@ -366,10 +366,34 @@ def _resolve_one(concept, fiscal_year, period, index):
     wins for a given company, and a pure us-gaap or pure ifrs-full filer only
     ever has facts under one of the two anyway.
     """
+    # 🔴 Two tiers, both measured on the 2026-09-09 regression run.
+    #
+    # never_sole  -> DISCARD. Not a plausible sole disclosure, so a sum made
+    #                only of these tags is thrown away and the concept resolves
+    #                to null. Letting intangibles stand alone invented an annual
+    #                capex for five rows whose latest filing is a 10-Q/20-F/40-F
+    #                (VZ 450,000,000 against a real ~17,000,000,000).
+    # never_alone -> HOLD BACK. Loses to the flat chain, because a broad total
+    #                is the better answer wherever one exists, but is still used
+    #                when the chain yields nothing. Discarding these instead
+    #                cost 51 rows a capex they genuinely had (LLY 7,841,000,000,
+    #                ALK 309,000,000, ADP 196,600,000) and moved 14 from pass to
+    #                unevaluable.
+    #
+    # "Capex could not be determined" and "capex is small" are different
+    # findings, and only the second flatters the company -- but a null is not
+    # free either, so the line goes between tags that CAN be a whole capex and
+    # tags that cannot. See Concept.never_alone / never_sole.
+    held_back = None
     if concept.components:
         row = _resolve_components(concept, fiscal_year, period, index)
         if row is not None:
-            return row
+            sole_only = row.pop("_never_sole_only", False)
+            alone_only = row.pop("_never_alone_only", False)
+            if not alone_only and not sole_only:
+                return row
+            if not sole_only:
+                held_back = row
 
     for tag in concept.chain:
         candidates = _matching(index, tag, fiscal_year, period, concept)
@@ -379,7 +403,7 @@ def _resolve_one(concept, fiscal_year, period, index):
         candidates = _matching(index, tag, fiscal_year, period, concept, any_currency=True)
         if candidates:
             return _make_row(concept, _pick_latest(candidates), tag, candidates)
-    return None
+    return held_back
 
 
 def _resolve_components(concept, fiscal_year, period, index):
@@ -412,6 +436,19 @@ def _resolve_components(concept, fiscal_year, period, index):
     row = _make_row(concept, anchor, tags, ())
     row["value"] = float(sum(entry[1]["value"] for entry in found))
     row["restated"] = any(len({c["value"] for c in entry[2]}) > 1 for entry in found)
+    # 🔴 Every leg found is a COMPLEMENT -- see Concept.never_alone. The sum is
+    # returned, but marked, so resolve() prefers the flat chain over it and
+    # falls back to it only when the chain yields nothing. Marked rather than
+    # dropped because "intangibles alone" is the right answer for a filer with
+    # no broad total, and the wrong one for a filer that has one.
+    never_alone = getattr(concept, "never_alone", frozenset())
+    never_sole = getattr(concept, "never_sole", frozenset())
+    row["_never_alone_only"] = bool(never_alone) and all(
+        entry[0] in never_alone for entry in found
+    )
+    row["_never_sole_only"] = bool(never_sole) and all(
+        entry[0] in never_sole for entry in found
+    )
     return row
 
 

@@ -48,6 +48,8 @@ class Concept:
         components=None,
         ifrs_chain=None,
         partial_ok=False,
+        never_alone=None,
+        never_sole=None,
     ):
         self.name = name
         self.period_type = period_type
@@ -56,6 +58,52 @@ class Concept:
         # For composite concepts: tags that are summed together, tried before
         # the flat chain.
         self.components = tuple(components) if components else ()
+        # 🔴 COMPONENTS THAT ARE COMPLEMENTS, NEVER SUBSTITUTES. (Added
+        # 2026-09-09.) A tag listed here may be ADDED to a component sum, but
+        # may never BE the sum on its own. If every component a filer reports
+        # is in this set, the component sum is abandoned and the flat chain is
+        # tried instead; if the chain yields nothing either, the concept
+        # resolves to NULL rather than to the complement on its own -- see
+        # _resolve_one in build_facts for the five rows that settled that.
+        #
+        # Why this had to exist before PaymentsToAcquireIntangibleAssets could
+        # be added: _resolve_components returns as soon as ANY component
+        # matches, and resolve() then returns WITHOUT trying the chain. So a
+        # filer reporting an intangibles line plus a BROAD
+        # PaymentsToAcquireProductiveAssets total -- and no itemised PP&E leg --
+        # would have had its ENTIRE capex replaced by the intangibles line.
+        # Measured on the 2026-08-25 archive: 85 filers, including VERIZON
+        # (capex 16,658,000,000 -> 450,000,000), FIRSTENERGY (4,705,000,000 ->
+        # 2,000,000) and DELTA (4,499,000,000 -> 66,500,000). Understated capex
+        # OVERSTATES FCF, so that is the fail-open direction, and it would have
+        # been a far bigger defect than the one being fixed.
+        #
+        # PaymentsToAcquireOtherPropertyPlantAndEquipment is in this set too.
+        # The 2026-08-19 comment beside it already SAID it "must never be
+        # reachable as a lone winner" -- but nothing enforced that, so the same
+        # substitution was reachable there all along. That comment described an
+        # intention the code did not implement; here it becomes real.
+        self.never_alone = frozenset(never_alone or ())
+        # 🔴 A STRICTER TIER. never_alone means "loses to the flat chain"; a tag
+        # here additionally may not resolve the concept AT ALL on its own, even
+        # when the chain yields nothing. The difference is whether the tag is a
+        # plausible SOLE disclosure.
+        #
+        # PaymentsToAcquireOtherPropertyPlantAndEquipment is a PP&E line, so a
+        # filer reporting only that is making a real, if unusual, capex
+        # disclosure -- LLY discloses 7,841,000,000 that way, ALK 309,000,000,
+        # ADP 196,600,000. Discarding those cost 51 rows a capex they genuinely
+        # had, and moved 14 of them from pass to unevaluable.
+        #
+        # PaymentsToAcquireIntangibleAssets is NOT a PP&E line. When it is the
+        # only leg captured for a company that obviously owns plant, that is
+        # evidence of INCOMPLETE CAPTURE, not of a company without PP&E. Left
+        # usable alone it filled five rows whose capex was correctly null --
+        # VZ, STM, INCY, SUNB, APP, all gate0_status="unknown" because their
+        # latest filing is a 10-Q/20-F/40-F -- with an annual capex invented
+        # from a partial period: VZ 450,000,000 against a real ~17,000,000,000,
+        # and STM's FCF 2,059,000,000 on a 93,000,000 capex.
+        self.never_sole = frozenset(never_sole or ())
         # True when a subset of the components is the NORMAL case rather than
         # a defect. total_debt has two components and a filer missing one is
         # notable, so it is marked "(partial)". capex has nine disjoint legs
@@ -235,10 +283,42 @@ CONCEPTS = (
             "PaymentsToAcquireSoftware",
             # The residual "other PP&E" line. It is a COMPLEMENT to the PP&E
             # tag above, never a substitute for it, which is exactly why it
-            # must be summed and must never be reachable as a lone winner.
+            # must be summed and must never resolve capex on its own. That last
+            # clause is now ENFORCED, via never_alone below, rather than merely
+            # asserted here -- it was not, from 2026-08-19 until 2026-09-09.
             "PaymentsToAcquireOtherPropertyPlantAndEquipment",
+            # 🔴 CAPITALISED INTANGIBLES ARE CAPEX. (Added 2026-09-09.) A
+            # disjoint investing line that CO-REPORTS with PP&E -- the same
+            # property that forced the 2026-08-19 sum -- so a first-match chain
+            # would have dropped whichever leg it did not pick. OMCL was found
+            # by hand; the archive says it is not a handful of software
+            # capitalisers but a systematic hole: 2,708 filers carry the tag,
+            # and 2,032 of them ALSO report an itemised PP&E leg, i.e. their
+            # capex is currently UNDERSTATED rather than missing. A further 127
+            # report it with no PP&E leg at all, where capex is null today.
+            # Median understatement is 5.8% of current capex, p75 67.5%,
+            # p90 797% -- the tail is where the damage is, because understated
+            # capex overstates FCF and FCF/share is the master metric.
+            #
+            # The two sibling tags checked at the same time --
+            # PaymentsToAcquireFiniteLivedIntangibleAssets and
+            # PaymentsToAcquireIntangibleAssetsExcludingGoodwill -- appear on
+            # ZERO filers anywhere in the archive (substring match, any form,
+            # any period, any unit). They are deliberately NOT listed: a tag
+            # that never occurs is not harmless, it is a claim of coverage that
+            # nothing tests, and the next reader cannot tell it from a live one.
+            "PaymentsToAcquireIntangibleAssets",
         ],
         partial_ok=True,
+        # See Concept.never_alone. Both of these are complements to the PP&E
+        # leg; neither may resolve capex by itself while a broad total exists.
+        never_alone=(
+            "PaymentsToAcquireOtherPropertyPlantAndEquipment",
+            "PaymentsToAcquireIntangibleAssets",
+        ),
+        # ...and intangibles alone are not a capex disclosure at all. See
+        # Concept.never_sole for the five rows that drew this line.
+        never_sole=("PaymentsToAcquireIntangibleAssets",),
         # Second tag verified against Copa Holdings (CIK 1345105, 20-F): an
         # airline reporting PP&E, intangibles and investment-property
         # purchases as one combined investing-activities line rather than

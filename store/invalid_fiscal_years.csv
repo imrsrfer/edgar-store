@@ -190,6 +190,7 @@ cik,entity_name,tag,fiscal_year_raw,form,accn,period_end
 880460,"Perfumania Holdings, Inc.",OperatingIncomeLoss,29953000,10-K,0000880460-16-000041,2016-01-30
 880460,"Perfumania Holdings, Inc.",OperatingIncomeLoss,29953000,10-K,0000880460-17-000007,2016-01-30
 880460,"Perfumania Holdings, Inc.",OperatingIncomeLoss,29953000,10-K,0000880460-17-000007,2017-01-28
+880460,"Perfumania Holdings, Inc.",PaymentsToAcquireIntangibleAssets,29953000,10-K,0000880460-16-000041,2015-01-31
 880460,"Perfumania Holdings, Inc.",Revenues,29953000,10-K,0000880460-16-000041,2015-01-31
 880460,"Perfumania Holdings, Inc.",Revenues,29953000,10-K,0000880460-16-000041,2016-01-30
 880460,"Perfumania Holdings, Inc.",Revenues,29953000,10-K,0000880460-17-000007,2016-01-30
@@ -1379,6 +1380,18 @@ cik,entity_name,tag,fiscal_year_raw,form,accn,period_end
 1653558,"Priority Technology Holdings, Inc.",PaymentsToAcquireBusinessesNetOfCashAcquired,43555,10-Q,0001628280-19-006766,2019-03-31
 1653558,"Priority Technology Holdings, Inc.",PaymentsToAcquireBusinessesNetOfCashAcquired,43555,10-Q,0001628280-19-010770,2019-06-30
 1653558,"Priority Technology Holdings, Inc.",PaymentsToAcquireBusinessesNetOfCashAcquired,43830,10-K,0001653558-20-000015,2019-12-31
+1653558,"Priority Technology Holdings, Inc.",PaymentsToAcquireIntangibleAssets,43465,10-K,0001628280-19-003666,2016-12-31
+1653558,"Priority Technology Holdings, Inc.",PaymentsToAcquireIntangibleAssets,43465,10-Q,0001628280-18-014379,2017-09-30
+1653558,"Priority Technology Holdings, Inc.",PaymentsToAcquireIntangibleAssets,43465,10-K,0001628280-19-003666,2017-12-31
+1653558,"Priority Technology Holdings, Inc.",PaymentsToAcquireIntangibleAssets,43830,10-K,0001653558-20-000015,2017-12-31
+1653558,"Priority Technology Holdings, Inc.",PaymentsToAcquireIntangibleAssets,43555,10-Q,0001628280-19-006766,2018-03-31
+1653558,"Priority Technology Holdings, Inc.",PaymentsToAcquireIntangibleAssets,43555,10-Q,0001628280-19-010770,2018-06-30
+1653558,"Priority Technology Holdings, Inc.",PaymentsToAcquireIntangibleAssets,43465,10-Q,0001628280-18-014379,2018-09-30
+1653558,"Priority Technology Holdings, Inc.",PaymentsToAcquireIntangibleAssets,43465,10-K,0001628280-19-003666,2018-12-31
+1653558,"Priority Technology Holdings, Inc.",PaymentsToAcquireIntangibleAssets,43830,10-K,0001653558-20-000015,2018-12-31
+1653558,"Priority Technology Holdings, Inc.",PaymentsToAcquireIntangibleAssets,43555,10-Q,0001628280-19-006766,2019-03-31
+1653558,"Priority Technology Holdings, Inc.",PaymentsToAcquireIntangibleAssets,43555,10-Q,0001628280-19-010770,2019-06-30
+1653558,"Priority Technology Holdings, Inc.",PaymentsToAcquireIntangibleAssets,43830,10-K,0001653558-20-000015,2019-12-31
 1653558,"Priority Technology Holdings, Inc.",PaymentsToAcquirePropertyPlantAndEquipment,43465,10-K,0001628280-19-003666,2016-12-31
 1653558,"Priority Technology Holdings, Inc.",PaymentsToAcquirePropertyPlantAndEquipment,43465,10-Q,0001628280-18-014379,2017-09-30
 1653558,"Priority Technology Holdings, Inc.",PaymentsToAcquirePropertyPlantAndEquipment,43465,10-K,0001628280-19-003666,2017-12-31

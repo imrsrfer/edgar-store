@@ -203,6 +203,70 @@ BASIS_NEVER_ACQUIRED = "never_acquired"
 BASIS_CARRIED_FORWARD = "carried_forward"
 BASIS_UNRESOLVED = "unresolved"
 
+# 🔴 WHICH BALANCE SHEET THE TANGIBLE-BOOK LEG IS TESTED ON (added 2026-09-10).
+#
+# The store carries TWO balance-sheet vintages for most filers: the fiscal-year
+# one (equity/goodwill/intangibles) and the newer quarterly one
+# (latest_q_equity/latest_q_goodwill/latest_q_intangibles). Until this change
+# the leg was tested on the FISCAL-YEAR vintage even when the quarterly one was
+# months newer and said the opposite -- so any filer that did a large buyback,
+# special dividend, recap, acquisition or impairment AFTER its fiscal year end
+# cleared the leg on equity that no longer existed. This was never a data gap:
+# the right number was already sitting in gate0.csv, in a column nothing tested.
+#
+# Proven case, TaskUs (TASK): FY2025 (31-Dec-25) tangible book +226.966M ->
+# test PASS. Q2'26 (30-Jun-26) tangible book -62.296M. The gap is a $3.65/share
+# (~$333M) special dividend declared 2026-02-25 and paid 2026-03-25, funded by
+# a new $600M facility -- confirmed against TaskUs's own Q2 2026 release. On the
+# 2026-09-09 store, 244 rows flipped sign between the two vintages and 34 of
+# them held gate0_pass = true.
+#
+# 🔴 THE RULE IS "THE LATER VINTAGE", NOT "THE QUARTERLY ONE". A filer whose
+# quarterly coverage LAGS its annual filing has a latest_q that is OLDER than
+# period_end -- Kimball Electronics (KE), FY ending 30-Jun-26, has its last
+# interim at 31-Mar-26. Preferring the quarterly unconditionally would test that
+# filer on a STALER balance sheet, which is the same bug pointing the other way.
+# So the dates are compared; presence is not enough.
+TANGIBLE_BOOK_BASIS_LATEST_Q = "latest_q"
+TANGIBLE_BOOK_BASIS_FISCAL_YEAR = "fiscal_year"
+TANGIBLE_BOOK_BASIS_NONE = "none"
+
+# Balance-sheet concepts whose latest quarterly period_end defines the quarterly
+# vintage date. equity anchors it -- it is the term the leg cannot do without --
+# and the others only stand in when equity itself was not tagged that quarter.
+QUARTERLY_BALANCE_CONCEPTS = ("equity", "goodwill", "intangibles", "cash", "total_debt")
+
+# 🔴 A TTM WINDOW THAT STOPS SHORT OF THE FISCAL YEAR END (added 2026-09-10).
+#
+# The rollforward identity FY(prior) - YTD(prior) + YTD(current) requires the
+# annual to close BETWEEN the two interims, so a filer whose quarterly coverage
+# stops before its own year end gets a TTM window built off the PRIOR fiscal
+# year -- a window that is real, internally consistent, and staler than the
+# annual figures sitting on the same row.
+#
+# Kimball Electronics (KE), FY ending 30-Jun-26, last interim 31-Mar-26:
+# ttm_ocf 107.904M against FY2026 OCF of 72.267M, because the window
+# (Apr-25..Mar-26) straddles the far stronger FY2025 (OCF 183.94M). That made
+# ttm_fcf_after_sbc 47.222M and implied 12.7x P/FCF-after-SBC where FY2026's
+# 12.547M gives 47.8x -- a 3.8x error in the flattering direction, on a row
+# where ttm_unavailable was FALSE and ttm_stale_concepts named only
+# `acquisitions`. Nothing distinguished it from a clean row.
+#
+# TTM_RECENCY_MAX_DAYS does not catch this: it measures the window end against
+# the filer's own latest reported period (400-day ceiling), and KE's lag is 91
+# days. So the window is published and the shortfall is stated.
+#
+# 75 days rather than a nominal 91: fiscal quarters are 13 weeks in most
+# calendars but 4-4-5 filers run short ones, and the finding here is "the
+# window stops materially short of the year end", not "exactly one quarter".
+TTM_WINDOW_MISALIGN_MIN_DAYS = 75
+
+# TTM concepts whose window is the one worth publishing: they are the FCF chain
+# (ttm_ocf - ttm_capex - ttm_sbc), which is what every multiple downstream
+# rests on. Where they disagree the BINDING one -- the earliest window end --
+# is published, because that is the vintage the FCF figure actually has.
+TTM_WINDOW_CONCEPTS = ("ocf", "capex", "sbc")
+
 
 def parse_sic_ranges(text):
     """Parse "6000-6799,7370" into a list of inclusive (low, high) pairs."""
@@ -1077,6 +1141,135 @@ def _three_state(flag_col):
     )
 
 
+def add_tangible_book_vintage(frame):
+    """Re-test the tangible-book leg on the LATER of the two balance sheets.
+
+    See TANGIBLE_BOOK_BASIS_* for why this exists (TASK, and 244 sign flips on
+    the 2026-09-09 store). Four columns come out of it:
+
+      tangible_book_latest_q         -- the quarterly-vintage figure. NEW; the
+          fiscal-year ``tangible_book`` is untouched, because screen.py and
+          several logged watchlist conditions read it by name.
+      tangible_book_basis            -- latest_q / fiscal_year / none: which
+          vintage ACTUALLY decided the leg on this row.
+      tangible_book_vintage_conflict -- the two vintages exist and disagree in
+          SIGN, either direction. A flag for the analyst, NOT an automatic
+          fail: it speaks the same dialect as capex_suspect and
+          ttm_unavailable -- "these two disagree, go look" -- because some hits
+          are the FISCAL-YEAR row being the artefact. GPN reads +1.58B FY
+          against -23.28B latest-quarter; whatever that is, no rule here gets
+          to decide it from a sign.
+      fail_tangible_book             -- OVERWRITTEN to test the chosen vintage.
+          add_flags already set it from the fiscal year; this is the same test
+          on the right balance sheet, so add_verdict's three-state derivation
+          and gate0_status need no change at all.
+
+    🔴 goodwill and intangibles fall back to the RESOLVED FISCAL-YEAR figures
+    when the quarter does not tag them; equity never does. Measured on the
+    2026-09-09 store: of 5,391 rows carrying quarterly equity, 2,505 have no
+    quarterly goodwill tag -- but 2,295 of those resolved to a fiscal-year
+    goodwill of ZERO (never_acquired / structured ASC 350 absence), where the
+    fallback is not inference at all, and 160 are unresolved at the fiscal year
+    too, so they stay null and the row falls back to the fiscal-year basis.
+    That leaves 50 rows genuinely carrying a goodwill balance one or two
+    quarters older than the equity beside it. Requiring all three quarterly
+    tags instead would have left 2,834 rows still tested on the stale vintage
+    -- the bug -- to spare those 50. Those 50 are identifiable from the shipped
+    row: tangible_book_basis is latest_q, latest_q_goodwill is blank, and
+    goodwill is not.
+    """
+    for column in ("latest_q_equity", "latest_q_goodwill", "latest_q_intangibles"):
+        if column not in frame.columns:
+            frame = frame.with_columns(pl.lit(None, dtype=pl.Float64).alias(column))
+    if "latest_q_period_end" not in frame.columns:
+        frame = frame.with_columns(
+            pl.lit(None, dtype=pl.Date).alias("latest_q_period_end")
+        )
+
+    quarterly_goodwill = pl.coalesce("latest_q_goodwill", "goodwill")
+    quarterly_intangibles = pl.coalesce("latest_q_intangibles", "intangibles")
+    frame = frame.with_columns(
+        pl.when(
+            pl.col("latest_q_equity").is_not_null()
+            & quarterly_goodwill.is_not_null()
+            & quarterly_intangibles.is_not_null()
+        )
+        .then(
+            pl.col("latest_q_equity") - quarterly_goodwill - quarterly_intangibles
+        )
+        .otherwise(None)
+        .alias("tangible_book_latest_q")
+    )
+
+    # 🔴 DATES, not mere presence. KE's latest interim (31-Mar-26) predates its
+    # own fiscal year end (30-Jun-26); preferring the quarterly there would test
+    # a STALER balance sheet than the one already on the row.
+    quarter_is_newer = (
+        pl.col("latest_q_period_end").is_not_null()
+        & pl.col("period_end").is_not_null()
+        & (pl.col("latest_q_period_end") > pl.col("period_end"))
+    )
+    # 🔴 AND the fiscal-year vintage must itself be computable. This function
+    # changes WHICH balance sheet the leg is tested on; it does not change WHICH
+    # ROWS the leg runs on. Dropping this condition lets a quarterly balance
+    # sheet make the leg evaluable where the fiscal year could not resolve
+    # goodwill or intangibles -- measured at 31 rows on the 2026-09-09 store,
+    # all 31 moving from gate0_status `unknown` straight to `pass`. Two reasons
+    # not to take that here: it is a different change from the one this fixes,
+    # and those rows keep resolution_basis = `unresolved`, so the shipped row
+    # would say the tangible-book inputs could not be resolved AND report a
+    # tangible-book PASS. A row must not contradict itself. The quarterly figure
+    # is still published in tangible_book_latest_q beside a
+    # tangible_book_basis of `none`, which is what that opportunity looks like
+    # from the outside.
+    use_quarter = (
+        quarter_is_newer
+        & pl.col("tangible_book_latest_q").is_not_null()
+        & pl.col("tangible_book").is_not_null()
+    )
+    tested = (
+        pl.when(use_quarter)
+        .then(pl.col("tangible_book_latest_q"))
+        .otherwise(pl.col("tangible_book"))
+    )
+    return frame.with_columns(
+        # A null on the chosen vintage stays null: NOT_EVALUABLE, never a pass.
+        (tested < 0).alias("fail_tangible_book"),
+        pl.when(use_quarter)
+        .then(pl.lit(TANGIBLE_BOOK_BASIS_LATEST_Q))
+        .when(pl.col("tangible_book").is_not_null())
+        .then(pl.lit(TANGIBLE_BOOK_BASIS_FISCAL_YEAR))
+        .otherwise(pl.lit(TANGIBLE_BOOK_BASIS_NONE))
+        .alias("tangible_book_basis"),
+        (
+            pl.col("tangible_book").is_not_null()
+            & pl.col("tangible_book_latest_q").is_not_null()
+            & ((pl.col("tangible_book") < 0) != (pl.col("tangible_book_latest_q") < 0))
+        ).alias("tangible_book_vintage_conflict"),
+    )
+
+
+def add_ttm_window_alignment(frame):
+    """State whether the TTM window reaches the fiscal year sitting beside it.
+
+    See TTM_WINDOW_MISALIGN_MIN_DAYS and the KE case. False here means MEASURED
+    AND ALIGNED; a filer with no buildable TTM has null window dates and False,
+    which ``ttm_unavailable`` already distinguishes -- the two columns must be
+    read together, exactly as ttm_unavailable and ttm_stale_concepts are.
+    """
+    for column in ("ttm_window_start", "ttm_window_end"):
+        if column not in frame.columns:
+            frame = frame.with_columns(pl.lit(None, dtype=pl.Date).alias(column))
+    lag_days = (pl.col("period_end") - pl.col("ttm_window_end")).dt.total_days()
+    return frame.with_columns(
+        (
+            pl.col("ttm_window_end").is_not_null()
+            & pl.col("period_end").is_not_null()
+            & (lag_days >= TTM_WINDOW_MISALIGN_MIN_DAYS)
+        ).alias("ttm_window_misaligned")
+    )
+
+
 def add_verdict(frame, allow_imputed=False):
     """Combine the per-test PASS/FAIL/NOT_EVALUABLE results into one verdict.
 
@@ -1376,6 +1569,11 @@ def build_ttm_rollforward(facts):
         .with_columns((pl.col("_fy") - pl.col("_pri") + pl.col("_cur")).alias("ttm_value"))
         .select(
             ["cik", "concept", "ttm_value",
+             # The rollforward covers (_pri_end, _cur_end]: the prior fiscal
+             # year, less the part of it already elapsed at _pri_end, plus the
+             # same part of the current one. Stated as the FIRST DAY COVERED so
+             # it means exactly what the tiling path's _span_start means.
+             pl.col("_pri_end").dt.offset_by("1d").alias("ttm_window_start"),
              pl.col("_cur_end").alias("ttm_window_end")]
         )
     )
@@ -1404,12 +1602,79 @@ def build_latest_quarter(facts):
         wanted.sort(["cik", "concept", "period_end"])
         .group_by(["cik", "concept"])
         .last()
-        .select(["cik", "concept", "value"])
+        .select(["cik", "concept", "period_end", "value"])
     )
-    wide = latest.pivot(
+    wide = latest.select(["cik", "concept", "value"]).pivot(
         on="concept", index="cik", values="value", aggregate_function="first"
     )
-    return wide.rename({c: f"latest_q_{c}" for c in wide.columns if c != "cik"})
+    wide = wide.rename({c: f"latest_q_{c}" for c in wide.columns if c != "cik"})
+    # 🔴 The DATE these balances belong to travels WITH them. Without it nothing
+    # downstream can tell whether the quarterly vintage is newer than the
+    # fiscal-year one, and "newer" is the entire basis on which
+    # add_tangible_book_vintage chooses between the two. A balance published
+    # without its date is a number that cannot be compared to anything.
+    return wide.join(_quarterly_vintage(latest), on="cik", how="left")
+
+
+def _quarterly_vintage(latest):
+    """The balance-sheet date the ``latest_q_*`` columns describe, per company.
+
+    Anchored on equity: it is the term the tangible-book leg cannot do without,
+    so its date is the one that decides the vintage. The other balance concepts
+    only stand in when equity itself was not tagged that quarter. Duration
+    concepts (a weighted-average share count) are excluded deliberately -- they
+    are not balance-sheet instants and must not set a balance-sheet date.
+    """
+    balance = latest.filter(pl.col("concept").is_in(list(QUARTERLY_BALANCE_CONCEPTS)))
+    if balance.is_empty():
+        return pl.DataFrame(schema={"cik": pl.Int64, "latest_q_period_end": pl.Date})
+    return (
+        balance.group_by("cik")
+        .agg(
+            pl.col("period_end")
+            .filter(pl.col("concept") == "equity")
+            .max()
+            .alias("_equity_end"),
+            pl.col("period_end").max().alias("_any_end"),
+        )
+        .with_columns(
+            pl.coalesce("_equity_end", "_any_end").alias("latest_q_period_end")
+        )
+        .select(["cik", "latest_q_period_end"])
+    )
+
+
+def _ttm_binding_window(recent):
+    """One TTM window per company: the BINDING one, not the flattering one.
+
+    Per-concept windows can differ. The one worth publishing is the EARLIEST
+    end among the FCF chain (TTM_WINDOW_CONCEPTS), because that is how current
+    ``ttm_fcf_after_sbc`` -- the figure every multiple downstream rests on --
+    really is. A filer carrying none of those three falls back to the earliest
+    end across whatever concepts it does have.
+
+    🔴 Never the latest end. Taking the most recent window on the row is
+    precisely how a stale figure comes to read as a current one, which is the
+    defect ``ttm_window_misaligned`` exists to state.
+    """
+
+    def earliest(rows):
+        return (
+            rows.sort(["cik", "ttm_window_end", "concept"])
+            .group_by("cik")
+            .first()
+            .select(["cik", "ttm_window_start", "ttm_window_end"])
+        )
+
+    fallback = earliest(recent)
+    chain = recent.filter(pl.col("concept").is_in(list(TTM_WINDOW_CONCEPTS)))
+    if chain.is_empty():
+        return fallback
+    primary = earliest(chain)
+    return pl.concat(
+        [primary, fallback.join(primary.select("cik"), on="cik", how="anti")],
+        how="vertical_relaxed",
+    )
 
 
 def build_ttm(facts):
@@ -1436,6 +1701,7 @@ def build_ttm(facts):
             "cik": pl.Int64,
             "concept": pl.Utf8,
             "ttm_value": pl.Float64,
+            "ttm_window_start": pl.Date,
             "ttm_window_end": pl.Date,
         }
     )
@@ -1480,6 +1746,7 @@ def build_ttm(facts):
             )
             .select(
                 ["cik", "concept", "ttm_value",
+                 pl.col("_span_start").alias("ttm_window_start"),
                  pl.col("_span_end").alias("ttm_window_end")]
             )
         )
@@ -1491,12 +1758,18 @@ def build_ttm(facts):
     if rolled.height:
         recent = pl.concat(
             [
-                rolled.select(["cik", "concept", "ttm_value", "ttm_window_end"]),
+                rolled.select(
+                    ["cik", "concept", "ttm_value",
+                     "ttm_window_start", "ttm_window_end"]
+                ),
                 recent.join(
                     rolled.select(["cik", "concept"]),
                     on=["cik", "concept"],
                     how="anti",
-                ).select(["cik", "concept", "ttm_value", "ttm_window_end"]),
+                ).select(
+                    ["cik", "concept", "ttm_value",
+                     "ttm_window_start", "ttm_window_end"]
+                ),
             ],
             how="vertical_relaxed",
         )
@@ -1516,7 +1789,7 @@ def build_ttm(facts):
     is_stale = pl.col("_lag_days") > TTM_RECENCY_MAX_DAYS
     stale = recent.filter(is_stale).select(["cik", "concept"])
     recent = recent.filter(~is_stale.fill_null(False)).select(
-        ["cik", "concept", "ttm_value"]
+        ["cik", "concept", "ttm_value", "ttm_window_start", "ttm_window_end"]
     )
     stale_names = (
         stale.sort(["cik", "concept"])
@@ -1531,10 +1804,15 @@ def build_ttm(facts):
         # to one that never had a TTM at all.
         return stale_names if stale_names.height else pl.DataFrame(schema={"cik": pl.Int64})
 
-    wide = recent.pivot(
+    wide = recent.select(["cik", "concept", "ttm_value"]).pivot(
         on="concept", index="cik", values="ttm_value", aggregate_function="first"
     )
     wide = wide.rename({c: f"ttm_{c}" for c in wide.columns if c != "cik"})
+    # 🔴 The window these sums actually describe, published beside them. See
+    # TTM_WINDOW_MISALIGN_MIN_DAYS: a window can pass every validity check on
+    # this function AND still stop short of the fiscal year on the same row, and
+    # until the dates are ON the row nothing can tell that case from a clean one.
+    wide = wide.join(_ttm_binding_window(recent), on="cik", how="left")
     # STATE the obligation rather than silently nulling -- same pattern as
     # capex_suspect and ttm_unavailable. A named stale concept is a work item.
     # 🔴 FULL join, not left. A filer ALL of whose windows are stale drops out of
@@ -2038,6 +2316,9 @@ OUTPUT_ORDER = (
     "p_fcf_after_sbc",
     "ev_fcf_after_sbc",
     "tangible_book",
+    "tangible_book_latest_q",
+    "tangible_book_basis",
+    "tangible_book_vintage_conflict",
     "income_quality",
     "fcf",
     "fcf_after_sbc",
@@ -2065,6 +2346,9 @@ OUTPUT_ORDER = (
     "ttm_suspect",
     "ttm_unavailable",
     "ttm_stale_concepts",
+    "ttm_window_start",
+    "ttm_window_end",
+    "ttm_window_misaligned",
     "net_margin",
     "income_quality_suspect",
     "operating_margin_2y_ago",
@@ -2124,6 +2408,7 @@ OUTPUT_ORDER = (
     "latest_q_cash",
     "latest_q_total_debt",
     "latest_q_shares_diluted",
+    "latest_q_period_end",
     "revenue_growth_yoy_q1",
     "revenue_growth_yoy_q2",
     "revenue_growth_yoy_q3",
@@ -2186,6 +2471,13 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False):
         frame = frame.join(ttm, on="cik", how="left")
     if latest_q.width > 1:
         frame = frame.join(latest_q, on="cik", how="left")
+    # 🔴 MUST run after the latest_q join and BEFORE add_verdict. It re-tests
+    # the tangible-book leg on the later of the two balance-sheet vintages by
+    # overwriting fail_tangible_book, and add_verdict is what turns that into
+    # test_tangible_book and gate0_status. Run it after add_verdict and the
+    # column changes while the verdict does not, which is worse than not
+    # fixing it -- the row would then contradict itself in the shipped store.
+    frame = add_tangible_book_vintage(frame)
     # Must run AFTER the ttm join -- it reads both the FY and the TTM columns.
     # When no TTM was buildable at all the flags are false, not null: "no TTM
     # series exists" is not a divergence.
@@ -2197,6 +2489,9 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False):
             pl.lit(False).alias("ttm_suspect"),
             pl.lit(True).alias("ttm_unavailable"),
         )
+    # Reads ttm_window_end (from the ttm join) against period_end (from the
+    # annual rows), so it can only run once both are on the frame.
+    frame = add_ttm_window_alignment(frame)
     # Must run AFTER the provenance join: the reconciliation abstains on a
     # non-USD reporting currency, and reporting_currency arrives here.
     frame = _add_investing_reconciliation(frame.join(provenance, on="cik", how="left"))
@@ -2240,6 +2535,40 @@ def _resolution_counts(frame):
     return {
         row["resolution_basis"]: f"{row['len']:,}"
         for row in frame.group_by("resolution_basis").len().to_dicts()
+    }
+
+
+def _tangible_book_vintage_counts(frame):
+    """Which balance sheet decided the tangible-book leg, and where they clash."""
+    if frame.is_empty() or "tangible_book_basis" not in frame.columns:
+        return {}
+    counts = {
+        f"basis_{row['tangible_book_basis']}": f"{row['len']:,}"
+        for row in frame.group_by("tangible_book_basis").len().to_dicts()
+    }
+    conflict = pl.col("tangible_book_vintage_conflict").fill_null(False)
+    fy = pl.col("tangible_book")
+    latest_q = pl.col("tangible_book_latest_q")
+    counts["vintage_conflict"] = f"{frame.select(conflict.sum()).item():,}"
+    counts["flip_fy_pos_to_q_neg"] = "{:,}".format(
+        frame.select((conflict & (fy >= 0) & (latest_q < 0)).sum()).item()
+    )
+    counts["flip_fy_neg_to_q_pos"] = "{:,}".format(
+        frame.select((conflict & (fy < 0) & (latest_q >= 0)).sum()).item()
+    )
+    return counts
+
+
+def _ttm_window_counts(frame):
+    """How many rows carry a TTM window that stops short of the fiscal year."""
+    if frame.is_empty() or "ttm_window_misaligned" not in frame.columns:
+        return {}
+    misaligned = pl.col("ttm_window_misaligned").fill_null(False)
+    return {
+        "window_dated": "{:,}".format(
+            frame.select(pl.col("ttm_window_end").is_not_null().sum()).item()
+        ),
+        "window_misaligned": f"{frame.select(misaligned.sum()).item():,}",
     }
 
 
@@ -2380,6 +2709,8 @@ def main(argv=None):
     )
     log_stage("gate0:verdict", screened=f"{frame.height:,}", **_status_counts(frame))
     log_stage("gate0:resolution_basis", **_resolution_counts(frame))
+    log_stage("gate0:tangible_book_vintage", **_tangible_book_vintage_counts(frame))
+    log_stage("gate0:ttm_window", **_ttm_window_counts(frame))
     log_stage("gate0:failures", **_failure_counts(frame))
     log_stage(
         "gate0",

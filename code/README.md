@@ -242,7 +242,10 @@ Computed metrics, all for the latest reported fiscal year:
 
 | Column | Formula |
 |---|---|
-| `tangible_book` | `equity - goodwill - intangibles` |
+| `tangible_book` | `equity - goodwill - intangibles`, **fiscal-year vintage**. Unchanged and still the FY figure; `screen.py` and logged watchlist conditions read it by name |
+| `tangible_book_latest_q` | `latest_q_equity - latest_q_goodwill - latest_q_intangibles`, **quarterly vintage**. Quarterly goodwill/intangibles fall back to the resolved fiscal-year figures when the quarter does not tag them (usually a resolved zero — the never-acquired case); quarterly equity never falls back |
+| `tangible_book_basis` | `latest_q` / `fiscal_year` / `none` — which vintage actually decided `fail_tangible_book`. `none` means the leg did not run |
+| `tangible_book_vintage_conflict` | Both vintages exist and **disagree in sign**, either direction. A flag for the analyst, not an automatic fail: some hits are the fiscal-year row being the artefact |
 | `income_quality` | `ocf / net_income` |
 | `fcf` | `ocf - capex` |
 | `fcf_after_sbc` | `ocf - capex - sbc` |
@@ -264,7 +267,7 @@ forward, `fail_*` is kept for backward compatibility:
 
 | `fail_*` / `test_*` | Fails when |
 |---|---|
-| `fail_tangible_book` / `test_tangible_book` | `tangible_book < 0` (load-bearing) |
+| `fail_tangible_book` / `test_tangible_book` | Tangible book `< 0` on the **later of the two balance-sheet vintages** — see `tangible_book_basis` for which one that was on a given row (load-bearing) |
 | `fail_income_quality` / `test_income_quality` | `income_quality < 0.80` (load-bearing) |
 | `fail_fcf` / `test_fcf` | `fcf_after_sbc <= 0` (load-bearing) |
 | `fail_sbc` / `test_sbc` | `sbc_pct_revenue > 0.15` |
@@ -289,6 +292,27 @@ TTM columns (`ttm_revenue`, `ttm_ocf`, `ttm_fcf_after_sbc`, …) are populated o
 where four discrete quarters genuinely exist. Many filers report year-to-date
 rather than discrete quarters, and a discrete Q4 is never filed on its own, so
 these are frequently null by design rather than stitched from mismatched periods.
+
+The TTM window itself is published, because a window can be internally valid and
+still stop short of the fiscal year sitting on the same row:
+
+| Column | Meaning |
+|---|---|
+| `ttm_window_start`, `ttm_window_end` | First and last day the TTM sums actually cover. Where per-concept windows differ, the **binding** one is published — the earliest end among `ocf` / `capex` / `sbc`, the chain every multiple rests on — never the most recent |
+| `ttm_window_misaligned` | `ttm_window_end` is 75 days or more **earlier** than `period_end`: the TTM figures are staler than the annual figures beside them. `False` means measured and aligned; a filer with no buildable TTM has null dates and `False` too, and `ttm_unavailable` is the column that tells those two apart |
+
+This is the shape Kimball Electronics (`KE`) has: FY ending 30-Jun-26 with its
+last interim at 31-Mar-26, so the rollforward identity reaches back to FY2025 and
+`ttm_ocf` reads 107.9M against an FY2026 OCF of 72.3M. `TTM_RECENCY_MAX_DAYS`
+does not catch it — that guard allows 400 days and the lag here is 91.
+
+Two balance-sheet vintages travel on every row, and the tangible-book leg is
+tested on the later of them:
+
+| Column | Meaning |
+|---|---|
+| `latest_q_equity`, `latest_q_goodwill`, `latest_q_intangibles`, `latest_q_cash`, `latest_q_total_debt`, `latest_q_shares_diluted` | Most recent **quarterly** balances (and the weighted-average share count). A snapshot, never a trailing sum — hence the different prefix |
+| `latest_q_period_end` | The balance-sheet date those columns describe, anchored on `equity`. Compared against `period_end` to decide which vintage is later; **presence alone is not enough**, because a filer whose quarterly coverage lags its annual filing has a `latest_q_period_end` *earlier* than `period_end` |
 
 Finally, `source_tag_*` columns echo the XBRL tag chosen for each concept that
 drives a verdict (`equity`, `goodwill`, `intangibles`, `ocf`, `capex`, `sbc`,
@@ -347,6 +371,14 @@ hand-verified figures from real filings and skip themselves until
   FY2021–FY2025 sourced from the `Goodwill` tag every year.
 - **PRGS** FY2025 — tangible book ≈ −$1,415M, `fail_tangible_book` true.
 - **CNXC** FY2025 — tangible book ≈ −$2,888M, `fail_tangible_book` true.
+- **TASK** — the vintage case. FY2025 tangible book **+$227M**, Q2'26 **−$62M**
+  after a $3.65/share special dividend declared 2026-02-25 and funded by a new
+  $600M facility. `tangible_book_basis` = `latest_q`, leg FAILS,
+  `tangible_book_vintage_conflict` true. Tested on the fiscal-year vintage it
+  passed Gate 0 on equity that no longer existed.
+- **KE** — the same problem inverted. FY ends 30-Jun-26; the last interim is
+  31-Mar-26, so the quarterly vintage is *older* and `tangible_book_basis` stays
+  `fiscal_year`. The same lag makes `ttm_window_misaligned` true.
 - **APOG** — present at all, with a non-December year-end. The regression test
   for the frames-API calendar bug.
 

@@ -566,12 +566,19 @@ def test_molson_coors_carried_forward_is_not_plain_pass(universe):
     structured_absence is checked before carry-forward for a component whose
     sibling is present, so DAN's missing goodwill (with intangibles present)
     now resolves via structured_absence_asc350 rather than carried_forward --
-    real fact of DAN's data, verified against facts.parquet. Molson Coors
-    (TAP-A) is a clean carried-forward case: BOTH goodwill and intangibles are
-    absent at the latest period end (so neither can borrow structured absence
-    from the other), and both were reported historically.
+    real fact of DAN's data, verified against facts.parquet. Molson Coors is a
+    clean carried-forward case: BOTH goodwill and intangibles are absent at the
+    latest period end (so neither can borrow structured absence from the
+    other), and both were reported historically.
+
+    Repinned to the CIK on 2026-09-10. SEC lists CIK 24545 under BOTH TAP and
+    TAP-A, load_ticker_universe keeps whichever it sees first, and that order
+    changed between the 2026-08-25 and 2026-09-10 ticker maps -- so the old
+    "TAP-A" pin matched nothing and the test failed on the LOOKUP rather than
+    on anything it was written to check. The CIK is the real join key and the
+    ticker is the one field in this row SEC is free to reorder.
     """
-    row = company(universe, "TAP-A")
+    row = company(universe, "TAP", by_cik=24545)
 
     assert row["resolution_basis"] == "carried_forward"
     assert row["resolution_basis_goodwill"] == "carried_forward"
@@ -965,3 +972,291 @@ def test_fcx_appears_in_inflection_lane_not_main_lane(gate0_csv_frame):
         "ticker"
     ].to_list()
     assert "FCX" in inflection_shortlist
+
+
+# --------------------------------------------------------------------------
+# Which balance-sheet vintage the tangible-book leg is tested on, and whether
+# the TTM window reaches the fiscal year sitting beside it. Added 2026-09-10
+# with the TASK / KE findings; see gate0.TANGIBLE_BOOK_BASIS_* and
+# gate0.TTM_WINDOW_MISALIGN_MIN_DAYS.
+# --------------------------------------------------------------------------
+
+
+def _vintage_row(**overrides):
+    """One row carrying both balance-sheet vintages, defaults all null."""
+    row = {
+        "period_end": date(2025, 12, 31),
+        "equity": None,
+        "goodwill": None,
+        "intangibles": None,
+        "tangible_book": None,
+        "latest_q_period_end": None,
+        "latest_q_equity": None,
+        "latest_q_goodwill": None,
+        "latest_q_intangibles": None,
+    }
+    row.update(overrides)
+    return pl.DataFrame(
+        [row],
+        schema={
+            "period_end": pl.Date,
+            "equity": pl.Float64,
+            "goodwill": pl.Float64,
+            "intangibles": pl.Float64,
+            "tangible_book": pl.Float64,
+            "latest_q_period_end": pl.Date,
+            "latest_q_equity": pl.Float64,
+            "latest_q_goodwill": pl.Float64,
+            "latest_q_intangibles": pl.Float64,
+        },
+    )
+
+
+def test_tangible_book_leg_is_tested_on_the_newer_quarterly_balance_sheet():
+    """The TASK shape: fiscal year positive, newer quarter negative -> FAIL."""
+    # Arrange: FY2025 +227M, Q2'26 -62M after a debt-funded special dividend.
+    frame = _vintage_row(
+        period_end=date(2025, 12, 31),
+        goodwill=219.533 * MILLION,
+        intangibles=153.490 * MILLION,
+        tangible_book=226.966 * MILLION,
+        latest_q_period_end=date(2026, 6, 30),
+        latest_q_equity=299.845 * MILLION,
+        latest_q_goodwill=218.859 * MILLION,
+        latest_q_intangibles=143.282 * MILLION,
+    )
+
+    # Act
+    result = gate0.add_tangible_book_vintage(frame)
+
+    # Assert
+    assert result["tangible_book_latest_q"][0] == pytest.approx(-62.296 * MILLION)
+    assert result["tangible_book"][0] == pytest.approx(226.966 * MILLION)
+    assert result["tangible_book_basis"][0] == gate0.TANGIBLE_BOOK_BASIS_LATEST_Q
+    assert result["fail_tangible_book"][0] is True
+    assert result["tangible_book_vintage_conflict"][0] is True
+
+
+def test_a_quarterly_vintage_older_than_the_fiscal_year_does_not_win():
+    """The KE shape: quarterly coverage LAGS the annual, so the annual wins.
+
+    Preferring the quarterly on presence alone would test this filer on a
+    STALER balance sheet -- the same bug pointing the other way.
+    """
+    # Arrange: FY ends 30-Jun-26; the last interim is 31-Mar-26.
+    frame = _vintage_row(
+        period_end=date(2026, 6, 30),
+        goodwill=6.191 * MILLION,
+        intangibles=1.921 * MILLION,
+        tangible_book=577.020 * MILLION,
+        latest_q_period_end=date(2026, 3, 31),
+        latest_q_equity=577.642 * MILLION,
+        latest_q_goodwill=6.191 * MILLION,
+        latest_q_intangibles=2.039 * MILLION,
+    )
+
+    # Act
+    result = gate0.add_tangible_book_vintage(frame)
+
+    # Assert
+    assert result["tangible_book_basis"][0] == gate0.TANGIBLE_BOOK_BASIS_FISCAL_YEAR
+    assert result["fail_tangible_book"][0] is False
+
+
+def test_a_row_with_no_quarterly_vintage_behaves_exactly_as_before():
+    # Arrange
+    frame = _vintage_row(goodwill=0.0, intangibles=0.0, tangible_book=-50.0 * MILLION)
+
+    # Act
+    result = gate0.add_tangible_book_vintage(frame)
+
+    # Assert
+    assert result["tangible_book_latest_q"][0] is None
+    assert result["tangible_book_basis"][0] == gate0.TANGIBLE_BOOK_BASIS_FISCAL_YEAR
+    assert result["fail_tangible_book"][0] is True
+    assert result["tangible_book_vintage_conflict"][0] is False
+
+
+def test_a_quarterly_vintage_does_not_make_an_unevaluable_leg_evaluable():
+    """An unresolved fiscal year stays NOT_EVALUABLE, quarter or no quarter.
+
+    This function changes WHICH balance sheet the leg is tested on, never
+    WHICH ROWS it runs on -- a row whose resolution_basis is `unresolved` must
+    not turn round and report a tangible-book verdict.
+    """
+    # Arrange: goodwill never resolved for the fiscal year.
+    frame = _vintage_row(
+        equity=500.0 * MILLION,
+        tangible_book=None,
+        latest_q_period_end=date(2026, 6, 30),
+        latest_q_equity=480.0 * MILLION,
+        latest_q_goodwill=10.0 * MILLION,
+        latest_q_intangibles=5.0 * MILLION,
+    )
+
+    # Act
+    result = gate0.add_tangible_book_vintage(frame)
+
+    # Assert
+    assert result["tangible_book_latest_q"][0] == pytest.approx(465.0 * MILLION)
+    assert result["tangible_book_basis"][0] == gate0.TANGIBLE_BOOK_BASIS_NONE
+    assert result["fail_tangible_book"][0] is None
+
+
+def test_vintage_conflict_is_flagged_in_the_reverse_direction_too():
+    """Fiscal year negative, newer quarter positive: a conflict either way, and
+    the later vintage still decides."""
+    # Arrange
+    frame = _vintage_row(
+        goodwill=585.221 * MILLION,
+        intangibles=554.702 * MILLION,
+        tangible_book=-31.406 * MILLION,
+        latest_q_period_end=date(2026, 6, 30),
+        latest_q_equity=1357.315 * MILLION,
+        latest_q_goodwill=616.232 * MILLION,
+        latest_q_intangibles=660.017 * MILLION,
+    )
+
+    # Act
+    result = gate0.add_tangible_book_vintage(frame)
+
+    # Assert
+    assert result["tangible_book_latest_q"][0] == pytest.approx(81.066 * MILLION)
+    assert result["tangible_book_basis"][0] == gate0.TANGIBLE_BOOK_BASIS_LATEST_Q
+    assert result["fail_tangible_book"][0] is False
+    assert result["tangible_book_vintage_conflict"][0] is True
+
+
+def test_absent_quarterly_goodwill_falls_back_to_the_resolved_fiscal_year():
+    """A quarter that does not tag goodwill is not a quarter with no goodwill.
+
+    Overwhelmingly this is the never-acquired case, where the fiscal-year
+    figure is a resolved zero and the fallback is not inference at all.
+    """
+    # Arrange
+    frame = _vintage_row(
+        goodwill=0.0,
+        intangibles=0.0,
+        tangible_book=100.0 * MILLION,
+        latest_q_period_end=date(2026, 6, 30),
+        latest_q_equity=90.0 * MILLION,
+    )
+
+    # Act
+    result = gate0.add_tangible_book_vintage(frame)
+
+    # Assert
+    assert result["tangible_book_latest_q"][0] == pytest.approx(90.0 * MILLION)
+    assert result["tangible_book_basis"][0] == gate0.TANGIBLE_BOOK_BASIS_LATEST_Q
+
+
+def test_an_unresolved_fiscal_year_goodwill_leaves_the_quarter_uncomputable():
+    """Nothing to fall back on means null, not zero."""
+    # Arrange
+    frame = _vintage_row(
+        equity=500.0 * MILLION,
+        latest_q_period_end=date(2026, 6, 30),
+        latest_q_equity=480.0 * MILLION,
+    )
+
+    # Act
+    result = gate0.add_tangible_book_vintage(frame)
+
+    # Assert
+    assert result["tangible_book_latest_q"][0] is None
+    assert result["tangible_book_basis"][0] == gate0.TANGIBLE_BOOK_BASIS_NONE
+
+
+def _window_row(period_end, window_end):
+    return pl.DataFrame(
+        [
+            {
+                "period_end": period_end,
+                "ttm_window_start": None,
+                "ttm_window_end": window_end,
+            }
+        ],
+        schema={
+            "period_end": pl.Date,
+            "ttm_window_start": pl.Date,
+            "ttm_window_end": pl.Date,
+        },
+    )
+
+
+def test_ttm_window_that_stops_a_quarter_short_of_the_fiscal_year_is_flagged():
+    """The KE shape: FY closes 30-Jun-26, the TTM window ends 31-Mar-26."""
+    # Arrange
+    frame = _window_row(date(2026, 6, 30), date(2026, 3, 31))
+
+    # Act
+    result = gate0.add_ttm_window_alignment(frame)
+
+    # Assert
+    assert result["ttm_window_misaligned"][0] is True
+
+
+def test_ttm_window_running_past_the_fiscal_year_end_is_not_flagged():
+    """The ordinary case: quarterly coverage is NEWER than the annual."""
+    # Arrange
+    frame = _window_row(date(2025, 12, 31), date(2026, 6, 30))
+
+    # Act
+    result = gate0.add_ttm_window_alignment(frame)
+
+    # Assert
+    assert result["ttm_window_misaligned"][0] is False
+
+
+def test_a_row_with_no_ttm_window_is_not_reported_as_misaligned():
+    """No window is NOT MEASURED; ttm_unavailable carries that, not this flag."""
+    # Arrange
+    frame = _window_row(date(2025, 12, 31), None)
+
+    # Act
+    result = gate0.add_ttm_window_alignment(frame)
+
+    # Assert
+    assert result["ttm_window_misaligned"][0] is False
+
+
+def test_task_special_dividend_fails_the_leg_on_the_quarterly_vintage(universe):
+    """TaskUs FY2025: +227M tangible book, -62M after the March 2026 payout."""
+    row = company(universe, "TASK")
+
+    assert row["tangible_book"] > 0
+    assert row["tangible_book_latest_q"] < 0
+    assert row["tangible_book_latest_q"] == pytest.approx(-62.3 * MILLION, rel=0.05)
+    assert row["tangible_book_basis"] == gate0.TANGIBLE_BOOK_BASIS_LATEST_Q
+    assert row["test_tangible_book"] == "FAIL"
+    assert row["tangible_book_vintage_conflict"] is True
+    assert row["gate0_pass"] is False
+
+
+def test_atmu_koch_filter_deal_fails_the_leg_on_the_quarterly_vintage(universe):
+    """Atmus Filtration: equity 454.8M against 511.9M of goodwill+intangibles."""
+    row = company(universe, "ATMU")
+
+    assert row["tangible_book"] > 0
+    assert row["tangible_book_latest_q"] < 0
+    assert row["tangible_book_latest_q"] == pytest.approx(-57.1 * MILLION, rel=0.05)
+    assert row["tangible_book_basis"] == gate0.TANGIBLE_BOOK_BASIS_LATEST_Q
+    assert row["test_tangible_book"] == "FAIL"
+
+
+def test_kimball_lagging_quarters_keep_the_fiscal_year_and_flag_the_ttm_window(
+    universe,
+):
+    """KE, FY ending 30-Jun-26 with its last interim at 31-Mar-26.
+
+    Two findings on one row: the balance-sheet leg must NOT move to the older
+    quarterly vintage, and the TTM window -- which straddles the far stronger
+    FY2025 -- must say so instead of passing as clean.
+    """
+    row = company(universe, "KE")
+
+    assert row["tangible_book_basis"] == gate0.TANGIBLE_BOOK_BASIS_FISCAL_YEAR
+    assert row["latest_q_period_end"] < row["period_end"]
+    assert row["ttm_window_end"] < row["period_end"]
+    assert row["ttm_window_misaligned"] is True
+    assert row["ttm_unavailable"] is False

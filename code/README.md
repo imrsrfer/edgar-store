@@ -300,11 +300,112 @@ still stop short of the fiscal year sitting on the same row:
 |---|---|
 | `ttm_window_start`, `ttm_window_end` | First and last day the TTM sums actually cover. Where per-concept windows differ, the **binding** one is published — the earliest end among `ocf` / `capex` / `sbc`, the chain every multiple rests on — never the most recent |
 | `ttm_window_misaligned` | `ttm_window_end` is 75 days or more **earlier** than `period_end`: the TTM figures are staler than the annual figures beside them. `False` means measured and aligned; a filer with no buildable TTM has null dates and `False` too, and `ttm_unavailable` is the column that tells those two apart |
+| `ttm_capex_negative` | `ttm_capex` summed to a **negative** figure, so `ttm_fcf_after_sbc` was refused and left null rather than computed through it — a negative capex would ADD to free cash flow. The flag states the sign; it does not correct it, because a negative TTM capex is as likely to be an extraction defect as a real disposal and only the cash-flow statement settles which. Distinct from `ttm_unavailable`: a window WAS built here and `ttm_ocf` / `ttm_revenue` on the row remain usable. 114 rows on the 2026-09-10 store, 86 of which carried an empty `ttm_stale_concepts` and so read as clean |
+| `ttm_capex_missing` | A TTM window exists and **capex is not in it**, so `ttm_fcf_after_sbc` is withheld. Never zero-filled: an absent capex read as zero is a company with no capital expenditure, which overstates FCF by the whole line — the same fail-open direction `capex_broken` exists to catch. Mutually exclusive with `ttm_capex_negative`; a null is not a negative |
+| `ttm_sbc_window_lost` | A TTM window exists, capex is usable, the **SBC term is absent, and the fiscal year shows real SBC** (`sbc > 0`). The company demonstrably pays it and the four-quarter window lost the line, so the metric is withheld rather than computed with a zero that would overstate FCF-after-SBC by the entire SBC figure |
+| `ttm_sbc_assumed_zero` | The same SBC gap where the **fiscal year also shows none** (`sbc` null or `0`). Nothing is hidden by assuming zero, so `ttm_fcf_after_sbc` is computed as `ttm_ocf - ttm_capex` and the assumption travels on the row — the posture `sbc_unverified` set on the annual path. Note the deliberate difference: the annual path withholds `fcf_after_sbc` whenever FY `sbc` is null, while this recovers the TTM figure there, on the argument that only a POSITIVE FY `sbc` is evidence an SBC line exists to be lost |
+
 
 This is the shape Kimball Electronics (`KE`) has: FY ending 30-Jun-26 with its
 last interim at 31-Mar-26, so the rollforward identity reaches back to FY2025 and
 `ttm_ocf` reads 107.9M against an FY2026 OCF of 72.3M. `TTM_RECENCY_MAX_DAYS`
 does not catch it — that guard allows 400 days and the lag here is 91.
+
+The three TTM columns above and `ttm_capex_negative` are one decision, and the
+table below is the whole of it. It applies only where a TTM window exists
+(`ttm_ocf` non-null); with no window the row is `ttm_unavailable` and nothing here
+is evaluated. `fy_sbc` is the fiscal-year `sbc` column on the same row.
+
+| `ttm_capex` | `ttm_sbc` | `fy_sbc` | `ttm_fcf_after_sbc` | flag set |
+|---|---|---|---|---|
+| present, ≥ 0 | present | any | computed | none |
+| present, ≥ 0 | null | null or 0 | computed, SBC term 0 | `ttm_sbc_assumed_zero` |
+| present, ≥ 0 | null | > 0 | **NULL** | `ttm_sbc_window_lost` |
+| present, < 0 | any | any | **NULL** | `ttm_capex_negative` |
+| **null** | any | any | **NULL** | `ttm_capex_missing` |
+
+The invariant the table buys: **a null `ttm_fcf_after_sbc` on a row that has a TTM
+window is always explained on that row** — by one of those four booleans, by
+`ttm_unavailable`, or by the missing input being named in `ttm_stale_concepts`.
+Measured on the 2026-09-11 store, 3,098 frame-level rows failed that test before
+this landed and 0 after, of which 601 were recovered outright.
+
+**🔴 The flags are set INDEPENDENTLY of one another. Do not "simplify" this into
+one row, one flag.** `ttm_sbc_window_lost` tests the SBC term and nothing else, so
+it fires alongside `ttm_capex_missing` or `ttm_capex_negative` whenever a row lost
+both inputs. Reading the table above as mutually exclusive — counting only rows
+whose capex is present and non-negative — gives 153 instead of 236 at the
+artifact level and **re-hides the 83 rows** that lost the SBC line *and* a capex
+figure. Those rows need both findings, not the first one. The only pair that IS
+exclusive is `ttm_capex_missing` against `ttm_capex_negative`, because a null is
+not a negative.
+
+| `ttm_sbc_evidence_conflict` | A `ttm_sbc_assumed_zero` row whose `ttm_stale_concepts` ALSO names `sbc`. The TTM builder saw an sbc window and withdrew it for being out of date, which is positive evidence an SBC line exists — against the null fiscal-year value the assumption rests on. The assumption therefore errs high, in the company's favour, on these rows. 27 rows artifact-level (51 frame-level), of which 1 artifact-level (8 frame-level) is at `gate0_status = pass`. A flag, not a correction: `ttm_fcf_after_sbc` is unchanged, because which of the two signals is right needs the quarterly statements |
+
+### The annual SBC convention
+
+The annual path withholds `fcf_after_sbc` whenever `sbc` is null; the TTM path
+computes with an SBC term of zero in the same case. Same filer, two columns,
+opposite conventions. Two annual columns now say which case each null is, and
+they partition `sbc_unverified` exactly — that column still means "sbc was not
+reported"; these say which kind:
+
+| Column | Meaning |
+|---|---|
+| `sbc_window_lost` | The filer HAS reported SBC — any fiscal year with `sbc > 0`, or a positive `ttm_sbc` — and this year's line is missing. Never assumable: a zero SBC term would overstate FCF-after-SBC by the whole figure |
+| `sbc_assumed_zero` | No year of this filer's history and no TTM window shows SBC. The absence is corroborated, so the gap is assumable |
+| `sbc_ever_reported` | The discriminator itself, published so the classification can be audited from the row. `sbc > 0` in any fiscal year — a reported zero corroborates the absence rather than contradicting it |
+
+🔴 **These are DIAGNOSTICS. `fcf_after_sbc` is unchanged and still withheld in
+both cases.** It feeds `fail_fcf_after_sbc`, which is a Gate 0 leg, so flipping
+the convention moves verdicts, shortlists and the review queue. The flip lives
+behind `gate0.py --resolve-annual-sbc-zero`, **default off**, so its consequence
+can be measured before anyone decides.
+
+**The resolution runs per fiscal year, in `compute_metrics`** — not on the latest
+row. Everything the growth screen reads is assembled from the per-year
+`fcf_per_share` that function produces (`fcf_per_share_cagr_3y/5y`,
+`fcf_per_share_earliest/latest/delta_abs`, `fcf_inflection`,
+`fcf_inflection_years`), so resolving only the latest row would put **two
+conventions inside one row**: a level computed with an SBC term of zero beside a
+CAGR built from years that withheld. That is worse than the annual-vs-TTM
+asymmetry it was meant to close, because both halves sit in the same path and a
+reader comparing a level against its own growth rate cannot see it. Measured
+against the latest-row-only behaviour: **2,792 mixed-convention filer-years**.
+
+`sbc_ever_reported` is **filer-level**; the two flags are **year-level**. A filer
+that reports SBC in any year has an SBC line, so a null in a different year is a
+lost tag. Consequence: one filer may hold assumed-zero years and *reported* years,
+never assumed-zero *and* window-lost years. History window: every FY row in
+`facts.parquet` for that CIK — the same rows `build_trends` reads, so the evidence
+test can never see a narrower history than the trend columns it protects. What it
+cannot see: SBC a filer reported **only in interim periods**, since `widen()` takes
+`period="FY"`; the `ttm_sbc` leg covers that case and is passed in separately.
+
+Measured on the 2026-09-11 store with the flag on — it **only turns nulls into
+values and never moves a published one** (0 moved, 0 lost on every column):
+
+| Column | recovered, frame-level | recovered, artifact-level |
+|---|---|---|
+| `fcf_per_share_cagr_3y` | 121 | 70 |
+| `fcf_per_share_cagr_5y` | 88 | 62 |
+| `fcf_per_share_latest` | 488 | 300 |
+| `fcf_per_share_earliest` | 265 | 118 |
+| `fcf_per_share_delta_abs` | 235 | 111 |
+| `fcf_per_share_3y_ago` | 325 | 217 |
+| `fcf_per_share_5y_ago` | 197 | 138 |
+| `fcf_inflection` | 23 flips, all False→True | 15 |
+| `fcf_inflection_years` | 251 flips, all 0→N | 139 |
+
+Gate 0 stays frozen in both states: `gate0_pass`, `gate0_status` and
+`gate0_not_evaluable` move on **zero** rows. The lane effect is **+4 survivors on
+`unevaluated`** (EQNR, HAL, NEU, TS) and zero on the other seven — measured on
+`rejected_because == ""`, **not** on shortlist row count, which is identical by
+construction because `screen.py` writes every quality-stage row and marks the
+rejects. 24.4% of the rows whose trends move carry a capex that is a floor
+(`capex_suspect` or `investing_unreconciled`), so their recovered CAGR is an upper
+bound. 93 rows cross a CAGR sign boundary, 58 of them clearing
+`GROWTH_MIN_FCF_CAGR`.
 
 Two balance-sheet vintages travel on every row, and the tangible-book leg is
 tested on the later of them:

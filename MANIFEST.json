@@ -1,8 +1,8 @@
 {
   "contains": "reference data only: code + SEC-derived store. NO queue, NO portfolio data.",
-  "synced_utc": "2026-09-11T04:24:17Z",
+  "synced_utc": "2026-09-11T06:32:31Z",
   "store_built_utc_oldest": "2026-08-19T23:22:51Z",
-  "store_built_utc_newest": "2026-09-11T04:24:10Z",
+  "store_built_utc_newest": "2026-09-11T06:32:17Z",
   "code": {
     "fetch_edgar.py": {
       "bytes": 9115,
@@ -15,9 +15,9 @@
       "sha256_16": "96fc1eff37a5046f"
     },
     "gate0.py": {
-      "bytes": 120234,
-      "mtime_utc": "2026-09-10T15:55:32Z",
-      "sha256_16": "a6149850b1e3a93e"
+      "bytes": 137168,
+      "mtime_utc": "2026-09-11T06:20:06Z",
+      "sha256_16": "9ebfc7e8c7bbfb69"
     },
     "screen.py": {
       "bytes": 53905,
@@ -40,9 +40,9 @@
       "sha256_16": "74187493723a6a39"
     },
     "README.md": {
-      "bytes": 22871,
-      "mtime_utc": "2026-09-10T16:01:34Z",
-      "sha256_16": "81f0dc22d35bf088"
+      "bytes": 31242,
+      "mtime_utc": "2026-09-11T06:25:03Z",
+      "sha256_16": "f7043ff8eb391589"
     },
     "PRICES_SCHEMA.md": {
       "bytes": 3981,
@@ -52,9 +52,9 @@
   },
   "store": {
     "gate0.csv": {
-      "bytes": 8111732,
-      "mtime_utc": "2026-09-11T03:31:16Z",
-      "sha256_16": "67ded5897863ad4e"
+      "bytes": 8397430,
+      "mtime_utc": "2026-09-11T06:32:17Z",
+      "sha256_16": "67d680817cbc6aee"
     },
     "facts.parquet": {
       "bytes": 23540626,
@@ -108,17 +108,17 @@
     },
     "data_quality.csv": {
       "bytes": 284758,
-      "mtime_utc": "2026-09-11T03:31:16Z",
+      "mtime_utc": "2026-09-11T06:32:17Z",
       "sha256_16": "e3a343b5139fe070"
     },
     "inactive_filers.csv": {
       "bytes": 168988,
-      "mtime_utc": "2026-09-11T03:31:16Z",
+      "mtime_utc": "2026-09-11T06:32:17Z",
       "sha256_16": "a76349b059ae557b"
     },
     "duplicate_filers.csv": {
       "bytes": 3241,
-      "mtime_utc": "2026-09-11T03:31:16Z",
+      "mtime_utc": "2026-09-11T06:32:17Z",
       "sha256_16": "de27413cff5410bc"
     },
     "invalid_fiscal_years.csv": {

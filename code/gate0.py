@@ -368,13 +368,26 @@ def _company_provenance(facts):
     order. reporting_currency is never converted or normalised to USD; it is
     surfaced so a caller comparing figures across companies knows when not to
     take a raw dollar comparison at face value.
+
+    🔴 .sort() BEFORE .first() (added 2026-09-11). ``mode()`` returns every
+    most-frequent value in UNSPECIFIED order, so on a tie ``.first()`` picked
+    arbitrarily and the answer changed between two runs of identical code.
+    Measured: 6 rows moved on taxonomy/filing_form across two consecutive
+    builds of the same source. The docstring above already claimed the
+    opposite -- "without depending on row order" -- which is exactly the kind
+    of claim that survives because nothing checks it.
+    A nondeterministic column also defeats the whole-store diff that is
+    supposed to catch an unintended relabel before a sync, so this is a
+    correctness fix, not tidiness. Lexicographic tie-break: arbitrary, but
+    the same arbitrary answer every time.
     """
     return facts.group_by("cik").agg(
-        pl.col("taxonomy").mode().first().alias("taxonomy"),
-        pl.col("form").mode().first().alias("filing_form"),
+        pl.col("taxonomy").mode().sort().first().alias("taxonomy"),
+        pl.col("form").mode().sort().first().alias("filing_form"),
         pl.col("unit")
         .filter(pl.col("unit") != "shares")
         .mode()
+        .sort()
         .first()
         .alias("reporting_currency"),
     )
@@ -395,13 +408,95 @@ def _acq_disagreement(cf_intensity, bs_intensity):
     )
 
 
-def compute_metrics(frame, assume_absent_zero=False):
+def _classify_annual_sbc(frame, sbc_evidence=None):
+    """Attach sbc_ever_reported and the two per-year SBC gap flags.
+
+    🔴 THE EVIDENCE TEST IS FILER-LEVEL, THE FLAGS ARE YEAR-LEVEL. A filer
+    that reports SBC in ANY year HAS an SBC line, so a null in a different
+    year is a lost tag rather than an absence. Per-year evidence would make
+    the same filer assumable in one year and lost in the next, which is
+    precisely the mixed convention the push-down exists to remove.
+
+    Consequence, and it is load-bearing: one filer may hold assumed-zero
+    years and REPORTED years, but never assumed-zero and window-lost years.
+
+    History window: every FY row this frame holds, which in the pipeline is
+    every annual period in facts.parquet for that CIK -- the same rows
+    build_trends later reads, so the evidence test can never see a narrower
+    history than the trend columns it protects. It cannot see SBC a filer
+    reported ONLY in interim periods (widen() takes period="FY"); the
+    ttm_sbc leg passed in as sbc_evidence is what covers that case.
+
+    ``sbc > 0``, not ``is_not_null``: a reported zero corroborates the
+    absence rather than contradicting it.
+    """
+    if "sbc" not in frame.columns:
+        return frame.with_columns(
+            pl.lit(False).alias("sbc_ever_reported"),
+            pl.lit(False).alias("sbc_assumed_zero"),
+            pl.lit(False).alias("sbc_window_lost"),
+        )
+    frame = frame.with_columns(
+        ((pl.col("sbc").is_not_null()) & (pl.col("sbc") > 0))
+        .any()
+        .over("cik")
+        .alias("sbc_ever_reported")
+    )
+    if sbc_evidence is not None:
+        frame = frame.join(
+            sbc_evidence.rename({"sbc_ever_reported": "_external_sbc_evidence"}),
+            on="cik",
+            how="left",
+        ).with_columns(
+            (
+                pl.col("sbc_ever_reported")
+                | pl.col("_external_sbc_evidence").fill_null(False)
+            ).alias("sbc_ever_reported")
+        ).drop("_external_sbc_evidence")
+
+    gap = pl.col("sbc").is_null()
+    return frame.with_columns(
+        (gap & ~pl.col("sbc_ever_reported")).fill_null(False).alias("sbc_assumed_zero"),
+        (gap & pl.col("sbc_ever_reported")).fill_null(False).alias("sbc_window_lost"),
+    )
+
+
+def _annual_sbc_term(resolve_sbc_zero):
+    """The SBC figure fcf_after_sbc subtracts for one fiscal year."""
+    if not resolve_sbc_zero:
+        return pl.col("sbc")
+    return pl.when(pl.col("sbc_assumed_zero")).then(0.0).otherwise(pl.col("sbc"))
+
+
+def compute_metrics(frame, assume_absent_zero=False, sbc_evidence=None,
+                    resolve_sbc_zero=False):
     """Add the Gate 0 ratios to a wide per-year frame.
 
     Every ratio propagates nulls: a company missing ``sbc`` has unknown
     FCF-after-SBC, not higher FCF.
+
+    🔴 THE SBC RESOLUTION RUNS HERE, PER FISCAL YEAR (moved 2026-09-11). It
+    used to run on the latest row only, after the joins. Everything the
+    growth screen reads -- fcf_per_share_cagr_3y/5y,
+    fcf_per_share_earliest/latest/delta_abs, fcf_inflection,
+    fcf_inflection_years -- is assembled from the per-year fcf_per_share this
+    function produces, so a latest-row resolution put TWO CONVENTIONS INSIDE
+    ONE ROW: a level computed with an SBC term of zero beside a CAGR built
+    from years that withheld. That is worse than the annual-vs-TTM asymmetry
+    it was meant to close, because both halves sit in the same path and a
+    reader comparing a level against its own growth rate cannot see it.
+
+    ``sbc_evidence`` is an optional per-cik frame carrying
+    ``sbc_ever_reported``, unioned with what this frame's own history shows.
+    It exists because one leg of the discriminator -- a positive ``ttm_sbc``
+    -- is built outside this function. Omit it and the test is annual history
+    alone, which is what every direct caller and every unit test gets.
+
+    ``resolve_sbc_zero`` is the convention flip and defaults to FALSE. See
+    ``resolve_annual_sbc`` for why it does not ship.
     """
     frame = frame.sort(["cik", "fiscal_year"])
+    frame = _classify_annual_sbc(frame, sbc_evidence)
 
     goodwill_raw, intangibles_raw = pl.col("goodwill"), pl.col("intangibles")
     total_debt_raw = pl.col("total_debt")
@@ -542,7 +637,12 @@ def compute_metrics(frame, assume_absent_zero=False):
     frame = frame.with_columns(
         (pl.col("equity") - goodwill - intangibles).alias("tangible_book"),
         (pl.col("ocf") - capex_usable).alias("fcf"),
-        (pl.col("ocf") - capex_usable - pl.col("sbc")).alias("fcf_after_sbc"),
+        # The SBC term, not the sbc column: on an assumable year under the
+        # flip it is a literal zero, and it is pl.col("sbc") -- null and all
+        # -- in every other case, which is the shipped behaviour.
+        (pl.col("ocf") - capex_usable - _annual_sbc_term(resolve_sbc_zero)).alias(
+            "fcf_after_sbc"
+        ),
         (pl.col("cash") - total_debt).alias("net_cash"),
         _safe_div(pl.col("ocf"), pl.col("net_income")).alias("income_quality"),
         _safe_div(pl.col("sbc"), pl.col("revenue")).alias("sbc_pct_revenue"),
@@ -1839,13 +1939,165 @@ def build_ttm(facts):
     # Same integrity guard as the annual path: a negative TTM capex is a
     # broken extraction, not a capex-free year, and it would flatter
     # ttm_fcf_after_sbc in exactly the same direction.
+    #
+    # 🔴 The guard must SAY it fired (added 2026-09-11). Nulling alone was
+    # silent: ttm_ocf builds fine, so ttm_unavailable reads FALSE, and
+    # ttm_stale_concepts names nothing because staleness is not what went
+    # wrong. The row then published a raw ttm_capex beside an absent
+    # ttm_fcf_after_sbc and nothing on it distinguished "a window was built
+    # and one input is unusable" from "a window was built and is clean".
+    # 64 rows in the 2026-09-10 store are that shape. Same defect class as
+    # the null market cap at the band gate -- a null that reads as clean.
+    #
+    # A DEDICATED column, not a name appended to ttm_stale_concepts: that
+    # column is a list of CONCEPT NAMES whose window was out of date, and a
+    # pseudo-concept `capex_negative` inside it would make one column mean
+    # two things -- which is the conflation ttm_unavailable and
+    # ttm_stale_concepts were split apart to prevent. It is also not
+    # ttm_unavailable: a TTM WAS built here, and saying otherwise would lose
+    # the ttm_ocf and ttm_revenue that are on the row and usable.
+    #
+    # 🔴 It states the sign; it does not correct it. build_ttm must not
+    # compute through a negative capex -- until the capex chain's sign
+    # convention is audited, one is as likely to be an extraction bug as a
+    # real disposal, and computing through it would flatter FCF by the full
+    # amount in every SAH-shaped case. Routing that to a human is the whole
+    # point, exactly as with capex_broken on the annual path.
     ttm_capex_usable = pl.when(pl.col("ttm_capex") < 0).then(None).otherwise(
         pl.col("ttm_capex")
     )
     return wide.with_columns(
         (pl.col("ttm_ocf") - ttm_capex_usable - pl.col("ttm_sbc")).alias(
             "ttm_fcf_after_sbc"
-        )
+        ),
+        # fill_null(False): an ABSENT ttm_capex is unknown, not negative --
+        # the same distinction ttm_unavailable draws for the window itself.
+        (pl.col("ttm_capex") < 0).fill_null(False).alias("ttm_capex_negative"),
+        # ...and "unknown" is itself a finding worth naming (added 2026-09-11).
+        # A window WAS built here and capex is simply not in it, which blanks
+        # ttm_fcf_after_sbc on a row where ttm_unavailable reads FALSE and
+        # ttm_stale_concepts names nothing -- the largest of the silent
+        # populations. Gated on ttm_ocf so it means "the window exists and
+        # capex is missing FROM it", not "there is no window", which is
+        # ttm_unavailable's statement and must not be duplicated here.
+        #
+        # 🔴 Never zero-filled. An absent capex zero-filled is a company with
+        # no capital expenditure, which overstates FCF by the whole line --
+        # the identical failure-open direction capex_broken exists to catch.
+        # Mutually exclusive with ttm_capex_negative by construction: a null
+        # is not a negative.
+        (pl.col("ttm_ocf").is_not_null() & pl.col("ttm_capex").is_null())
+        .fill_null(False)
+        .alias("ttm_capex_missing"),
+    )
+
+
+def resolve_ttm_sbc(frame):
+    """Resolve the TTM SBC gap three ways, and state which one was taken.
+
+    Runs on the JOINED frame, not inside build_ttm, because the deciding
+    input is the FISCAL-YEAR ``sbc`` column and that only exists once the
+    annual rows and the TTM rows are on the same row. Deriving a second
+    "latest FY sbc" inside build_ttm would mean two builders each picking
+    their own latest period -- the exact divergence DIAGNOSTIC_CONCEPTS was
+    introduced to stop.
+
+    Where a TTM window exists and the SBC term is absent:
+
+      fy sbc > 0        -> WITHHOLD. ``ttm_sbc_window_lost``. The company
+          demonstrably pays share-based compensation and the four-quarter
+          window lost the line; an SBC term of zero would overstate
+          FCF-after-SBC by the whole figure, in the company's favour. That is
+          the capex sign-convention trap relocated one column over, and the
+          answer is the same one: state it and route it to a human.
+
+      fy sbc null or 0  -> COMPUTE with an SBC term of zero, and SAY SO via
+          ``ttm_sbc_assumed_zero``. Nothing is being hidden: the annual row
+          agrees there is no SBC to lose. A number of large old-economy
+          filers never tag SBC at all, and withholding the master growth
+          metric from all of them buys no safety.
+
+    🔴 The assumption is NAMED, never silent -- the posture ``sbc_unverified``
+    already set on the annual path. Note the deliberate difference from that
+    column: the annual path withholds ``fcf_after_sbc`` whenever FY sbc is
+    null, while this recovers the TTM figure in that same case. The
+    justification is that only a POSITIVE fy sbc is evidence that an SBC line
+    exists to be lost; an absent one is no more informative here than it is
+    there, and the flag carries the caveat onto the row either way.
+
+    🔴 An absent or negative ttm_capex is NOT recovered. Only the SBC term is
+    ever assumed, and only with the fiscal year's corroboration.
+    """
+    has_window = pl.col("ttm_ocf").is_not_null()
+    capex_usable = pl.col("ttm_capex").is_not_null() & (pl.col("ttm_capex") >= 0)
+    sbc_gap = has_window & pl.col("ttm_sbc").is_null()
+    fy_sbc_real = pl.col("sbc").is_not_null() & (pl.col("sbc") > 0)
+    window_lost = (sbc_gap & fy_sbc_real).fill_null(False)
+    # is_null() on the metric is belt and braces: a null ttm_sbc already
+    # implies a null ttm_fcf_after_sbc. It is here because this function may
+    # only ever turn a NULL into a number -- it must never move one.
+    assumed = (
+        sbc_gap & ~fy_sbc_real & capex_usable & pl.col("ttm_fcf_after_sbc").is_null()
+    ).fill_null(False)
+    return frame.with_columns(
+        pl.when(assumed)
+        .then(pl.col("ttm_ocf") - pl.col("ttm_capex"))
+        .otherwise(pl.col("ttm_fcf_after_sbc"))
+        .alias("ttm_fcf_after_sbc"),
+        assumed.alias("ttm_sbc_assumed_zero"),
+        window_lost.alias("ttm_sbc_window_lost"),
+    )
+
+
+def _ttm_sbc_evidence(ttm):
+    """The one leg of the SBC evidence test that lives outside the annual frame.
+
+    A filer whose annual sbc tag is missing in every year but whose
+    four-quarter sum carries real SBC is reporting it. compute_metrics cannot
+    see that -- widen() takes period="FY" -- so the TTM frame is built first
+    and this is handed in as ``sbc_evidence``.
+
+    Worth one row on the 2026-09-11 store, and kept anyway: it can only move
+    a filer from assumable to withheld, which is the safe direction.
+    """
+    if ttm is None or "ttm_sbc" not in ttm.columns:
+        return None
+    return ttm.select(
+        "cik",
+        (pl.col("ttm_sbc").is_not_null() & (pl.col("ttm_sbc") > 0))
+        .fill_null(False)
+        .alias("sbc_ever_reported"),
+    )
+
+
+def add_ttm_sbc_evidence_conflict(frame):
+    """TTM rows assumed to zero that the stale-concept list CONTRADICTS.
+
+    ``ttm_sbc_assumed_zero`` fires when the fiscal year shows no SBC. But if
+    ``ttm_stale_concepts`` names ``sbc``, the TTM builder SAW an sbc window
+    and withdrew it for being out of date -- which is positive evidence an
+    SBC line exists, against a null FY value. The assumption still errs in
+    the company's favour on those rows.
+
+    A dedicated boolean rather than a documented README predicate, on the
+    codebase's own standing preference: every other finding here is a column,
+    and a reader should never have to string-split ``ttm_stale_concepts`` to
+    learn that a published figure is disputed. 27 rows (artifact-level) is a
+    small population, but the rows it names are exactly the ones a human
+    should re-derive by hand, and a predicate buried in a document is not
+    something a screen can filter on.
+
+    🔴 A FLAG, NOT A CORRECTION. ttm_fcf_after_sbc is unchanged on these
+    rows: which of the two signals is right needs the quarterly statements,
+    and guessing is the mistake this file carries three post-mortems about.
+    """
+    if "ttm_sbc_assumed_zero" not in frame.columns:
+        return frame.with_columns(pl.lit(False).alias("ttm_sbc_evidence_conflict"))
+    names = pl.col("ttm_stale_concepts").fill_null("").str.split(",")
+    return frame.with_columns(
+        (pl.col("ttm_sbc_assumed_zero").fill_null(False) & names.list.contains("sbc"))
+        .fill_null(False)
+        .alias("ttm_sbc_evidence_conflict")
     )
 
 
@@ -2307,6 +2559,9 @@ OUTPUT_ORDER = (
     "carried_forward_fields",
     "carry_forward_age_days",
     "sbc_unverified",
+    "sbc_assumed_zero",
+    "sbc_window_lost",
+    "sbc_ever_reported",
     "price",
     "ma_200",
     "pct_vs_200ma",
@@ -2398,7 +2653,12 @@ OUTPUT_ORDER = (
     "ttm_net_income",
     "ttm_ocf",
     "ttm_capex",
+    "ttm_capex_negative",
+    "ttm_capex_missing",
     "ttm_sbc",
+    "ttm_sbc_assumed_zero",
+    "ttm_sbc_window_lost",
+    "ttm_sbc_evidence_conflict",
     "ttm_fcf_after_sbc",
     # Balances and rate concepts: a snapshot, NOT a trailing sum. Deliberately
     # a different prefix -- two different things must not share a label.
@@ -2431,7 +2691,8 @@ def order_columns(frame):
     return frame.select(present + extra)
 
 
-def load_universe(paths, assume_absent_zero=False, allow_imputed=False):
+def load_universe(paths, assume_absent_zero=False, allow_imputed=False,
+                  resolve_annual_sbc_zero=False):
     """Join facts, trends, TTM and company metadata into one row per company."""
     facts = pl.read_parquet(paths.facts)
     meta = pl.read_parquet(paths.meta)
@@ -2449,7 +2710,17 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False):
     # added to DESCRIBE the data had begun to change what the data said.
     scoring_facts = facts.filter(~pl.col("concept").is_in(DIAGNOSTIC_CONCEPTS))
 
-    annual = compute_metrics(widen(facts), assume_absent_zero)
+    # 🔴 The TTM frame is built BEFORE the annual metrics now: it supplies one
+    # leg of the SBC evidence test, and that test has to be settled before
+    # compute_metrics resolves any fiscal year. build_ttm reads scoring_facts
+    # and nothing from the annual frame, so the order is free to change.
+    ttm = build_ttm(scoring_facts)
+    annual = compute_metrics(
+        widen(facts),
+        assume_absent_zero,
+        sbc_evidence=_ttm_sbc_evidence(ttm),
+        resolve_sbc_zero=resolve_annual_sbc_zero,
+    )
     trends = build_trends(annual)
     fcf_inflection = build_fcf_inflection(annual)
     latest = latest_rows(annual)
@@ -2460,7 +2731,6 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False):
         # what they asked for, not have it second-guessed by inference.
         latest = resolve_goodwill_intangibles(annual, latest)
     latest = add_flags(latest)
-    ttm = build_ttm(scoring_facts)
     latest_q = build_latest_quarter(scoring_facts)
     provenance = _company_provenance(scoring_facts)
     acceleration = build_quarterly_acceleration(scoring_facts)
@@ -2482,12 +2752,33 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False):
     # When no TTM was buildable at all the flags are false, not null: "no TTM
     # series exists" is not a divergence.
     if "ttm_fcf_after_sbc" in frame.columns:
+        # The capex flags ride in on a LEFT join, so they are null on every
+        # filer that had no TTM row at all. A null boolean is a third state
+        # these columns do not mean: each is a flag that either fired or did
+        # not, and a row with no TTM capex to test is a row where it did not.
+        frame = frame.with_columns(
+            pl.col("ttm_capex_negative").fill_null(False),
+            pl.col("ttm_capex_missing").fill_null(False),
+        )
+        # 🔴 MUST run BEFORE add_ttm_divergence. It turns NULLs into numbers,
+        # and ttm_fcf_divergence is computed FROM ttm_fcf_after_sbc: run it
+        # after, and every recovered row would carry a figure that was never
+        # tested against its fiscal year, reading as agreement on a
+        # comparison nothing performed. That is the defect class this whole
+        # file is a post-mortem of, so the order is load-bearing.
+        frame = resolve_ttm_sbc(frame)
         frame = add_ttm_divergence(frame)
+        frame = add_ttm_sbc_evidence_conflict(frame)
     else:
         frame = frame.with_columns(
             pl.lit(False).alias("ttm_fcf_divergence"),
             pl.lit(False).alias("ttm_suspect"),
             pl.lit(True).alias("ttm_unavailable"),
+            pl.lit(False).alias("ttm_capex_negative"),
+            pl.lit(False).alias("ttm_capex_missing"),
+            pl.lit(False).alias("ttm_sbc_assumed_zero"),
+            pl.lit(False).alias("ttm_sbc_window_lost"),
+            pl.lit(False).alias("ttm_sbc_evidence_conflict"),
         )
     # Reads ttm_window_end (from the ttm join) against period_end (from the
     # annual rows), so it can only run once both are on the frame.
@@ -2560,16 +2851,35 @@ def _tangible_book_vintage_counts(frame):
 
 
 def _ttm_window_counts(frame):
-    """How many rows carry a TTM window that stops short of the fiscal year."""
+    """How many rows carry a TTM window that stops short of the fiscal year,
+    and how many carry one whose FCF chain could not be closed.
+
+    The four resolution flags are logged every run for the same reason
+    sbc_unverified is named explicitly in _failure_counts: a withheld metric
+    must never pass silently. Before they existed, 3,098 rows published a
+    blank ttm_fcf_after_sbc with nothing on them to say why, and a run summary
+    that does not count them is how that goes unnoticed again.
+    """
     if frame.is_empty() or "ttm_window_misaligned" not in frame.columns:
         return {}
     misaligned = pl.col("ttm_window_misaligned").fill_null(False)
-    return {
+    counts = {
         "window_dated": "{:,}".format(
             frame.select(pl.col("ttm_window_end").is_not_null().sum()).item()
         ),
         "window_misaligned": f"{frame.select(misaligned.sum()).item():,}",
     }
+    for column, label in (
+        ("ttm_capex_negative", "capex_negative"),
+        ("ttm_capex_missing", "capex_missing"),
+        ("ttm_sbc_window_lost", "sbc_window_lost"),
+        ("ttm_sbc_assumed_zero", "sbc_assumed_zero"),
+    ):
+        if column in frame.columns:
+            counts[label] = "{:,}".format(
+                frame.select(pl.col(column).fill_null(False).sum()).item()
+            )
+    return counts
 
 
 def main(argv=None):
@@ -2591,6 +2901,18 @@ def main(argv=None):
         "--include-financials",
         action="store_true",
         help="keep banks, brokers, insurers and REITs (FCF is meaningless there)",
+    )
+    parser.add_argument(
+        "--resolve-annual-sbc-zero",
+        action="store_true",
+        help="PHASE B, MEASUREMENT ONLY, DEFAULT OFF. Compute fcf_after_sbc "
+        "with an SBC term of zero on sbc_assumed_zero rows, aligning the "
+        "annual convention with the TTM one. fcf_after_sbc feeds "
+        "fail_fcf_after_sbc, a GATE 0 LEG: this moves verdicts, shortlists "
+        "and the review queue, including names already dispositioned on a "
+        "not-evaluable leg. Run it into a scratch --out/--root to see what "
+        "would change; do not make it the default without the book owner's "
+        "decision.",
     )
     parser.add_argument(
         "--assume-absent-zero",
@@ -2620,7 +2942,10 @@ def main(argv=None):
             parser.error(f"{required} not found. Run build_facts.py first.")
 
     started = time.monotonic()
-    frame = load_universe(paths, args.assume_absent_zero, args.allow_imputed)
+    frame = load_universe(
+        paths, args.assume_absent_zero, args.allow_imputed,
+        resolve_annual_sbc_zero=args.resolve_annual_sbc_zero,
+    )
     universe_size = frame.height
 
     frame, duplicates = deduplicate_by_company_name(frame)

@@ -641,10 +641,11 @@ def compute_metrics(frame, assume_absent_zero=False, sbc_evidence=None,
         ).alias("shares_scale_suspect"),
     )
     capex_usable = pl.when(pl.col("capex_broken")).then(None).otherwise(pl.col("capex"))
-    # Null policy: Option (a) — deduct lease_payments where present; set lease_unmeasured=True where null.
+    # Null policy: Option (a) — deduct lease_payments where present; where null, deduct 0.
     # Rationale: IFRS 16 finance-lease principal payments are financing-section cash flows, not operating.
-    # Omitting them overstates FCF by 3-5x for lease-heavy businesses. Where unresolved, flag for manual review.
-    lease_usable = pl.when(pl.col("lease_unmeasured")).then(None).otherwise(pl.col("lease_payments"))
+    # Omitting them overstates FCF by 3-5x for lease-heavy businesses. lease_unmeasured flag (separate)
+    # marks where cash flow data is missing; it does not gate the calculation.
+    lease_usable = pl.col("lease_payments").fill_null(0.0)
 
     frame = frame.with_columns(
         (pl.col("equity") - goodwill - intangibles).alias("tangible_book"),
@@ -1979,10 +1980,8 @@ def build_ttm(facts):
         pl.col("ttm_capex")
     )
     # TTM lease_payments: null policy matches annual (Option a).
-    # Where ttm_lease_payments is null and ttm_ocf exists, the 4-quarter window lacks lease data.
-    ttm_lease_usable = pl.when(pl.col("ttm_lease_payments").is_null()).then(None).otherwise(
-        pl.col("ttm_lease_payments")
-    )
+    # Where ttm_lease_payments is null and ttm_ocf exists, deduct 0.
+    ttm_lease_usable = pl.col("ttm_lease_payments").fill_null(0.0)
     return wide.with_columns(
         (pl.col("ttm_ocf") - ttm_capex_usable - ttm_lease_usable - pl.col("ttm_sbc")).alias(
             "ttm_fcf_after_sbc"

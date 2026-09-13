@@ -531,6 +531,54 @@ CONCEPTS = (
         ],
     ),
     Concept(
+        "lease_payments",
+        DURATION,
+        [
+            "PaymentsOfLeaseLiabilities",
+            "PaymentsOfFinanceLeaseLiabilities",
+        ],
+        components=[
+            # US-GAAP financing section: lease principal payments.
+            "FinanceLeasePrincipalPayments",
+            "RepaymentsOfLongTermCapitalLeaseObligations",
+            "PaymentsForCapitalLeaseObligations",
+            "FinanceLeaseLiabilityPaymentsDue",
+            # 🔴 IFRS 16 / ASC 842 LEASE PAYMENTS FIX (2026-09-13).
+            # Under IFRS 16 and ASC 842, finance-lease principal payments
+            # land in financing activities, not operating. A lessee that
+            # charters its productive assets (shipping, airlines, retail,
+            # restaurants, hospitals, staffing) will report ~0 lease payments
+            # in operating cash flow and the full principal + interest in
+            # financing. The store's FCF = OCF - capex never deducts them,
+            # causing systematic overstatement of 3-5x for lease-heavy filers.
+            #
+            # ZIM Integrated Shipping (CIK 1654126, FY2025): $2,082M reported
+            # FCF vs $642M true FCF (3.24x overstatement), because $1,440M in
+            # charter-hire financing payments were never deducted. This fix
+            # adds the deduction; null policy described in gate0.py.
+            #
+            # Interest is a complement to principal (never_alone): filers that
+            # report principal often also report interest on the same liability
+            # separately, but interest alone is not a lease-payment disclosure.
+            # Interest must sum with principal, never replace it.
+            "FinanceLeaseInterestPaymentOnLiability",
+        ],
+        partial_ok=True,
+        # Interest on finance-lease liability is a complement to principal:
+        # co-reported, never a substitute. Cannot resolve lease_payments
+        # by itself, must sum with principal leg.
+        never_alone=("FinanceLeaseInterestPaymentOnLiability",),
+        # IFRS financing section lease tags. Second list tried after broad
+        # US-GAAP fallback per the capex pattern, so the narrower principal
+        # tag still wins where it exists.
+        ifrs_chain=[
+            "PaymentsOfLeaseLiabilities",
+            "PaymentsOfFinanceLeaseLiabilities",
+            "RepaymentsOfLeaseLiabilities",
+            "CashFlowsFromUsedInFinancingActivitiesOfLeaseLiabilities",
+        ],
+    ),
+    Concept(
         "acquisitions",
         DURATION,
         ["PaymentsToAcquireBusinessesNetOfCashAcquired"],

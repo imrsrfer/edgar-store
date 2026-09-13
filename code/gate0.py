@@ -262,10 +262,10 @@ QUARTERLY_BALANCE_CONCEPTS = ("equity", "goodwill", "intangibles", "cash", "tota
 TTM_WINDOW_MISALIGN_MIN_DAYS = 75
 
 # TTM concepts whose window is the one worth publishing: they are the FCF chain
-# (ttm_ocf - ttm_capex - ttm_sbc), which is what every multiple downstream
+# (ttm_ocf - ttm_capex - ttm_sbc - ttm_lease_payments), which is what every multiple downstream
 # rests on. Where they disagree the BINDING one -- the earliest window end --
 # is published, because that is the vintage the FCF figure actually has.
-TTM_WINDOW_CONCEPTS = ("ocf", "capex", "sbc")
+TTM_WINDOW_CONCEPTS = ("ocf", "capex", "sbc", "lease_payments")
 
 
 def parse_sic_ranges(text):
@@ -560,6 +560,12 @@ def compute_metrics(frame, assume_absent_zero=False, sbc_evidence=None,
         (pl.col("capex") == 0) & pl.col("revenue").is_not_null() & (pl.col("revenue") > 0)
     )
     capex_ratio = _safe_div(pl.col("capex"), pl.col("revenue"))
+    # lease_unmeasured: Finance-lease principal payment not captured in financing section.
+    # Set where lease_payments is null (unresolved). Blocks FCF calculation.
+    lease_unmeasured = pl.col("lease_payments").is_null().fill_null(False)
+    # lease_heavy: Set where finance-lease payments >= 0.25 × OCF. Bounded at both ends
+    # (near-zero and negative OCF) to avoid spurious ratios. Signals lease-dependent business.
+    lease_heavy = _safe_div(pl.col("lease_payments"), pl.col("ocf")) >= 0.25
     ocf_ratio = _safe_div(pl.col("ocf"), pl.col("revenue"))
     capex_vs_da = _safe_div(pl.col("capex"), pl.col("dep_amort"))
     # 🔴 income_quality has no CEILING -- see INCOME_QUALITY_CEILING. This
@@ -581,6 +587,8 @@ def compute_metrics(frame, assume_absent_zero=False, sbc_evidence=None,
     # because guessing which is exactly the Fix 1 mistake.
     frame = frame.with_columns(
         capex_broken.fill_null(False).alias("capex_broken"),
+        lease_unmeasured.alias("lease_unmeasured"),
+        lease_heavy.fill_null(False).alias("lease_heavy"),
         (
             capex_broken.fill_null(False)
             | (
@@ -633,14 +641,18 @@ def compute_metrics(frame, assume_absent_zero=False, sbc_evidence=None,
         ).alias("shares_scale_suspect"),
     )
     capex_usable = pl.when(pl.col("capex_broken")).then(None).otherwise(pl.col("capex"))
+    # Null policy: Option (a) — deduct lease_payments where present; set lease_unmeasured=True where null.
+    # Rationale: IFRS 16 finance-lease principal payments are financing-section cash flows, not operating.
+    # Omitting them overstates FCF by 3-5x for lease-heavy businesses. Where unresolved, flag for manual review.
+    lease_usable = pl.when(pl.col("lease_unmeasured")).then(None).otherwise(pl.col("lease_payments"))
 
     frame = frame.with_columns(
         (pl.col("equity") - goodwill - intangibles).alias("tangible_book"),
-        (pl.col("ocf") - capex_usable).alias("fcf"),
+        (pl.col("ocf") - capex_usable - lease_usable).alias("fcf"),
         # The SBC term, not the sbc column: on an assumable year under the
         # flip it is a literal zero, and it is pl.col("sbc") -- null and all
         # -- in every other case, which is the shipped behaviour.
-        (pl.col("ocf") - capex_usable - _annual_sbc_term(resolve_sbc_zero)).alias(
+        (pl.col("ocf") - capex_usable - lease_usable - _annual_sbc_term(resolve_sbc_zero)).alias(
             "fcf_after_sbc"
         ),
         (pl.col("cash") - total_debt).alias("net_cash"),
@@ -1966,8 +1978,13 @@ def build_ttm(facts):
     ttm_capex_usable = pl.when(pl.col("ttm_capex") < 0).then(None).otherwise(
         pl.col("ttm_capex")
     )
+    # TTM lease_payments: null policy matches annual (Option a).
+    # Where ttm_lease_payments is null and ttm_ocf exists, the 4-quarter window lacks lease data.
+    ttm_lease_usable = pl.when(pl.col("ttm_lease_payments").is_null()).then(None).otherwise(
+        pl.col("ttm_lease_payments")
+    )
     return wide.with_columns(
-        (pl.col("ttm_ocf") - ttm_capex_usable - pl.col("ttm_sbc")).alias(
+        (pl.col("ttm_ocf") - ttm_capex_usable - ttm_lease_usable - pl.col("ttm_sbc")).alias(
             "ttm_fcf_after_sbc"
         ),
         # fill_null(False): an ABSENT ttm_capex is unknown, not negative --
@@ -2593,6 +2610,9 @@ OUTPUT_ORDER = (
     "capex",
     "capex_broken",
     "capex_suspect",
+    "lease_payments",
+    "lease_unmeasured",
+    "lease_heavy",
     "shares_scale_suspect",
     "investing_unreconciled",
     "investing_residual",
@@ -2604,6 +2624,7 @@ OUTPUT_ORDER = (
     "ttm_window_start",
     "ttm_window_end",
     "ttm_window_misaligned",
+    "ttm_lease_payments",
     "net_margin",
     "income_quality_suspect",
     "operating_margin_2y_ago",

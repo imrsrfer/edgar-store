@@ -30,7 +30,7 @@ python gate0.py             # <1 s
 python build_prices.py --from-lanes   # prices every lane's quality-stage survivors
 ```
 
-Outputs land in `C:\Users\Fer\claude\Projects\Portfolio\edgar\` (override with
+Outputs land in `C:\Users\Fer\Documents\CLAUDE\Portfolio\edgar\` (override with
 `--root` on any stage):
 
 ```

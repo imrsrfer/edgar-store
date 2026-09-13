@@ -191,6 +191,10 @@ cik,entity_name,tag,fiscal_year_raw,form,accn,period_end
 880460,"Perfumania Holdings, Inc.",OperatingIncomeLoss,29953000,10-K,0000880460-17-000007,2016-01-30
 880460,"Perfumania Holdings, Inc.",OperatingIncomeLoss,29953000,10-K,0000880460-17-000007,2017-01-28
 880460,"Perfumania Holdings, Inc.",PaymentsToAcquireIntangibleAssets,29953000,10-K,0000880460-16-000041,2015-01-31
+880460,"Perfumania Holdings, Inc.",RepaymentsOfLongTermCapitalLeaseObligations,29953000,10-K,0000880460-16-000041,2015-01-31
+880460,"Perfumania Holdings, Inc.",RepaymentsOfLongTermCapitalLeaseObligations,29953000,10-K,0000880460-16-000041,2016-01-30
+880460,"Perfumania Holdings, Inc.",RepaymentsOfLongTermCapitalLeaseObligations,29953000,10-K,0000880460-17-000007,2016-01-30
+880460,"Perfumania Holdings, Inc.",RepaymentsOfLongTermCapitalLeaseObligations,29953000,10-K,0000880460-17-000007,2017-01-28
 880460,"Perfumania Holdings, Inc.",Revenues,29953000,10-K,0000880460-16-000041,2015-01-31
 880460,"Perfumania Holdings, Inc.",Revenues,29953000,10-K,0000880460-16-000041,2016-01-30
 880460,"Perfumania Holdings, Inc.",Revenues,29953000,10-K,0000880460-17-000007,2016-01-30
@@ -446,6 +450,22 @@ cik,entity_name,tag,fiscal_year_raw,form,accn,period_end
 1016178,"CARVER BANCORP, INC.",CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,1905,10-Q,0001016178-20-000027,2020-06-30
 1016178,"CARVER BANCORP, INC.",CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,1905,10-Q,0001016178-20-000034,2020-09-30
 1016178,"CARVER BANCORP, INC.",CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,1905,10-Q,0001016178-21-000007,2020-12-31
+1016178,"CARVER BANCORP, INC.",FinanceLeaseLiabilityPaymentsDue,1905,10-Q,0001016178-20-000007,2019-12-31
+1016178,"CARVER BANCORP, INC.",FinanceLeaseLiabilityPaymentsDue,1905,10-Q,0001016178-20-000027,2020-06-30
+1016178,"CARVER BANCORP, INC.",FinanceLeaseLiabilityPaymentsDue,1905,10-Q,0001016178-20-000034,2020-09-30
+1016178,"CARVER BANCORP, INC.",FinanceLeaseLiabilityPaymentsDue,1905,10-Q,0001016178-21-000007,2020-12-31
+1016178,"CARVER BANCORP, INC.",FinanceLeasePrincipalPayments,1905,10-Q,0001016178-20-000027,2019-06-30
+1016178,"CARVER BANCORP, INC.",FinanceLeasePrincipalPayments,1905,10-Q,0001016178-20-000034,2019-09-30
+1016178,"CARVER BANCORP, INC.",FinanceLeasePrincipalPayments,1905,10-Q,0001016178-20-000034,2019-09-30
+1016178,"CARVER BANCORP, INC.",FinanceLeasePrincipalPayments,1905,10-Q,0001016178-20-000007,2019-12-31
+1016178,"CARVER BANCORP, INC.",FinanceLeasePrincipalPayments,1905,10-Q,0001016178-21-000007,2019-12-31
+1016178,"CARVER BANCORP, INC.",FinanceLeasePrincipalPayments,1905,10-Q,0001016178-20-000007,2019-12-31
+1016178,"CARVER BANCORP, INC.",FinanceLeasePrincipalPayments,1905,10-Q,0001016178-21-000007,2019-12-31
+1016178,"CARVER BANCORP, INC.",FinanceLeasePrincipalPayments,1905,10-Q,0001016178-20-000027,2020-06-30
+1016178,"CARVER BANCORP, INC.",FinanceLeasePrincipalPayments,1905,10-Q,0001016178-20-000034,2020-09-30
+1016178,"CARVER BANCORP, INC.",FinanceLeasePrincipalPayments,1905,10-Q,0001016178-20-000034,2020-09-30
+1016178,"CARVER BANCORP, INC.",FinanceLeasePrincipalPayments,1905,10-Q,0001016178-21-000007,2020-12-31
+1016178,"CARVER BANCORP, INC.",FinanceLeasePrincipalPayments,1905,10-Q,0001016178-21-000007,2020-12-31
 1016178,"CARVER BANCORP, INC.",IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest,1905,10-Q,0001016178-20-000007,2018-12-31
 1016178,"CARVER BANCORP, INC.",IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest,1905,10-Q,0001016178-20-000007,2018-12-31
 1016178,"CARVER BANCORP, INC.",IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest,1905,10-Q,0001016178-20-000027,2019-06-30
@@ -1027,6 +1047,9 @@ cik,entity_name,tag,fiscal_year_raw,form,accn,period_end
 1501134,Invitae Corporation,PaymentsToAcquirePropertyPlantAndEquipment,43465,10-K,0001501134-19-000022,2016-12-31
 1501134,Invitae Corporation,PaymentsToAcquirePropertyPlantAndEquipment,43465,10-K,0001501134-19-000022,2017-12-31
 1501134,Invitae Corporation,PaymentsToAcquirePropertyPlantAndEquipment,43465,10-K,0001501134-19-000022,2018-12-31
+1501134,Invitae Corporation,RepaymentsOfLongTermCapitalLeaseObligations,43465,10-K,0001501134-19-000022,2016-12-31
+1501134,Invitae Corporation,RepaymentsOfLongTermCapitalLeaseObligations,43465,10-K,0001501134-19-000022,2017-12-31
+1501134,Invitae Corporation,RepaymentsOfLongTermCapitalLeaseObligations,43465,10-K,0001501134-19-000022,2018-12-31
 1501134,Invitae Corporation,RevenueFromContractWithCustomerExcludingAssessedTax,43465,10-K,0001501134-19-000022,2016-12-31
 1501134,Invitae Corporation,RevenueFromContractWithCustomerExcludingAssessedTax,43465,10-K,0001501134-19-000022,2017-03-31
 1501134,Invitae Corporation,RevenueFromContractWithCustomerExcludingAssessedTax,43465,10-K,0001501134-19-000022,2017-06-30
@@ -1502,6 +1525,14 @@ cik,entity_name,tag,fiscal_year_raw,form,accn,period_end
 1705682,Venator Materials PLC,DepreciationDepletionAndAmortization,43830,10-Q,0001705682-19-000010,2019-03-31
 1705682,Venator Materials PLC,DepreciationDepletionAndAmortization,43830,10-Q,0001705682-19-000013,2019-06-30
 1705682,Venator Materials PLC,DepreciationDepletionAndAmortization,43830,10-Q,0001705682-19-000013,2019-06-30
+1705682,Venator Materials PLC,FinanceLeaseInterestPaymentOnLiability,43830,10-Q,0001705682-19-000010,2019-03-31
+1705682,Venator Materials PLC,FinanceLeaseInterestPaymentOnLiability,43830,10-Q,0001705682-19-000013,2019-06-30
+1705682,Venator Materials PLC,FinanceLeaseInterestPaymentOnLiability,43830,10-Q,0001705682-19-000013,2019-06-30
+1705682,Venator Materials PLC,FinanceLeaseLiabilityPaymentsDue,43830,10-Q,0001705682-19-000010,2019-03-31
+1705682,Venator Materials PLC,FinanceLeaseLiabilityPaymentsDue,43830,10-Q,0001705682-19-000013,2019-06-30
+1705682,Venator Materials PLC,FinanceLeasePrincipalPayments,43830,10-Q,0001705682-19-000010,2019-03-31
+1705682,Venator Materials PLC,FinanceLeasePrincipalPayments,43830,10-Q,0001705682-19-000013,2019-06-30
+1705682,Venator Materials PLC,FinanceLeasePrincipalPayments,43830,10-Q,0001705682-19-000013,2019-06-30
 1705682,Venator Materials PLC,IncomeLossFromContinuingOperations,43465,10-Q,0001705682-18-000002,2017-03-31
 1705682,Venator Materials PLC,IncomeLossFromContinuingOperations,43465,10-Q,0001705682-18-000004,2017-06-30
 1705682,Venator Materials PLC,IncomeLossFromContinuingOperations,43465,10-Q,0001705682-18-000004,2017-06-30

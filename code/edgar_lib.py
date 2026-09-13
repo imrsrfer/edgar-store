@@ -34,7 +34,7 @@ CHUNK_BYTES = 1 << 20
 
 PROGRESS_INTERVAL_SECONDS = 5
 
-DEFAULT_ROOT = Path(r"C:\Users\Fer\claude\Projects\Portfolio\edgar")
+DEFAULT_ROOT = Path(r"C:\Users\Fer\Documents\CLAUDE\Portfolio\edgar")
 
 
 class Paths:

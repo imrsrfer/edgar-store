@@ -564,11 +564,22 @@ CONCEPTS = (
         # IFRS financing section lease tags. Second list tried after broad
         # US-GAAP fallback per the capex pattern, so the narrower principal
         # tag still wins where it exists.
+        # 2026-09-21: chain REPLACED. The four tags below returned ZERO
+        # occurrences across all 535 ifrs-full filers -- censused against the
+        # real raw/companyfacts.zip, not inferred. That dead chain is why
+        # lease_unmeasured was True on 100% of IFRS rows.
+        #   struck: PaymentsOfLeaseLiabilities (0)
+        #   struck: PaymentsOfFinanceLeaseLiabilities (0)
+        #   struck: RepaymentsOfLeaseLiabilities (0)
+        #   struck: CashFlowsFromUsedInFinancingActivitiesOfLeaseLiabilities (0)
+        # Do NOT reach for CashOutflowForLeases (2857 facts / 247 filers): it is
+        # the IFRS 16 s53(g) TOTAL cash outflow and includes short-term,
+        # low-value and variable payments already expensed inside OCF. Using it
+        # double-counts -- the same error FinanceLeaseInterestPaymentOnLiability
+        # was struck for on 2026-09-12. Principal only.
         ifrs_chain=[
-            "PaymentsOfLeaseLiabilities",
-            "PaymentsOfFinanceLeaseLiabilities",
-            "RepaymentsOfLeaseLiabilities",
-            "CashFlowsFromUsedInFinancingActivitiesOfLeaseLiabilities",
+            "PaymentsOfLeaseLiabilitiesClassifiedAsFinancingActivities",
+            "PaymentsOfFinanceLeaseLiabilitiesClassifiedAsFinancingActivities",
         ],
     ),
     Concept(

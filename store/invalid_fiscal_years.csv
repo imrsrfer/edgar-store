@@ -450,10 +450,6 @@ cik,entity_name,tag,fiscal_year_raw,form,accn,period_end
 1016178,"CARVER BANCORP, INC.",CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,1905,10-Q,0001016178-20-000027,2020-06-30
 1016178,"CARVER BANCORP, INC.",CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,1905,10-Q,0001016178-20-000034,2020-09-30
 1016178,"CARVER BANCORP, INC.",CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,1905,10-Q,0001016178-21-000007,2020-12-31
-1016178,"CARVER BANCORP, INC.",FinanceLeaseLiabilityPaymentsDue,1905,10-Q,0001016178-20-000007,2019-12-31
-1016178,"CARVER BANCORP, INC.",FinanceLeaseLiabilityPaymentsDue,1905,10-Q,0001016178-20-000027,2020-06-30
-1016178,"CARVER BANCORP, INC.",FinanceLeaseLiabilityPaymentsDue,1905,10-Q,0001016178-20-000034,2020-09-30
-1016178,"CARVER BANCORP, INC.",FinanceLeaseLiabilityPaymentsDue,1905,10-Q,0001016178-21-000007,2020-12-31
 1016178,"CARVER BANCORP, INC.",FinanceLeasePrincipalPayments,1905,10-Q,0001016178-20-000027,2019-06-30
 1016178,"CARVER BANCORP, INC.",FinanceLeasePrincipalPayments,1905,10-Q,0001016178-20-000034,2019-09-30
 1016178,"CARVER BANCORP, INC.",FinanceLeasePrincipalPayments,1905,10-Q,0001016178-20-000034,2019-09-30
@@ -1525,11 +1521,6 @@ cik,entity_name,tag,fiscal_year_raw,form,accn,period_end
 1705682,Venator Materials PLC,DepreciationDepletionAndAmortization,43830,10-Q,0001705682-19-000010,2019-03-31
 1705682,Venator Materials PLC,DepreciationDepletionAndAmortization,43830,10-Q,0001705682-19-000013,2019-06-30
 1705682,Venator Materials PLC,DepreciationDepletionAndAmortization,43830,10-Q,0001705682-19-000013,2019-06-30
-1705682,Venator Materials PLC,FinanceLeaseInterestPaymentOnLiability,43830,10-Q,0001705682-19-000010,2019-03-31
-1705682,Venator Materials PLC,FinanceLeaseInterestPaymentOnLiability,43830,10-Q,0001705682-19-000013,2019-06-30
-1705682,Venator Materials PLC,FinanceLeaseInterestPaymentOnLiability,43830,10-Q,0001705682-19-000013,2019-06-30
-1705682,Venator Materials PLC,FinanceLeaseLiabilityPaymentsDue,43830,10-Q,0001705682-19-000010,2019-03-31
-1705682,Venator Materials PLC,FinanceLeaseLiabilityPaymentsDue,43830,10-Q,0001705682-19-000013,2019-06-30
 1705682,Venator Materials PLC,FinanceLeasePrincipalPayments,43830,10-Q,0001705682-19-000010,2019-03-31
 1705682,Venator Materials PLC,FinanceLeasePrincipalPayments,43830,10-Q,0001705682-19-000013,2019-06-30
 1705682,Venator Materials PLC,FinanceLeasePrincipalPayments,43830,10-Q,0001705682-19-000013,2019-06-30

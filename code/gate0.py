@@ -95,6 +95,47 @@ INCOME_QUALITY_FLOOR = 0.80
 SBC_FAIL = 0.15
 SBC_WARN = 0.10
 EFFECTIVE_TAX_FLOOR = 0.05
+
+# 🔴 NET INCOME IDENTITY CHECK (2026-09-21). pretax_income - tax_expense should
+# equal net_income. Where it does not, the store cannot say WHICH of the three
+# fields is wrong, so every metric derived from net_income is NOT MEASURED
+# rather than published. Both legs matter and neither may be varied alone: the
+# absolute leg suppresses noise on tiny filers, the relative leg catches the
+# large ones. Sweeping one leg only is the 2026-09-09 tolerance mistake, which
+# hid 380 filers by moving the percentage leg while the absolute leg did the
+# suppressing. Measured on the 2026-09-21 store: 320 of 4,058 rows (7.9%) --
+# us-gaap 277 of 3,621 (7.6%), ifrs-full 43 of 437 (9.8%).
+NET_INCOME_IDENTITY_REL = 0.20
+NET_INCOME_IDENTITY_ABS = 1_000_000.0
+
+
+def _net_income_residual():
+    """|pretax - tax - net_income|, null unless all three are present."""
+    return (
+        pl.col("pretax_income") - pl.col("tax_expense") - pl.col("net_income")
+    ).abs()
+
+
+def _net_income_suspect():
+    """True where the income identity breaks. NOT MEASURED, not 'wrong'.
+
+    Returned as an expression rather than stored as a column because it is
+    needed in two different functions, before the column itself exists.
+    """
+    resid = _net_income_residual()
+    return (
+        pl.col("pretax_income").is_not_null()
+        & pl.col("tax_expense").is_not_null()
+        & pl.col("net_income").is_not_null()
+        & (pl.col("net_income") != 0)
+        & (resid > (NET_INCOME_IDENTITY_REL * pl.col("net_income").abs()))
+        & (resid > NET_INCOME_IDENTITY_ABS)
+    ).fill_null(False)
+
+
+def _null_if_ni_suspect(expr):
+    """Publish expr only where the income identity holds."""
+    return pl.when(_net_income_suspect()).then(None).otherwise(expr)
 ACQUISITION_INTENSITY_WARN = 0.05
 INORGANIC_LOOKBACK_YEARS = 3
 
@@ -657,10 +698,13 @@ def compute_metrics(frame, assume_absent_zero=False, sbc_evidence=None,
             "fcf_after_sbc"
         ),
         (pl.col("cash") - total_debt).alias("net_cash"),
-        _safe_div(pl.col("ocf"), pl.col("net_income")).alias("income_quality"),
+        _null_if_ni_suspect(_safe_div(pl.col("ocf"), pl.col("net_income")))
+        .alias("income_quality"),
         _safe_div(pl.col("sbc"), pl.col("revenue")).alias("sbc_pct_revenue"),
         _safe_div(pl.col("tax_expense"), pl.col("pretax_income")).alias("effective_tax"),
-        _safe_div(pl.col("net_income"), pl.col("operating_income")).alias("ni_vs_oi"),
+        _null_if_ni_suspect(
+            _safe_div(pl.col("net_income"), pl.col("operating_income"))
+        ).alias("ni_vs_oi"),
         _safe_div(pl.col("acquisitions"), pl.col("revenue")).alias("acq_intensity"),
         _safe_div(pl.col("operating_income"), pl.col("revenue")).alias(
             "operating_margin"
@@ -703,13 +747,20 @@ def compute_metrics(frame, assume_absent_zero=False, sbc_evidence=None,
         _safe_div(pl.col("fcf_after_sbc"), pl.col("shares_diluted")).alias(
             "fcf_per_share"
         ),
-        _safe_div(pl.col("net_income"), pl.col("revenue")).alias("net_margin"),
+        _null_if_ni_suspect(
+            _safe_div(pl.col("net_income"), pl.col("revenue"))
+        ).alias("net_margin"),
         (
             pl.col("income_quality").is_not_null()
             & (pl.col("income_quality") > INCOME_QUALITY_CEILING)
         )
         .fill_null(False)
         .alias("income_quality_suspect"),
+        _net_income_suspect().alias("net_income_suspect"),
+        # The residual answers "does it matter", the boolean only "did it
+        # reconcile" -- same split as investing_residual vs
+        # investing_unreconciled. Weigh it against net_income before acting.
+        _net_income_residual().alias("net_income_residual"),
     )
 
 
@@ -817,7 +868,9 @@ def add_flags(frame):
         pl.col("sbc").is_null().alias("sbc_unverified"),
         (pl.col("sbc_pct_revenue") > SBC_FAIL).alias("fail_sbc"),
         (pl.col("sbc_pct_revenue") > SBC_WARN).alias("warn_sbc"),
-        (pl.col("net_income") > pl.col("operating_income")).alias("fail_ni_over_oi"),
+        _null_if_ni_suspect(
+            pl.col("net_income") > pl.col("operating_income")
+        ).alias("fail_ni_over_oi"),
         (pl.col("effective_tax") <= EFFECTIVE_TAX_FLOOR).alias("fail_tax_anomaly"),
     )
 
@@ -2609,6 +2662,8 @@ OUTPUT_ORDER = (
     "capex",
     "capex_broken",
     "capex_suspect",
+    "net_income_suspect",
+    "net_income_residual",
     "lease_payments",
     "lease_unmeasured",
     "lease_heavy",

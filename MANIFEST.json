@@ -1,6 +1,6 @@
 {
   "contains": "reference data only: code + SEC-derived store. NO queue, NO portfolio data.",
-  "synced_utc": "2026-09-29T05:56:27Z",
+  "synced_utc": "2026-09-29T06:58:07Z",
   "store_built_utc_oldest": "2026-09-29T05:36:46Z",
   "store_built_utc_newest": "2026-09-29T05:56:24Z",
   "store_build_spread_hours": 0.33,
@@ -21,9 +21,9 @@
       "sha256_16": "96fc1eff37a5046f"
     },
     "gate0.py": {
-      "bytes": 140969,
-      "mtime_utc": "2026-09-21T19:41:02Z",
-      "sha256_16": "71d383d71486bf09"
+      "bytes": 141932,
+      "mtime_utc": "2026-09-29T06:54:32Z",
+      "sha256_16": "95f572a070c510ed"
     },
     "screen.py": {
       "bytes": 55992,

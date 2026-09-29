@@ -190,8 +190,13 @@ def _iq(income_quality, net_income, revenue):
                 "cash": 1.0,
                 "total_debt": 0.0,
                 "shares_diluted": 1.0,
+                # pretax - tax must equal net_income: since 2026-09-21 a row
+                # breaking that identity is net_income_suspect and has
+                # income_quality NULLED by design, so a fixture with
+                # pretax 1.0 / tax 1.0 tested the identity check, not the
+                # ceiling. (Fixed 2026-09-29.)
                 "tax_expense": 1.0,
-                "pretax_income": 1.0,
+                "pretax_income": net_income + 1.0,
                 "acquisitions": 0.0,
                 "buybacks": 0.0,
                 "dep_amort": 1.0,

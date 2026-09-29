@@ -537,6 +537,14 @@ def compute_metrics(frame, assume_absent_zero=False, sbc_evidence=None,
     ``resolve_annual_sbc`` for why it does not ship.
     """
     frame = frame.sort(["cik", "fiscal_year"])
+    # 🔴 An ABSENT lease_payments column means NOT MEASURED, exactly like a
+    # present-but-null one (added 2026-09-29): lease_unmeasured fires and the
+    # FCF deduction is 0 under the Option (a) policy below. Before this, a frame
+    # with no lease concept at all -- every pre-lease-fix test fixture, or a
+    # facts file with no lease tags -- crashed with ColumnNotFoundError instead.
+    # Never a silent 0: the flag still names the row.
+    if "lease_payments" not in frame.columns:
+        frame = frame.with_columns(pl.lit(None, dtype=pl.Float64).alias("lease_payments"))
     frame = _classify_annual_sbc(frame, sbc_evidence)
 
     goodwill_raw, intangibles_raw = pl.col("goodwill"), pl.col("intangibles")
@@ -2029,6 +2037,11 @@ def build_ttm(facts):
     # real disposal, and computing through it would flatter FCF by the full
     # amount in every SAH-shaped case. Routing that to a human is the whole
     # point, exactly as with capex_broken on the annual path.
+    # Same rule as compute_metrics (2026-09-29): a facts file carrying no lease
+    # tags produces no ttm_lease_payments column at all. Absent = NOT MEASURED,
+    # never a crash and never a different answer from a null.
+    if "ttm_lease_payments" not in wide.columns:
+        wide = wide.with_columns(pl.lit(None, dtype=pl.Float64).alias("ttm_lease_payments"))
     ttm_capex_usable = pl.when(pl.col("ttm_capex") < 0).then(None).otherwise(
         pl.col("ttm_capex")
     )

@@ -669,6 +669,8 @@ def test_exxon_duplicate_cik_collapses_to_one_row(tmp_path):
     duplicate_filers.csv, not silently gone.
     """
     paths = Paths()
+    if not paths.facts.exists() or not paths.meta.exists():
+        pytest.skip("facts.parquet/meta.parquet not built; run build_facts.py first")
     universe = gate0.load_universe(paths)
     kept, dropped = gate0.deduplicate_by_company_name(universe)
 
@@ -815,6 +817,9 @@ def test_price_csv_derives_market_cap_ev_and_leaves_missing_debt_null(tmp_path):
     needs_the_opt_in) -- ev must stay null there, never treat the missing
     debt as zero to manufacture a number.
     """
+    paths = Paths()
+    if not paths.facts.exists() or not paths.meta.exists():
+        pytest.skip("facts.parquet/meta.parquet not built; run build_facts.py first")
     price_csv = tmp_path / "prices.csv"
     price_csv.write_text("ticker,price,ma_200\nMCRI,85.50,80.00\nSKYW,95.00,90.00\n")
 
@@ -874,7 +879,17 @@ def test_copa_holdings_resolves_capex_and_scores(universe):
     assert row["taxonomy"] == "ifrs-full"
     assert row["ocf"] == pytest.approx(1150.436 * MILLION, rel=0.001)
     assert row["capex"] == pytest.approx(815.726 * MILLION, rel=0.001)
-    assert row["fcf"] == pytest.approx((1150.436 - 815.726) * MILLION, rel=0.001)
+    # Since the 2026-09-21 IFRS lease fix, FCF also deducts lease principal
+    # (IFRS 16 puts it in financing, so OCF alone flatters FCF). Copa's lease
+    # leg resolves, so fcf = ocf - capex - lease_payments. The lease figure is
+    # NOT hand-verified against the filing here, so the test pins the identity
+    # and that the leg was measured, not a number copied from the store.
+    assert row["lease_unmeasured"] is False
+    assert row["lease_payments"] is not None and row["lease_payments"] > 0
+    assert row["fcf"] == pytest.approx(
+        (1150.436 - 815.726) * MILLION - row["lease_payments"], rel=0.001
+    )
+    assert row["fcf"] < (1150.436 - 815.726) * MILLION
     assert row["gate0_status"] != "unknown"
     assert row["growth_basis"] != "insufficient"
 

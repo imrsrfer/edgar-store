@@ -1,10 +1,10 @@
 {
   "contains": "reference data only: code + SEC-derived store. NO queue, NO portfolio data.",
-  "synced_utc": "2026-09-29T05:38:54Z",
-  "store_built_utc_oldest": "2026-09-21T19:10:30Z",
-  "store_built_utc_newest": "2026-09-29T05:36:49Z",
-  "store_build_spread_hours": 178.44,
-  "store_vintage_ok": false,
+  "synced_utc": "2026-09-29T05:56:27Z",
+  "store_built_utc_oldest": "2026-09-29T05:36:46Z",
+  "store_built_utc_newest": "2026-09-29T05:56:24Z",
+  "store_build_spread_hours": 0.33,
+  "store_vintage_ok": true,
   "pruned": {
     "store": [],
     "code": []
@@ -73,29 +73,39 @@
       "sha256_16": "3f07b0c6ae3b20c6"
     },
     "shortlist_inflection.csv": {
-      "bytes": 7259875,
-      "mtime_utc": "2026-09-21T19:41:31Z",
-      "sha256_16": "d773e9510595f6db"
+      "bytes": 7299874,
+      "mtime_utc": "2026-09-29T05:56:17Z",
+      "sha256_16": "3a5629070c398510"
     },
     "shortlist_shorthist.csv": {
-      "bytes": 1005180,
-      "mtime_utc": "2026-09-21T19:41:34Z",
-      "sha256_16": "858e4a2e8c5b0b8a"
+      "bytes": 1010835,
+      "mtime_utc": "2026-09-29T05:56:18Z",
+      "sha256_16": "73e2abfdc89004d4"
     },
     "shortlist_ifrs.csv": {
-      "bytes": 665053,
-      "mtime_utc": "2026-09-21T19:41:29Z",
-      "sha256_16": "121adbc7e543818c"
+      "bytes": 667962,
+      "mtime_utc": "2026-09-29T05:56:15Z",
+      "sha256_16": "092d7e7d5e02f1f6"
     },
     "shortlist_value.csv": {
-      "bytes": 7314089,
-      "mtime_utc": "2026-09-21T19:41:26Z",
-      "sha256_16": "5559405d18f91125"
+      "bytes": 7353141,
+      "mtime_utc": "2026-09-29T05:56:14Z",
+      "sha256_16": "cb77d923337ecddd"
+    },
+    "shortlist_accel.csv": {
+      "bytes": 7300080,
+      "mtime_utc": "2026-09-29T05:56:22Z",
+      "sha256_16": "0438e6a2573536aa"
     },
     "shortlist_margin2y.csv": {
-      "bytes": 7293972,
-      "mtime_utc": "2026-09-21T19:41:37Z",
-      "sha256_16": "4dd686315c21bf61"
+      "bytes": 7333749,
+      "mtime_utc": "2026-09-29T05:56:20Z",
+      "sha256_16": "33e197d38b21a560"
+    },
+    "shortlist_unevaluated.csv": {
+      "bytes": 7317178,
+      "mtime_utc": "2026-09-29T05:56:24Z",
+      "sha256_16": "f963c3e9c5a0b975"
     },
     "data_quality.csv": {
       "bytes": 283935,
@@ -118,22 +128,20 @@
       "sha256_16": "7d55f86d04cf9c98"
     },
     "prices.csv": {
-      "bytes": 28550,
-      "mtime_utc": "2026-09-21T19:10:30Z",
-      "sha256_16": "96d7e5df9c2af7f6"
+      "bytes": 28540,
+      "mtime_utc": "2026-09-29T05:48:11Z",
+      "sha256_16": "73415027efec97bf"
     },
     "prices_unmatched.csv": {
       "bytes": 529,
-      "mtime_utc": "2026-09-21T19:41:37Z",
+      "mtime_utc": "2026-09-29T05:56:23Z",
       "sha256_16": "25efe9bfd3d7d36d"
     }
   },
   "missing": {
     "code": [],
     "store": [
-      "shortlist_main.csv",
-      "shortlist_accel.csv",
-      "shortlist_unevaluated.csv"
+      "shortlist_main.csv"
     ]
   },
   "note": "Derived EDGAR store. raw/companyfacts.zip is deliberately NOT here. Read store_built_utc_newest before using this \u2014 do not assume freshness. PUBLIC REPO: never add positions, NAV, P&L, cost basis or price levels. The review queue lives in Notion, not in this repo."

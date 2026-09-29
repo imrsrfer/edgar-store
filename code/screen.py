@@ -946,6 +946,39 @@ def run_screen(frame, args, exclude_tickers, prices, eps):
     return combined, funnel
 
 
+def add_sbc_unmeasured(frame):
+    """Name the rows whose FCF-after-SBC rests on an ASSUMED zero SBC.
+
+    Added 2026-09-29. gate0.py names the assumption per row
+    (``ttm_sbc_assumed_zero``) but nothing downstream read it, so a shortlist
+    row carried a TTM multiple built on SBC = 0 with no mark on it. BKE and
+    CTS both reached the Review Queue that way while reporting $17.3M and
+    $6.6M of TTM SBC under tags the chain did not then read.
+
+    True only when BOTH hold: the TTM step assumed zero AND no fiscal year
+    ever resolved a positive SBC. A filer with SBC evidence elsewhere is a
+    lost window, which gate0 already withholds rather than assumes. Missing
+    source columns (an older gate0.csv) give NULL -- not measured -- never
+    False.
+    """
+    needed = ("ttm_sbc_assumed_zero", "sbc_ever_reported")
+    if not all(col in frame.columns for col in needed):
+        return frame.with_columns(pl.lit(None, dtype=pl.Boolean).alias("sbc_unmeasured"))
+
+    def _as_bool(col):
+        dtype = frame.schema[col]
+        if dtype == pl.Boolean:
+            return pl.col(col)
+        return pl.col(col).cast(pl.Utf8).str.to_lowercase().replace_strict(
+            {"true": True, "false": False}, default=None, return_dtype=pl.Boolean
+        )
+
+    return frame.with_columns(
+        (_as_bool("ttm_sbc_assumed_zero") & ~_as_bool("sbc_ever_reported"))
+        .alias("sbc_unmeasured")
+    )
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--root", default=None, help="data root directory")
@@ -1058,6 +1091,7 @@ def main(argv=None):
     eps = load_eps(args.eps_csv) if args.eps_csv else None
 
     result, funnel = run_screen(frame, args, exclude_tickers, prices, eps)
+    result = add_sbc_unmeasured(result)
     result.write_csv(out_path)
 
     shortlisted = (result["rejected_because"] == "").sum()
@@ -1081,6 +1115,17 @@ def main(argv=None):
             "this run as 'nothing passed'."
         )
     for column, label, why in (
+        (
+            "sbc_unmeasured",
+            "SBC NOT MEASURED -- MULTIPLE IS A FLOOR",
+            "the TTM figure assumed SBC = 0 (ttm_sbc_assumed_zero) and no SBC "
+            "was ever resolved for this filer (sbc_ever_reported False). That "
+            "is either a company with no stock comp or one reporting it under "
+            "a tag the chain cannot see (a company extension namespace is "
+            "invisible by construction). FCF-after-SBC is then a CEILING and "
+            "every P/FCF-after-SBC multiple a FLOOR. Read SBC off the cash-flow "
+            "statement before quoting either.",
+        ),
         (
             "income_quality_suspect",
             "INCOME QUALITY TOO HIGH TO TRUST",

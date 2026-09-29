@@ -519,6 +519,34 @@ CONCEPTS = (
             "ShareBasedCompensation",
             "AllocatedShareBasedCompensationExpense",
             "ShareBasedCompensationArrangementByShareBasedPaymentAwardCompensationCost1",
+            # 🔴 FALLBACKS, added 2026-09-29. Tried per company-period only
+            # after the three tags above come up empty. Before this, a filer
+            # reporting SBC under any other standard tag resolved sbc to NULL,
+            # sbc_ever_reported False, and the TTM step then assumed zero
+            # (ttm_sbc_assumed_zero) -- overstating FCF-after-SBC, the master
+            # metric, in the company's favour. Census on the 2026-09-21 archive:
+            # 237 filers were assumed-zero with no SBC evidence; these five tags
+            # resolve 34 of them. Verified: BKE RestrictedStockExpense FY ending
+            # 2026-01-31 = 16,185,000; CTS FY2025 = 4,889,000 -- both equal the
+            # cash-flow-statement add-back.
+            #
+            # Expense tags first, then the equity-statement mirror (the APIC
+            # credit for SBC recognised), which equals the expense unless some
+            # is capitalised -- in which case it is the larger, conservative
+            # figure.
+            #
+            # DELIBERATELY EXCLUDED -- they measure something else:
+            #   StockIssuedDuringPeriodValue*       value of shares issued
+            #   PaymentsRelatedToTaxWithholding*    a cash outflow
+            #   ProceedsFromStockOptionsExercised   a cash inflow
+            #   *TaxBenefit*, *IntrinsicValue*      tax and option-value lines
+            #   EmployeeBenefitsAndShareBasedCompensation  bundles non-SBC
+            #                                       benefits (2 more filers)
+            "RestrictedStockExpense",
+            "StockOptionPlanExpense",
+            "EmployeeStockOwnershipPlanESOPCompensationExpense",
+            "AdjustmentsToAdditionalPaidInCapitalSharebasedCompensationRequisiteServicePeriodRecognitionValue",
+            "AdjustmentsToAdditionalPaidInCapitalShareBasedCompensationRestrictedStockUnitsRequisiteServicePeriodRecognition",
         ],
         # The user's original candidate, ShareBasedPaymentsExpense, does not
         # exist in the archive (0/145 IFRS filers). These two do (86/145

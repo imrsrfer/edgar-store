@@ -269,3 +269,38 @@ class _FrozenDate(date):
     @classmethod
     def today(cls):
         return TODAY
+
+
+# ---------------------------------------------------------------- --from-framework-pass
+
+
+def test_framework_pass_source_keeps_us_nonfinancial_framework_passes_only(tmp_path):
+    import polars as pl
+
+    from build_prices import tickers_from_framework_pass
+
+    def row(ticker, fw="true", sic="3500", form="10-K", revenue=2e8):
+        return {"ticker": ticker, "gate0_framework_pass": fw, "sic": sic,
+                "filing_form": form, "revenue": revenue}
+
+    pl.DataFrame(
+        [
+            row("keep"),
+            row("Q", form="10-Q"),
+            row("ONELEG", fw="false"),  # the 0-for-9 population
+            row("BANK", sic="6022"),
+            row("FPI", form="20-F"),
+            row("TINY", revenue=1e7),
+            row(None),
+        ]
+    ).write_csv(tmp_path / "gate0.csv")
+    tickers, problem = tickers_from_framework_pass(tmp_path)
+    assert problem is None
+    assert tickers == ["KEEP", "Q"]
+
+
+def test_framework_pass_source_reports_a_missing_store(tmp_path):
+    from build_prices import tickers_from_framework_pass
+
+    tickers, problem = tickers_from_framework_pass(tmp_path)
+    assert tickers == [] and "absent" in problem

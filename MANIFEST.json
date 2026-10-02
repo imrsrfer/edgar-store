@@ -1,6 +1,6 @@
 {
   "contains": "reference data only: code + SEC-derived store. NO queue, NO portfolio data.",
-  "synced_utc": "2026-09-29T06:58:07Z",
+  "synced_utc": "2026-10-02T02:32:25Z",
   "store_built_utc_oldest": "2026-09-29T05:36:46Z",
   "store_built_utc_newest": "2026-09-29T05:56:24Z",
   "store_build_spread_hours": 0.33,
@@ -21,19 +21,29 @@
       "sha256_16": "96fc1eff37a5046f"
     },
     "gate0.py": {
-      "bytes": 141932,
-      "mtime_utc": "2026-09-29T06:54:32Z",
-      "sha256_16": "95f572a070c510ed"
+      "bytes": 144474,
+      "mtime_utc": "2026-10-02T01:45:26Z",
+      "sha256_16": "a399e5e50d435f94"
     },
     "screen.py": {
-      "bytes": 55992,
-      "mtime_utc": "2026-09-29T05:09:23Z",
-      "sha256_16": "44e707f473421a22"
+      "bytes": 57855,
+      "mtime_utc": "2026-10-02T01:45:28Z",
+      "sha256_16": "58b3f9e8ca98847e"
     },
     "build_prices.py": {
-      "bytes": 15178,
-      "mtime_utc": "2026-09-09T15:51:10Z",
-      "sha256_16": "0eaf03b7aa146beb"
+      "bytes": 18559,
+      "mtime_utc": "2026-10-02T01:45:28Z",
+      "sha256_16": "83154a0da31a02f9"
+    },
+    "rank_queue.py": {
+      "bytes": 17571,
+      "mtime_utc": "2026-10-02T01:45:31Z",
+      "sha256_16": "766fccb0797239be"
+    },
+    "store_defects.py": {
+      "bytes": 16523,
+      "mtime_utc": "2026-10-02T01:49:17Z",
+      "sha256_16": "cc4bfec43c8d435f"
     },
     "concepts.py": {
       "bytes": 39683,
@@ -46,9 +56,9 @@
       "sha256_16": "89f71f560c78281b"
     },
     "README.md": {
-      "bytes": 31243,
-      "mtime_utc": "2026-09-13T05:57:01Z",
-      "sha256_16": "50538f879bbd129c"
+      "bytes": 32514,
+      "mtime_utc": "2026-10-02T01:45:27Z",
+      "sha256_16": "86281f28d4a2ed58"
     },
     "PRICES_SCHEMA.md": {
       "bytes": 3981,

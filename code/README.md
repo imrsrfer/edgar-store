@@ -28,7 +28,26 @@ python fetch_edgar.py       # ~15 min cold, seconds when cached
 python build_facts.py       # ~1.2 min
 python gate0.py             # <1 s
 python build_prices.py --from-lanes   # prices every lane's quality-stage survivors
+python rank_queue.py --exclude-tickers tracked.txt   # one ranked queue, uncapped
 ```
+
+`build_prices.py --from-framework-pass` additionally prices every US
+non-financial `gate0_framework_pass` row no lane kept -- the §G-1 refill
+population -- so `rank_queue.py` can tier it instead of leaving it in tier E.
+
+`rank_queue.py` (added 2026-10-01) merges every lane's survivors with the §G-1
+refill funnel, labels the tracked names it is given rather than dropping them,
+and orders the rest: tier (in-band US non-financial first, then sub-band, then
+$5-20B, then above $20B, then unpriced), then rows with no fail-open store
+defect, then lane overlap, then live P/FCF-after-SBC, nulls last. It never caps
+the queue (§G-1). The rule and the yields it was fitted to are in its docstring.
+
+`gate0.py` also publishes reader flags from `store_defects.py`, summarised in
+`store_defect_flags`: `total_debt_partial`, `capex_gross_of_proceeds` (with
+`ppe_sale_proceeds` and `capex_net` beside gross capex), `shares_history_scale_break`,
+`fy_flows_stale` (with `fy_flows_period_end`), `ttm_behind_calendar` (against
+`store_as_of`, the newest filing in the store) and `ttm_side_flows_lagging`.
+They run after `add_verdict` and change no verdict and no existing column.
 
 Outputs land in `C:\Users\Fer\Documents\CLAUDE\Portfolio\edgar\` (override with
 `--root` on any stage):

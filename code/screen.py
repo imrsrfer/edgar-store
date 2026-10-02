@@ -1207,6 +1207,43 @@ def main(argv=None):
             "is a real business, so do NOT quote the TTM figure for these -- and "
             "do not assume the FY one is therefore right either.",
         ),
+        # --- store_defects.py (added 2026-10-01): each one cost review slots
+        # before it was named. Flags only; none of them rejects.
+        (
+            "shares_history_scale_break",
+            "SHARE-COUNT SCALE BREAK",
+            "the FY share series jumps more than 100x somewhere in the CAGR window, "
+            "or the FY count and the latest-quarter count differ by 100x (BMI, "
+            "SWBI). Every fcf_per_share_* figure on the row is built on it. Rebuild "
+            "the per-share series from the filings before quoting growth.",
+        ),
+        (
+            "fy_flows_stale",
+            "LABEL AHEAD OF FLOWS",
+            "period_end is more than 90 days after the fiscal year the flows "
+            "describe (KR a full year, FERG an FYE change). The 'check period_end' "
+            "rule PASSES on these and is wrong -- read fy_flows_period_end.",
+        ),
+        (
+            "ttm_behind_calendar",
+            "TTM BEHIND THE FILING CALENDAR",
+            "the TTM window ends earlier than the next report's deadline allows, "
+            "so a later quarter is filed and not in SEC's XBRL data (VMC, LSTR). "
+            "Read the latest 10-Q itself before quoting any TTM figure.",
+        ),
+        (
+            "total_debt_partial",
+            "DEBT IS ONE COMPONENT ONLY",
+            "total_debt resolved a single tag, usually the CURRENT portion (UNFI, "
+            "LII, PLOW). It is a FLOOR: net_cash and any EV built on it fail in the "
+            "company's favour. Take debt from the balance sheet.",
+        ),
+        (
+            "capex_gross_of_proceeds",
+            "CAPEX IS GROSS OF RECURRING EQUIPMENT SALES",
+            "PP&E-sale proceeds were 15%+ of capex in 3 of the last 5 years (KNX). "
+            "FCF is UNDERSTATED -- fails closed. capex_net sits beside capex.",
+        ),
     ):
         if column not in result.columns:
             continue

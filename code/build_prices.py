@@ -2,6 +2,7 @@
 """Stage 4: build prices.csv for a named ticker list, and REPORT ITS COVERAGE.
 
     python build_prices.py --from-lanes
+    python build_prices.py --from-framework-pass    # lanes + §G-1 refill population
     python build_prices.py --tickers-from candidates.txt --out prices.csv
     python build_prices.py --tickers OMCL,SKYW,MCRI
 
@@ -99,6 +100,58 @@ def tickers_from_lanes(root):
         per_lane[name] = len(names)
         found |= names
     return sorted(found), missing, per_lane
+
+
+FRAMEWORK_PASS_MIN_REVENUE = 50e6  # screen.py's DEFAULT_MIN_REVENUE
+US_FILER_FORMS = ("10-K", "10-Q", "10-K/A", "10-Q/A")
+
+
+def tickers_from_framework_pass(root, exclude_sic="6000-6799",
+                                min_revenue=FRAMEWORK_PASS_MIN_REVENUE):
+    """Every US non-financial ``gate0_framework_pass`` row, lane or no lane.
+
+    🔴 Added 2026-10-01 to make the §G-1 refill mechanical. --from-lanes prices
+    only names a lane already kept. On 2026-09-27 a "lanes are dry" reading was
+    WRONG (Rulings, corrected calls): 250 undispositioned US non-financial
+    framework passes sat beneath the lanes, and a hand-built funnel priced them
+    one by one through Stocklake and stockanalysis to find 27 in-band names.
+    This puts that population in prices.csv so rank_queue.py can tier it.
+
+    🔴 FRAMEWORK pass, not gate0_status pass. The 2026-10-01 note proposed
+    pricing gate0-pass rows that fail one framework leg. Those nine (AZZ, SPB,
+    WOR, RAMP, QTWO, VCYT, TMDX, SPHR, WRBY) were reviewed in the 35th-37th
+    MODE B runs and went 0 for 9. The measured yields, for the record:
+
+        in-band lane survivors        69 of 123 kept   56.1%
+        refill (framework pass, R1+)  10 of 101 kept    9.9%
+        gate0 pass, framework fail     0 of   9 kept    0.0%
+
+    Widening what is PRICED widens what can be SEEN; it widens nothing that
+    passes. Every lane gate still applies, and rank_queue.py sorts a name no
+    lane kept below every name a lane did, inside the same tier.
+    """
+    from gate0 import parse_sic_ranges  # local: keeps this module's import light
+
+    path = root / "gate0.csv"
+    if not path.exists():
+        return [], f"{path.name} absent"
+    frame = pl.read_csv(path, infer_schema_length=0)
+    needed = {"ticker", "gate0_framework_pass", "sic", "filing_form", "revenue"}
+    absent = sorted(needed - set(frame.columns))
+    if absent:
+        return [], f"gate0.csv lacks {absent}"
+    sic = pl.col("sic").cast(pl.Int32, strict=False)
+    financial = pl.lit(False)
+    for low, high in parse_sic_ranges(exclude_sic):
+        financial = financial | sic.is_between(low, high)
+    keep = frame.filter(
+        (pl.col("gate0_framework_pass").str.to_lowercase() == "true")
+        & pl.col("filing_form").is_in(list(US_FILER_FORMS))
+        & ~financial.fill_null(False)
+        & (pl.col("revenue").cast(pl.Float64, strict=False) > min_revenue)
+        & pl.col("ticker").is_not_null()
+    )
+    return sorted(set(keep["ticker"].str.to_uppercase().to_list())), None
 
 
 def tickers_from_file(path):
@@ -331,6 +384,12 @@ def main(argv=None):
         help="union of every lane's quality-stage survivors",
     )
     source.add_argument(
+        "--from-framework-pass",
+        action="store_true",
+        help="--from-lanes PLUS every US non-financial gate0_framework_pass "
+        "(revenue > $50M) that no lane kept -- the §G-1 refill population",
+    )
+    source.add_argument(
         "--tickers-from", metavar="FILE", help="explicit ticker list, one per line"
     )
     source.add_argument("--tickers", help="explicit ticker list, comma separated")
@@ -351,8 +410,18 @@ def main(argv=None):
     paths = Paths(args.root).ensure()
     out_path = resolve_out_path(paths, args.out)
 
-    if args.from_lanes:
+    if args.from_lanes or args.from_framework_pass:
         requested, missing_lanes, per_lane = tickers_from_lanes(paths.root)
+        if args.from_framework_pass:
+            extra, problem = tickers_from_framework_pass(paths.root)
+            if problem:
+                raise SystemExit(f"--from-framework-pass: {problem}")
+            added = sorted(set(extra) - set(requested))
+            print(
+                f"  gate0.csv: {len(extra)} US non-financial framework passes, "
+                f"{len(added)} not in any lane -- added"
+            )
+            requested = sorted(set(requested) | set(extra))
         for name, count in sorted(per_lane.items()):
             print(f"  {name}: {count} quality-stage survivors")
         if missing_lanes:

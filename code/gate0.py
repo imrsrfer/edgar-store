@@ -21,6 +21,7 @@ import polars as pl
 
 from concepts import QUARTERS, REQUIRED_CONCEPTS
 from edgar_lib import Paths, log_stage
+from store_defects import add_store_defect_flags
 
 # Gate 0 thresholds.
 # Capex-integrity thresholds. Capex under 0.5% of revenue while OCF runs
@@ -1851,6 +1852,33 @@ def _ttm_binding_window(recent):
     )
 
 
+TTM_SIDE_FLOW_CONCEPTS = ("acquisitions", "buybacks", "dividends")
+TTM_SIDE_FLOW_MAX_LAG_DAYS = 45  # behind the binding window's end
+
+
+def _ttm_side_flow_lag(recent, wide):
+    """Comma-joined side-flow concepts whose window ends well before the
+    binding window. See the call site in build_ttm (OKE, 2026-09-30 note)."""
+    side = recent.filter(pl.col("concept").is_in(list(TTM_SIDE_FLOW_CONCEPTS)))
+    if side.is_empty() or "ttm_window_end" not in wide.columns:
+        return pl.DataFrame(schema={"cik": pl.Int64, "ttm_side_flows_lagging": pl.Utf8})
+    lagging = (
+        side.select("cik", "concept", pl.col("ttm_window_end").alias("_side_end"))
+        .join(wide.select("cik", "ttm_window_end"), on="cik", how="inner")
+        .filter(
+            (pl.col("ttm_window_end") - pl.col("_side_end")).dt.total_days()
+            > TTM_SIDE_FLOW_MAX_LAG_DAYS
+        )
+    )
+    if lagging.is_empty():
+        return pl.DataFrame(schema={"cik": pl.Int64, "ttm_side_flows_lagging": pl.Utf8})
+    return (
+        lagging.sort(["cik", "concept"])
+        .group_by("cik")
+        .agg(pl.col("concept").str.join(",").alias("ttm_side_flows_lagging"))
+    )
+
+
 def build_ttm(facts):
     """Trailing-twelve-month sums for additive FLOW concepts.
 
@@ -1987,6 +2015,18 @@ def build_ttm(facts):
     # this function AND still stop short of the fiscal year on the same row, and
     # until the dates are ON the row nothing can tell that case from a clean one.
     wide = wide.join(_ttm_binding_window(recent), on="cik", how="left")
+    # 🔴 SIDE-FLOW LAG (added 2026-10-01, OKE). The recency guard above measures
+    # each window against the filer's latest period across ALL concepts with a
+    # 400-day allowance. A filer that simply stops tagging a zero acquisitions or
+    # buyback line in its 10-Qs leaves the rollforward pairing interims up to
+    # three quarters old -- inside 400 days, so nothing fires. OKE published
+    # ttm_acquisitions = $5,421M for Oct-24..Sep-25 on a row whose binding window
+    # is Jul-25..Jun-26, against ~$25M actually spent. Measured here against the
+    # BINDING window instead. Named, not nulled: the values are left exactly as
+    # they were, and the column says which of them describe a different year.
+    wide = wide.join(_ttm_side_flow_lag(recent, wide), on="cik", how="left").with_columns(
+        pl.col("ttm_side_flows_lagging").fill_null("")
+    )
     # STATE the obligation rather than silently nulling -- same pattern as
     # capex_suspect and ttm_unavailable. A named stale concept is a work item.
     # 🔴 FULL join, not left. A filer ALL of whose windows are stale drops out of
@@ -2876,7 +2916,13 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False,
     frame = _add_investing_reconciliation(frame.join(provenance, on="cik", how="left"))
     if acceleration.width > 1:
         frame = frame.join(acceleration, on="cik", how="left")
-    return add_verdict(frame.join(meta, on="cik", how="left"), allow_imputed=allow_imputed)
+    frame = add_verdict(frame.join(meta, on="cik", how="left"), allow_imputed=allow_imputed)
+    # 🔴 AFTER add_verdict, on purpose: these are reader flags, and running them
+    # after the verdict is the structural guarantee that none of them can move a
+    # pass or a fail. Reads the FULL facts table -- the proceeds detector needs
+    # investing_inflows, which is a diagnostic concept stripped from
+    # scoring_facts above. See store_defects.py.
+    return add_store_defect_flags(frame, facts)
 
 
 def _status_counts(frame):

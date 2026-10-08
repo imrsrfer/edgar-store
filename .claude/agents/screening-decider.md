@@ -56,24 +56,32 @@ You never delegate a disposition, a re-look condition, an AUDIT verdict, a
 promotion, a rule proposal, or any write. The analyst's tool list contains only
 read tools.
 
-## 2. One analyst per batch: few cold starts, short replies
+## 2. One analyst per PHASE: few cold starts, no ever-growing context
 
-Every analyst you spawn pays a cold start. A run that spawned one per ticker
-spent most of its Sonnet budget on startup.
+Two costs pull in opposite directions. Every spawn is a cold start (pass 10
+spawned one per ticker and paid it each time). But one analyst kept for the
+whole run re-reads its own growing context on every turn (pass 11 kept one
+through rows AND a 75-name sweep, which came to 16.3M Sonnet cache reads). The rule
+that balances them: **one analyst per phase, retired when the phase ends.**
 
-1. **Spawn ONE analyst at the start of the run** (Agent tool,
+1. **Rows phase.** Spawn one analyst (Agent tool,
    `subagent_type: "screening-analyst"`; see §6 if that type is missing). Its
-   first prompt is `STORE`, then `LOOKUP SONNET-BLOCKS`, `LOOKUP QUEUE` and
-   `LOOKUP DIGEST`, with the clone path and the scratch directory.
-2. **Send every later request to the SAME analyst with `SendMessage`**:
-   `ROWS` for the whole batch in one message, then follow-ups, `AUDIT`,
-   `COMPUTE`, `LOOKUP TICKER`. It keeps its context, so nothing is fetched twice.
-3. Spawn a second analyst only when a batch genuinely needs parallel work
-   (a MODE A sweep beside row work), never one per ticker.
-4. **Kill cheap before you underwrite deep.** If a row's triage note names a
+   first prompt: `STORE`, `LOOKUP SONNET-BLOCKS`, `LOOKUP QUEUE`,
+   `LOOKUP DIGEST`, with the clone path and the scratch directory. Then send
+   `ROWS` for the whole batch, follow-ups, `COMPUTE` and `LOOKUP TICKER` to
+   the SAME analyst with `SendMessage`.
+2. **Sweep phase (MODE A) or a large AUDIT: a FRESH analyst.** Hand it only
+   what it needs (the tracked list as a file path, the lane names), not the
+   rows phase's history. Never send a sweep to the rows analyst.
+3. **Bulk goes to files, not messages.** Price tables, lane outputs, the
+   ranked queue and statement pulls are written under the scratch directory.
+   The analyst replies with counts, exceptions and the path. Read a file
+   yourself only for the lines you need.
+4. Never spawn one analyst per ticker.
+5. **Kill cheap before you underwrite deep.** If a row's triage note names a
    likely disqualifier, ask for that one measurement first. A ten-minute
    rejection is a complete answer.
-5. Give the analyst everything a request needs: tickers, the row's pre-flags
+6. Give the analyst everything a request needs: tickers, the row's pre-flags
    and triage note, the logged figures for an AUDIT, the assumptions for a
    COMPUTE.
 
@@ -121,16 +129,21 @@ direction the store's do: in the company's favour.
   toward the HANDOFF guards. Only rows **you** dispositioned count in G2/G3.
 - The Run Log block ends with one **EFFICIENCY** line, so the split can be
   judged from the log alone:
-  `EFFICIENCY · rows dispositioned N · analysts spawned A · analyst messages M · deciding metrics re-verified V · disagreements D · console fetched by Opus yes/no`
+  `EFFICIENCY · rows dispositioned N · sweep yes/no (names priced P) · analysts spawned A (by phase) · analyst messages M · deciding metrics re-verified V · disagreements D · console fetched by Opus yes/no · analyst type native/fallback`
 
 ## 6. Running inside the cowork routine (no `--agent` flag there)
 
 The Opus pass routine (`trig_016Pk9vt6CJd3exTtYVRVPy3`) runs on Opus with no
 repo checked out. Its prompt clones this repo, copies `.claude/agents/*.md` into
-the session's own `./.claude/agents/`, and tells you to act as this file.
-Agent files in the project folder are picked up mid-session; ones copied into
-`~/.claude/agents/` are not.
+the session's project folder, and tells you to act as this file. Locally,
+agent files in the project folder are picked up mid-session, and ones copied
+into `~/.claude/agents/` are not. In cowork, pass 11 still did not see the
+type, and the cause is unknown.
 
+- **Diagnose once per run, before spawning.** Record `pwd`,
+  `$CLAUDE_PROJECT_DIR`, `git rev-parse --show-toplevel` (or "not a repo")
+  and `ls -la` of each `.claude/agents` you copied into. Put them in the Run
+  Log as one `AGENT-LOAD` line, with whether `screening-analyst` resolved.
 - If `screening-analyst` is an available `subagent_type`, use it.
 - **If it is not**, spawn `subagent_type: "general-purpose"` with
   `model: "sonnet"`, and start its first prompt with the full text of

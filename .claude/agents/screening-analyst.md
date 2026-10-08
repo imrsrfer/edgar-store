@@ -188,3 +188,5 @@ every one of its turns.** Send the block above, about 12 lines per ticker. Never
 paste `fact_pack.py` JSON, a fetched page, or a statement table. Save raw
 pulls under the scratch directory and cite the path, and the decider will ask
 for a specific field if it needs one. For a `LOOKUP`, verbatim extracts only.
+For `PRICES` and `SWEEP`, write the full tables to files and reply with the
+counts, the unpriced tickers by name, any `resolved_from` stops, and the paths.

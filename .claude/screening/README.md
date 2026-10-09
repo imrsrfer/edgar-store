@@ -55,11 +55,18 @@ swaps).
 python fetch_edgar.py --force
 python build_facts.py
 python gate0.py
+$lanes = "value","ifrs","inflection","shorthist","margin2y","accel","unevaluated"
+foreach ($l in $lanes) { python screen.py --lane $l --out "shortlist_$l.csv" --price-csv prices.csv --min-mktcap 100e6 --momentum flag }
 python build_prices.py --from-framework-pass --max-age-days 7
+foreach ($l in $lanes) { python screen.py --lane $l --out "shortlist_$l.csv" --price-csv prices.csv --min-mktcap 100e6 --momentum flag }
 python sync_to_repo.py
 ```
-`build_prices.py` writes `<root>/prices.csv`, which the sync commits as
-`store/prices.csv`.
+The lanes run twice. The first pass finds this store's quality survivors, so
+`build_prices.py` prices the right names (it reads the shortlists). The second
+pass bands them on the fresh prices. Skip the lanes and the repo pairs a new
+`gate0.csv` with old shortlists, and `MANIFEST.json` reports
+`store_vintage_ok: false` (it did on 2026-10-09). `build_prices.py` writes
+`<root>/prices.csv`, which the sync commits as `store/prices.csv`.
 
 **The cycle ends.** One cycle per store build: sweep, then MODE B until the
 queue is empty, then one watchlist re-look, then `SWEEP STATE: COMPLETE` on the

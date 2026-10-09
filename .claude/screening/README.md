@@ -41,3 +41,27 @@ Every run's Run Log block ends with an `EFFICIENCY` line (rows, analysts
 spawned, messages, metrics re-verified, disagreements, whether Opus fetched the
 console). Compare cost per dispositioned row against the $0.89 Opus-only
 baseline.
+
+## Prices and the sweep cycle (Fer, 2026-10-09)
+
+**Price sources, in order.** Bulk: the committed `store/prices.csv`, built on
+Fer's PC with each store rebuild. Live, per decided row: IBKR for price and
+200d MA, stockanalysis for market cap, with a 2% two-source check. Stocklake
+is used only when both fail for a ticker (200 tickers a day, silent ticker
+swaps).
+
+**Fer's store rebuild, on his PC, about once per earnings season:**
+```
+python fetch_edgar.py --force
+python build_facts.py
+python gate0.py
+python build_prices.py --from-framework-pass --max-age-days 7
+python sync_to_repo.py
+```
+`build_prices.py` writes `<root>/prices.csv`, which the sync commits as
+`store/prices.csv`.
+
+**The cycle ends.** One cycle per store build: sweep, then MODE B until the
+queue is empty, then one watchlist re-look, then `SWEEP STATE: COMPLETE` on the
+Review Queue header. Runs idle until the next rebuild. Refill (`direct`) names
+are queued only on request.

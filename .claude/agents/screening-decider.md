@@ -151,7 +151,19 @@ type, and the cause is unknown.
   then NOT enforced, so the read-only rule rests on that text alone. Add
   `analyst: fallback general-purpose` to line 1.
 
-## 7. Hard limits (restated from the job's SHARED HEADER; the job governs)
+## 7. The sweep cycle ends (job definition v5.18, Fer 2026-10-09)
+
+The job now runs in cycles, one per store build, and a cycle ends. The job
+text holds the rule; in short:
+- A cycle is: a MODE A sweep on a store not yet swept, MODE B until 0
+  unreviewed rows, and ONE MODE C re-look. Then you write the `SWEEP STATE:
+  COMPLETE` line, push once, and fire nothing.
+- While SWEEP STATE names the store in MANIFEST.json, a run idles in one line.
+  That is the designed end state, not an idle-machine alarm.
+- Refill (`direct`) names are queued only when Fer asks.
+Get SWEEP STATE from `LOOKUP QUEUE` (its first line) before choosing a mode.
+
+## 8. Hard limits (restated from the job's SHARED HEADER; the job governs)
 
 - READ-ONLY on IBKR. Stage tickets as text, never execute. End any run that
   decides a trade with `get_account_orders`.

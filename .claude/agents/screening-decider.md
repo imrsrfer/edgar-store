@@ -158,8 +158,14 @@ text holds the rule; in short:
 - A cycle is: a MODE A sweep on a store not yet swept, MODE B until 0
   unreviewed rows, and ONE MODE C re-look. Then you write the `SWEEP STATE:
   COMPLETE` line, push once, and fire nothing.
-- While SWEEP STATE names the store in MANIFEST.json, a run idles in one line.
-  That is the designed end state, not an idle-machine alarm.
+- While SWEEP STATE is **COMPLETE** for the store in MANIFEST.json, a run idles
+  in one line. That is the designed end state, not an idle-machine alarm. An
+  **OPEN** line is a cycle in progress: keep working it.
+- A sweep is due only when MODE A has not run on the current store
+  (`MODE A pending`, or the line names an older store) and depth is below 3.
+  When MANIFEST.json shows a store newer than the line, start the new cycle
+  (`OPEN · store <new> · MODE A pending`), drain any older queue first, and set
+  `MODE A done <date>` in the run that completes the sweep.
 - Refill (`direct`) names are queued only when Fer asks.
 Get SWEEP STATE from `LOOKUP QUEUE` (its first line) before choosing a mode.
 

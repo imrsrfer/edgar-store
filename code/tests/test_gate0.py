@@ -698,6 +698,7 @@ def test_component_level_guard_does_not_weaken_at_the_goodwill_level():
     assert row["tangible_book"] is None
 
 
+@pytest.mark.integration
 def test_exxon_duplicate_cik_collapses_to_one_row(tmp_path):
     """Exxon's ticker (CIK 2115436) carries no facts; CIK 34088 has them all.
 
@@ -848,6 +849,7 @@ def test_shopify_recovers_growth_via_3y_fallback(universe):
     assert row["growth_basis"] == "3y"
 
 
+@pytest.mark.integration
 def test_price_csv_derives_market_cap_ev_and_leaves_missing_debt_null(tmp_path):
     """--price-csv computes market_cap from the store's own shares_diluted.
 

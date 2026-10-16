@@ -27,11 +27,55 @@ The fix is a redirect, not a rule nobody enforces:
 it. ``Paths.ensure()`` recreates it empty inside the temporary root.
 """
 
+import os
 import shutil
+import socket
 import sys
 from pathlib import Path
 
 import pytest
+
+# --------------------------------------------------------------------------
+# Audit 2026-10-15 #12: frozen vs integration (auditor recommendation 2026-10-16)
+#
+#   pytest -m "not integration"   frozen, network-free; BLOCKS code merges (CI)
+#   pytest -m integration         reads the live store; NON-blocking in CI,
+#                                 but BLOCKS publication: sync_to_repo.py runs it
+#                                 with EDGAR_REQUIRE_STORE=1 before committing.
+# A test is integration when it uses a live-store fixture below, or carries
+# @pytest.mark.integration because it builds Paths() on the store itself.
+# --------------------------------------------------------------------------
+LIVE_STORE_FIXTURES = {"universe", "universe_zeroed", "annual_facts", "gate0_csv_frame", "live_rows"}
+MISSING_STORE = "not built"  # the skip text every live-store fixture uses
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "integration: reads the live store, not the frozen fixture")
+
+
+def pytest_collection_modifyitems(config, items):
+    for item in items:
+        if LIVE_STORE_FIXTURES & set(getattr(item, "fixturenames", ())):
+            item.add_marker(pytest.mark.integration)
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """Under the publication gate, a missing store is a failure, not a skip."""
+    outcome = yield
+    report = outcome.get_result()
+    if (os.environ.get("EDGAR_REQUIRE_STORE") == "1" and report.skipped
+            and MISSING_STORE in str(report.longrepr)):
+        report.outcome = "failed"
+
+
+@pytest.fixture(autouse=True)
+def _no_network_when_frozen(monkeypatch):
+    """EDGAR_FROZEN=1 (CI): any socket connect is a test failure."""
+    if os.environ.get("EDGAR_FROZEN") == "1":
+        def refuse(*_a, **_k):
+            raise RuntimeError("network access in a frozen test")
+        monkeypatch.setattr(socket.socket, "connect", refuse)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 

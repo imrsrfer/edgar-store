@@ -1,0 +1,38 @@
+# Audit 2026-10-15 #12 (auditor recommendation 2026-10-16).
+#
+# frozen       BLOCKING. Network-free tests on code/tests/fixtures only.
+#              Make it a required status check on main (repo settings) so a
+#              code change cannot merge red.
+# integration  NON-BLOCKING here. Reads the committed store/. The blocking
+#              version of this check is the publication gate in
+#              sync_to_repo.py, which refuses to commit a rebuilt store
+#              unless the full suite passes with EDGAR_REQUIRE_STORE=1.
+name: ci
+on: [push, pull_request]
+
+jobs:
+  frozen:
+    runs-on: ubuntu-latest
+    env:
+      EDGAR_FROZEN: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14.4"
+      - run: pip install -r code/requirements.txt
+      - run: python -B -m pytest code/tests -m "not integration" -q -p no:cacheprovider
+
+  integration:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      EDGAR_ROOT: ${{ github.workspace }}/store
+      EDGAR_REQUIRE_STORE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14.4"
+      - run: pip install -r code/requirements.txt
+      - run: python -B -m pytest code/tests -m integration -q -p no:cacheprovider

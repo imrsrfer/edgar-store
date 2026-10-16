@@ -34,7 +34,8 @@ CHUNK_BYTES = 1 << 20
 
 PROGRESS_INTERVAL_SECONDS = 5
 
-DEFAULT_ROOT = Path(r"C:\Users\Fer\Documents\CLAUDE\Portfolio\edgar")
+# EDGAR_ROOT overrides it so CI's integration job can read the repo's store/.
+DEFAULT_ROOT = Path(os.environ.get("EDGAR_ROOT", r"C:\Users\Fer\Documents\CLAUDE\Portfolio\edgar"))
 
 
 class Paths:

@@ -209,8 +209,8 @@ Notes:  <one factual line per anomaly, or "none">
 Then one `SOURCES` list: every URL or tool call with its timestamp. Put no
 recommendation, disposition, or verdict anywhere in the reply.
 
-🔴 **Keep the reply short. It lands in the decider's context and is re-read on
-every one of its turns.** Send the block above, about 12 lines per ticker. Never
+Reply with the block above and nothing more. It lands in the decider's context
+and is re-read on every one of its turns, so never
 paste `fact_pack.py` JSON, a fetched page, or a statement table. Save raw
 pulls under the scratch directory and cite the path, and the decider will ask
 for a specific field if it needs one. For a `LOOKUP`, verbatim extracts only.

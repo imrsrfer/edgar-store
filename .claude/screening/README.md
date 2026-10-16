@@ -31,7 +31,7 @@ definition, runs its Sonnet pass, and hands off to the Opus pass.
    (Figma, Vercel, Carta, Gmail …) on each start. Server-level names
    (`mcp__Stocklake`) cover a whole server, and both naming styles
    (`mcp__X__`, `mcp__claude_ai_X__`) are listed, since unknown names are ignored.
-3. **Short replies**: about 12 lines per ticker, no JSON, no pasted pages.
+3. **Short replies**: the fixed fact-pack block per ticker, no JSON, no pasted pages.
 4. **Notion through the analyst.** The console is ~65k tokens, and Opus
    re-read it on every turn. The analyst reads it whole and returns a verbatim
    digest. This departs from the SHARED HEADER's "read the whole console"

@@ -2454,6 +2454,7 @@ def build_quarterly_acceleration(facts):
 
 # Concepts counted when picking which of several same-named CIKs is the real
 # filer: the ones the load-bearing tests actually consume.
+DEDUP_FALLBACK_COLUMNS = ("ticker", "exchange", "sic", "sic_description")
 DEDUP_CONCEPTS = ("equity", "goodwill", "intangibles", "ocf", "net_income", "capex", "sbc")
 
 
@@ -2534,8 +2535,12 @@ def deduplicate_by_company_name(frame):
         how="left",
     ).filter(pl.col("cik") != pl.col("_primary_cik"))
 
+    # The survivor inherits identity fields it lacks from a dropped sibling:
+    # XOM's facts sit on 34088, but ticker, SIC and exchange sit on 2115436.
+    # A null SIC here reads as "unresolved financial" in every lane.
+    meta_cols = [c for c in DEDUP_FALLBACK_COLUMNS if c in non_primary.columns]
     fallback_ticker = non_primary.group_by("_norm_name").agg(
-        pl.col("ticker").drop_nulls().first().alias("_fallback_ticker")
+        pl.col(c).drop_nulls().first().alias(f"_fallback_{c}") for c in meta_cols
     )
     merged_ciks = non_primary.group_by("_norm_name").agg(
         pl.col("cik").cast(pl.Utf8).str.join(",").alias("merged_from_ciks")
@@ -2544,9 +2549,9 @@ def deduplicate_by_company_name(frame):
         primary.join(fallback_ticker, on="_norm_name", how="left")
         .join(merged_ciks, on="_norm_name", how="left")
         .with_columns(
-            pl.coalesce([pl.col("ticker"), pl.col("_fallback_ticker")]).alias("ticker")
+            pl.coalesce([pl.col(c), pl.col(f"_fallback_{c}")]).alias(c) for c in meta_cols
         )
-        .drop("_fallback_ticker")
+        .drop([f"_fallback_{c}" for c in meta_cols])
     )
     non_primary = non_primary.rename({"_primary_cik": "merged_into_cik"})
 

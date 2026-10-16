@@ -717,6 +717,7 @@ def test_exxon_duplicate_cik_collapses_to_one_row(tmp_path):
     row = matches.to_dicts()[0]
     assert row["cik"] == 34088
     assert row["ticker"] == "XOM"
+    assert row["sic"] == "2911"  # inherited from the holding-company sibling
     assert row["fcf"] == pytest.approx((51970 - 28358) * MILLION, rel=0.01)
     assert "2115436" in row["merged_from_ciks"].split(",")
 

@@ -1,7 +1,11 @@
 """Audit 2026-10-15 #10: --dry-run must not copy, write a manifest, or run git."""
 import sys
 
-import sync_to_repo
+import pytest
+
+# Producer-only tool: not published to edgar-store, so the published suite
+# skips this file. The producer suite (and the publication gate) still runs it.
+sync_to_repo = pytest.importorskip("sync_to_repo")
 
 
 def test_dry_run_mutates_nothing(tmp_path, monkeypatch):

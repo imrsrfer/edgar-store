@@ -260,22 +260,6 @@ def _near_fiscal_year_end(end, annual):
     return False
 
 
-def _near_fiscal_year_end(end, annual):
-    """True if ``end`` falls within a week of any known fiscal year-end's day.
-
-    With no annual labels there is nothing to check against, so the date keeps
-    the benefit of the doubt it always had.
-    """
-    if not annual:
-        return True
-    day = end.timetuple().tm_yday
-    for known in annual:
-        gap = abs(day - known.timetuple().tm_yday)
-        if min(gap, 365 - gap) <= YEAR_END_TOLERANCE_DAYS:
-            return True
-    return False
-
-
 def _duration_kind(start, end):
     """Classify a duration fact as annual, quarterly, cumulative YTD, or neither.
 

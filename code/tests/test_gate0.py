@@ -1331,8 +1331,8 @@ def test_nth_back_uses_fiscal_year_not_row_count():
     assert out["r4"] is None    # FY2021 is missing -> endpoint stays missing
 
 
-def test_enforce_period_currency_drops_minority_unit():
-    """Audit 2026-10-15 #1: one currency per company-period, shares untouched."""
+def test_enforce_company_currency_drops_minority_unit():
+    """Audit 2026-10-15 #1: one currency per company, shares untouched."""
     facts = pl.DataFrame({
         "cik": [1, 1, 1, 1, 1],
         "fiscal_year": [2025] * 5,
@@ -1341,6 +1341,45 @@ def test_enforce_period_currency_drops_minority_unit():
         "unit": ["ILS", "ILS", "USD", "ILS", "shares"],
         "value": [1.0, 2.0, 3.0, 4.0, 5.0],
     })
-    kept, dropped = gate0.enforce_period_currency(facts)
+    kept, dropped = gate0.enforce_company_currency(facts)
     assert sorted(kept["concept"].to_list()) == ["equity", "ocf", "revenue", "shares_diluted"]
     assert dropped.to_dicts() == [{"cik": 1, "off_currency_facts_dropped": 1}]
+
+
+def test_enforce_company_currency_keeps_latest_year_currency_across_history():
+    """Verification 2026-10-16 V1: a CNY switch must not leave USD history."""
+    facts = pl.DataFrame({
+        "cik": [1] * 5,
+        "fiscal_year": [2022, 2023, 2023, 2024, 2024],
+        "fiscal_period": ["FY"] * 5,
+        "concept": ["ocf", "ocf", "revenue", "ocf", "revenue"],
+        "unit": ["USD", "USD", "USD", "CNY", "CNY"],
+        "value": [1.0, 2.0, 3.0, 4.0, 5.0],
+        "taxonomy": ["ifrs-full"] * 5,
+        "form": ["20-F"] * 5,
+    })
+    kept, dropped = gate0.enforce_company_currency(facts)
+    assert set(kept["unit"].to_list()) == {"CNY"}
+    assert dropped["off_currency_facts_dropped"].to_list() == [3]
+    assert gate0._company_provenance(kept)["reporting_currency"].to_list() == ["CNY"]
+
+
+def test_ttm_never_sums_two_currencies():
+    """Verification 2026-10-16 V1 counterexample: USD Q1/Q2 + EUR Q3/Q4."""
+    rows = []
+    quarters = [
+        (date(2025, 1, 1), date(2025, 3, 31), "USD"),
+        (date(2025, 4, 1), date(2025, 6, 30), "USD"),
+        (date(2025, 7, 1), date(2025, 9, 30), "EUR"),
+        (date(2025, 10, 1), date(2025, 12, 31), "EUR"),
+    ]
+    for q, (start, end, ccy) in enumerate(quarters, 1):
+        for concept in ["ocf", "capex", "sbc"]:
+            rows.append(dict(cik=1, fiscal_year=2025, fiscal_period=f"Q{q}",
+                             concept=concept, unit=ccy,
+                             value=100.0 if concept == "ocf" else 10.0,
+                             period_start=start, period_end=end))
+    kept, _ = gate0.enforce_company_currency(pl.DataFrame(rows))
+    ttm = gate0.build_ttm(kept)
+    ocf = ttm["ttm_ocf"].to_list() if "ttm_ocf" in ttm.columns else []
+    assert 400.0 not in ocf

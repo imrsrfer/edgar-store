@@ -435,35 +435,41 @@ def _company_provenance(facts):
     )
 
 
-def enforce_period_currency(facts):
-    """Keep one currency per company-period; drop the rest (audit 2026-10-15 #1).
+def enforce_company_currency(facts):
+    """Keep one currency per company across ALL periods; drop the rest.
 
     build_facts' IFRS fallback accepts any currency per tag, so a period could
-    mix ILS OCF with USD net income (WILCF FY2025) and every ratio across them
-    was meaningless. The period's dominant currency wins (ties: the company's
-    modal currency, then lexicographic); off-currency facts become missing,
-    never converted. Returns (facts, per-cik count of dropped facts)."""
-    key = ["cik", "fiscal_year", "fiscal_period"]
+    mix ILS OCF with USD net income (WILCF FY2025; audit 2026-10-15 #1).
+    🔴 Per-PERIOD enforcement was not enough (verification 2026-10-16 V1):
+    TTM summed USD Q1/Q2 with EUR Q3/Q4, trends and CAGRs spanned a currency
+    switch, and reporting_currency (a whole-history mode) labelled DIDIY's CNY
+    figures USD. One currency per company makes every cross-period sum,
+    endpoint and label agree by construction.
+    The currency is the dominant one in the company's LATEST fiscal year, so
+    current figures survive and pre-switch history becomes missing (ties: the
+    company's modal currency, then lexicographic). Never converted.
+    Returns (facts, per-cik count of dropped facts)."""
     money = facts.filter(pl.col("unit") != "shares")
-    company = money.group_by("cik").agg(
-        pl.col("unit").mode().sort().first().alias("_company_ccy")
+    modal = money.group_by("cik").agg(
+        pl.col("unit").mode().sort().first().alias("_modal_ccy")
     )
-    period = (
-        money.group_by(key + ["unit"]).len()
-        .join(company, on="cik", how="left")
-        .with_columns((pl.col("unit") == pl.col("_company_ccy")).alias("_is_company"))
-        .sort(["len", "_is_company", "unit"], descending=[True, True, False])
-        .group_by(key, maintain_order=True)
+    company = (
+        money.filter(pl.col("fiscal_year") == pl.col("fiscal_year").max().over("cik"))
+        .group_by(["cik", "unit"]).len()
+        .join(modal, on="cik", how="left")
+        .with_columns((pl.col("unit") == pl.col("_modal_ccy")).alias("_is_modal"))
+        .sort(["len", "_is_modal", "unit"], descending=[True, True, False])
+        .group_by("cik", maintain_order=True)
         .first()
-        .select(key + [pl.col("unit").alias("_period_ccy")])
+        .select("cik", pl.col("unit").alias("_company_ccy"))
     )
-    joined = facts.join(period, on=key, how="left")
-    foreign = (pl.col("unit") != "shares") & (pl.col("unit") != pl.col("_period_ccy"))
+    joined = facts.join(company, on="cik", how="left")
+    foreign = (pl.col("unit") != "shares") & (pl.col("unit") != pl.col("_company_ccy"))
     dropped = (
         joined.filter(foreign).group_by("cik").len()
         .rename({"len": "off_currency_facts_dropped"})
     )
-    return joined.filter(~foreign.fill_null(False)).drop("_period_ccy"), dropped
+    return joined.filter(~foreign.fill_null(False)).drop("_company_ccy"), dropped
 
 
 def _acq_disagreement(cf_intensity, bs_intensity):
@@ -2911,7 +2917,7 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False,
     # revenue-acceleration columns on up to 17, and reporting_currency on 3 --
     # none of which has anything to do with the reconciliation flag. A concept
     # added to DESCRIBE the data had begun to change what the data said.
-    facts, off_currency = enforce_period_currency(facts)
+    facts, off_currency = enforce_company_currency(facts)
     scoring_facts = facts.filter(~pl.col("concept").is_in(DIAGNOSTIC_CONCEPTS))
 
     # 🔴 The TTM frame is built BEFORE the annual metrics now: it supplies one

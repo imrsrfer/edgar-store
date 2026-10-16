@@ -717,6 +717,13 @@ CONCEPTS = (
         components=list(INVESTING_PORTFOLIO_TAGS),
         partial_ok=True,
     ),
+    # Diagnostic only (2026-10-16, lease forensics #11). IFRS 16 s53(g) TOTAL
+    # cash outflow for leases: an UPPER BOUND on lease principal, since it also
+    # holds interest and short-term/low-value/variable payments. NEVER deducted
+    # from FCF (double-counts -- see lease_payments). It exists only so
+    # lease_heavy can fire when lease_payments is unresolved: ZIM reports only
+    # this tag, $2,524M against $2,082M FCF-after-SBC, and passed unflagged.
+    Concept("lease_outflow_total", DURATION, [], ifrs_chain=["CashOutflowForLeases"]),
 )
 
 CONCEPTS_BY_NAME = {c.name: c for c in CONCEPTS}
@@ -733,6 +740,7 @@ DIAGNOSTIC_CONCEPT_NAMES = (
     "investing_outflows",
     "investing_inflows",
     "investing_portfolio",
+    "lease_outflow_total",
 )
 
 # 🔴 Tags reachable ONLY through a diagnostic concept.

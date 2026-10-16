@@ -19,7 +19,7 @@ import time
 
 import polars as pl
 
-from concepts import QUARTERS, REQUIRED_CONCEPTS
+from concepts import DIAGNOSTIC_CONCEPT_NAMES, QUARTERS, REQUIRED_CONCEPTS
 from edgar_lib import Paths, log_stage
 from store_defects import add_store_defect_flags
 
@@ -191,12 +191,9 @@ ALL_CONCEPTS = (
 # Concepts that DESCRIBE a filing without scoring it. They are joined onto the
 # rows the scoring concepts form -- see widen -- so adding one can never change
 # which fiscal year a company is judged on.
-DIAGNOSTIC_CONCEPTS = (
-    "investing_cf",
-    "investing_outflows",
-    "investing_inflows",
-    "investing_portfolio",
-)
+DIAGNOSTIC_CONCEPTS = DIAGNOSTIC_CONCEPT_NAMES  # one list, shared with build_facts
+# Feed reader flags only; must not move a single pre-existing column.
+READER_ONLY_CONCEPTS = ("lease_outflow_total",)
 
 FLAG_COLUMNS = (
     "fail_tangible_book",
@@ -448,8 +445,15 @@ def enforce_company_currency(facts):
     The currency is the dominant one in the company's LATEST fiscal year, so
     current figures survive and pre-switch history becomes missing (ties: the
     company's modal currency, then lexicographic). Never converted.
-    Returns (facts, per-cik count of dropped facts)."""
-    money = facts.filter(pl.col("unit") != "shares")
+    Returns (facts, per-cik count of dropped facts).
+    🔴 READER_ONLY_CONCEPTS never pick the currency or count as dropped
+    (2026-10-16: two TWD lease_outflow_total facts broke SELXF's 13-13 USD/TWD
+    tie and flipped its verdict fail -> unknown). The older investing_*
+    diagnostics DO still vote, as they always have -- excluding them moves 87
+    rows and SELXF. ponytail: removing that vote is a separate, verdict-moving
+    change."""
+    reader_only = pl.col("concept").is_in(READER_ONLY_CONCEPTS)
+    money = facts.filter((pl.col("unit") != "shares") & ~reader_only)
     modal = money.group_by("cik").agg(
         pl.col("unit").mode().sort().first().alias("_modal_ccy")
     )
@@ -466,7 +470,7 @@ def enforce_company_currency(facts):
     joined = facts.join(company, on="cik", how="left")
     foreign = (pl.col("unit") != "shares") & (pl.col("unit") != pl.col("_company_ccy"))
     dropped = (
-        joined.filter(foreign).group_by("cik").len()
+        joined.filter(foreign & ~reader_only).group_by("cik").len()
         .rename({"len": "off_currency_facts_dropped"})
     )
     return joined.filter(~foreign.fill_null(False)).drop("_company_ccy"), dropped
@@ -581,8 +585,9 @@ def compute_metrics(frame, assume_absent_zero=False, sbc_evidence=None,
     # with no lease concept at all -- every pre-lease-fix test fixture, or a
     # facts file with no lease tags -- crashed with ColumnNotFoundError instead.
     # Never a silent 0: the flag still names the row.
-    if "lease_payments" not in frame.columns:
-        frame = frame.with_columns(pl.lit(None, dtype=pl.Float64).alias("lease_payments"))
+    for col in ("lease_payments", "lease_outflow_total"):
+        if col not in frame.columns:
+            frame = frame.with_columns(pl.lit(None, dtype=pl.Float64).alias(col))
     frame = _classify_annual_sbc(frame, sbc_evidence)
 
     goodwill_raw, intangibles_raw = pl.col("goodwill"), pl.col("intangibles")
@@ -652,7 +657,16 @@ def compute_metrics(frame, assume_absent_zero=False, sbc_evidence=None,
     lease_unmeasured = pl.col("lease_payments").is_null().fill_null(False)
     # lease_heavy: Set where finance-lease payments >= 0.25 × OCF. Bounded at both ends
     # (near-zero and negative OCF) to avoid spurious ratios. Signals lease-dependent business.
-    lease_heavy = _safe_div(pl.col("lease_payments"), pl.col("ocf")) >= 0.25
+    # 🔴 Upper-bound proxy (2026-10-16, Fer): where lease_payments is null, the
+    # IFRS 16 total CashOutflowForLeases stands in, so an unmeasured row can
+    # still be flagged heavy (ZIM: 1.21x its FCF-after-SBC, unflagged before).
+    # READER FLAG ONLY -- nothing scores on lease_heavy, and the FCF deduction
+    # below still uses lease_payments alone.
+    lease_basis = pl.coalesce(pl.col("lease_payments"), pl.col("lease_outflow_total"))
+    lease_heavy = _safe_div(lease_basis, pl.col("ocf")) >= 0.25
+    lease_heavy_upper_bound = (
+        lease_heavy & pl.col("lease_payments").is_null()
+    ).fill_null(False)
     ocf_ratio = _safe_div(pl.col("ocf"), pl.col("revenue"))
     capex_vs_da = _safe_div(pl.col("capex"), pl.col("dep_amort"))
     # 🔴 income_quality has no CEILING -- see INCOME_QUALITY_CEILING. This
@@ -676,6 +690,7 @@ def compute_metrics(frame, assume_absent_zero=False, sbc_evidence=None,
         capex_broken.fill_null(False).alias("capex_broken"),
         lease_unmeasured.alias("lease_unmeasured"),
         lease_heavy.fill_null(False).alias("lease_heavy"),
+        lease_heavy_upper_bound.alias("lease_heavy_upper_bound"),
         (
             capex_broken.fill_null(False)
             | (
@@ -2801,6 +2816,8 @@ OUTPUT_ORDER = (
     "lease_payments",
     "lease_unmeasured",
     "lease_heavy",
+    "lease_heavy_upper_bound",
+    "lease_outflow_total",
     "shares_scale_suspect",
     "investing_unreconciled",
     "investing_residual",

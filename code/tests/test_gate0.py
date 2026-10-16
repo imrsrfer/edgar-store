@@ -1364,6 +1364,16 @@ def test_enforce_company_currency_keeps_latest_year_currency_across_history():
     assert gate0._company_provenance(kept)["reporting_currency"].to_list() == ["CNY"]
 
 
+def test_lease_outflow_total_is_diagnostic_only():
+    """Lease forensics 2026-10-16: the CashOutflowForLeases proxy must never score."""
+    from concepts import CONCEPTS_BY_NAME, DIAGNOSTIC_ONLY_TAGS
+    c = CONCEPTS_BY_NAME["lease_outflow_total"]
+    assert c.ifrs_chain == ("CashOutflowForLeases",)
+    assert "lease_outflow_total" in gate0.DIAGNOSTIC_CONCEPTS
+    assert "CashOutflowForLeases" in DIAGNOSTIC_ONLY_TAGS   # never labels periods
+    assert "CashOutflowForLeases" not in CONCEPTS_BY_NAME["lease_payments"].all_tags
+
+
 def test_ttm_never_sums_two_currencies():
     """Verification 2026-10-16 V1 counterexample: USD Q1/Q2 + EUR Q3/Q4."""
     rows = []

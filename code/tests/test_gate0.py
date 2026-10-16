@@ -1343,7 +1343,39 @@ def test_enforce_company_currency_drops_minority_unit():
     })
     kept, dropped = gate0.enforce_company_currency(facts)
     assert sorted(kept["concept"].to_list()) == ["equity", "ocf", "revenue", "shares_diluted"]
-    assert dropped.to_dicts() == [{"cik": 1, "off_currency_facts_dropped": 1}]
+    assert dropped.to_dicts() == [
+        {"cik": 1, "off_currency_facts_dropped": 1, "currency_unresolved": False}
+    ]
+
+
+def test_latest_quarter_shares_pick_discrete_quarter_regardless_of_row_order():
+    """2026-10-16: Q2 and YTD2 share an end date; the 3-month count must win."""
+    rows = [
+        dict(cik=1, concept="shares_diluted", fiscal_period="YTD2", unit="shares",
+             period_start=date(2026, 1, 1), period_end=date(2026, 6, 30), value=16.0),
+        dict(cik=1, concept="shares_diluted", fiscal_period="Q2", unit="shares",
+             period_start=date(2026, 4, 1), period_end=date(2026, 6, 30), value=101.0),
+    ]
+    for order in (rows, rows[::-1]):
+        out = gate0.build_latest_quarter(pl.DataFrame(order))
+        assert out["latest_q_shares_diluted"].to_list() == [101.0]
+
+
+def test_currency_tie_abstains_and_diagnostics_do_not_vote():
+    """Auditor 2026-10-16: a tie drops every money fact; a diagnostic never breaks it."""
+    facts = pl.DataFrame({
+        "cik": [1] * 5,
+        "fiscal_year": [2024] * 5,
+        "fiscal_period": ["FY"] * 5,
+        "concept": ["ocf", "revenue", "equity", "net_income", "investing_cf"],
+        "unit": ["USD", "USD", "TWD", "TWD", "USD"],
+        "value": [1.0, 2.0, 3.0, 4.0, 5.0],
+    })
+    kept, dropped = gate0.enforce_company_currency(facts)
+    row = dropped.to_dicts()[0]
+    assert row["currency_unresolved"] is True
+    assert row["off_currency_facts_dropped"] == 4          # scoring facts only
+    assert kept.filter(pl.col("unit") != "shares").height == 0
 
 
 def test_enforce_company_currency_keeps_latest_year_currency_across_history():

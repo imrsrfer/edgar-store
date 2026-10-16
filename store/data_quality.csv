@@ -38,6 +38,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 2018462,PCLA,PicoCELA Inc.,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 1433309,PLTYF,"Plastec Technologies, Ltd.",2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 1708055,RBBN,RIBBON COMMUNICATIONS INC.,2026,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
+1990950,SELXF,Semilux International Ltd.,2024,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 1877333,THCH,TH International Limited,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 1232384,TRP,TC ENERGY CORPORATION,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 1683825,TRVG,trivago N.V.,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
@@ -3511,7 +3512,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1321851,SEED,Origin Agritech Limited,2025,1,operating_income
 2009684,SEG,Seaport Entertainment Group Inc.,2025,1,capex
 1697500,SEI,"SOLARIS ENERGY INFRASTRUCTURE, INC.",2025,1,acq_cf_bs_disagreement
-1990950,SELXF,Semilux International Ltd.,2024,1,sbc
 1708599,SER,"Serina Therapeutics, Inc.",2025,1,intangibles
 1832483,SERV,Serve Robotics Inc.,2025,1,acq_cf_bs_disagreement
 1819142,SES,SES AI Corporation,2025,1,acq_cf_bs_disagreement

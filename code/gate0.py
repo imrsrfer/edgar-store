@@ -192,8 +192,6 @@ ALL_CONCEPTS = (
 # rows the scoring concepts form -- see widen -- so adding one can never change
 # which fiscal year a company is judged on.
 DIAGNOSTIC_CONCEPTS = DIAGNOSTIC_CONCEPT_NAMES  # one list, shared with build_facts
-# Feed reader flags only; must not move a single pre-existing column.
-READER_ONLY_CONCEPTS = ("lease_outflow_total",)
 
 FLAG_COLUMNS = (
     "fail_tangible_book",
@@ -442,38 +440,53 @@ def enforce_company_currency(facts):
     switch, and reporting_currency (a whole-history mode) labelled DIDIY's CNY
     figures USD. One currency per company makes every cross-period sum,
     endpoint and label agree by construction.
-    The currency is the dominant one in the company's LATEST fiscal year, so
-    current figures survive and pre-switch history becomes missing (ties: the
-    company's modal currency, then lexicographic). Never converted.
-    Returns (facts, per-cik count of dropped facts).
-    🔴 READER_ONLY_CONCEPTS never pick the currency or count as dropped
-    (2026-10-16: two TWD lease_outflow_total facts broke SELXF's 13-13 USD/TWD
-    tie and flipped its verdict fail -> unknown). The older investing_*
-    diagnostics DO still vote, as they always have -- excluding them moves 87
-    rows and SELXF. ponytail: removing that vote is a separate, verdict-moving
-    change."""
-    reader_only = pl.col("concept").is_in(READER_ONLY_CONCEPTS)
-    money = facts.filter((pl.col("unit") != "shares") & ~reader_only)
-    modal = money.group_by("cik").agg(
-        pl.col("unit").mode().sort().first().alias("_modal_ccy")
+    The currency is the majority currency of SCORING facts in the company's
+    LATEST fiscal year, so current figures survive and pre-switch history
+    becomes missing. Never converted.
+    🔴 Auditor 2026-10-16: diagnostic concepts never vote (their votes had
+    decided SELXF's USD/TWD tie), and a TIE ABSTAINS: no currency is chosen,
+    every money fact is dropped, the row's currency-dependent metrics are
+    unresolved and `currency_unresolved` is set. The old modal/lexicographic
+    tie-break was reproducible, not correct.
+    ponytail: majority voting is the basis because companyfacts carries no
+    presentation-currency field; use the filing's stated presentation
+    currency instead if a source for it is ever added.
+    Returns (facts, per-cik frame: off_currency_facts_dropped, currency_unresolved)."""
+    scoring = ~pl.col("concept").is_in(DIAGNOSTIC_CONCEPTS)
+    is_money = pl.col("unit") != "shares"
+    votes = (
+        facts.filter(is_money & scoring)
+        .filter(pl.col("fiscal_year") == pl.col("fiscal_year").max().over("cik"))
+        .group_by(["cik", "unit"]).len()
     )
     company = (
-        money.filter(pl.col("fiscal_year") == pl.col("fiscal_year").max().over("cik"))
-        .group_by(["cik", "unit"]).len()
-        .join(modal, on="cik", how="left")
-        .with_columns((pl.col("unit") == pl.col("_modal_ccy")).alias("_is_modal"))
-        .sort(["len", "_is_modal", "unit"], descending=[True, True, False])
-        .group_by("cik", maintain_order=True)
-        .first()
-        .select("cik", pl.col("unit").alias("_company_ccy"))
+        votes.with_columns(pl.col("len").max().over("cik").alias("_top"))
+        .filter(pl.col("len") == pl.col("_top"))
+        .group_by("cik")
+        .agg(pl.col("unit").first().alias("_ccy"), pl.len().alias("_n_top"))
+        .select(
+            "cik",
+            pl.when(pl.col("_n_top") == 1).then(pl.col("_ccy")).alias("_company_ccy"),
+            (pl.col("_n_top") > 1).alias("currency_unresolved"),
+        )
     )
     joined = facts.join(company, on="cik", how="left")
-    foreign = (pl.col("unit") != "shares") & (pl.col("unit") != pl.col("_company_ccy"))
-    dropped = (
-        joined.filter(foreign & ~reader_only).group_by("cik").len()
-        .rename({"len": "off_currency_facts_dropped"})
+    # A tie leaves _company_ccy null: every money fact counts as foreign.
+    foreign = is_money & (
+        pl.col("_company_ccy").is_null() | (pl.col("unit") != pl.col("_company_ccy"))
     )
-    return joined.filter(~foreign.fill_null(False)).drop("_company_ccy"), dropped
+    foreign = foreign & pl.col("currency_unresolved").is_not_null()  # no vote at all: keep
+    dropped = (
+        joined.filter(foreign & scoring).group_by("cik").len()
+        .rename({"len": "off_currency_facts_dropped"})
+        .join(company.select("cik", "currency_unresolved"), on="cik", how="full", coalesce=True)
+        .with_columns(
+            pl.col("off_currency_facts_dropped").fill_null(0),
+            pl.col("currency_unresolved").fill_null(False),
+        )
+    )
+    kept = joined.filter(~foreign.fill_null(False)).drop("_company_ccy", "currency_unresolved")
+    return kept, dropped
 
 
 def _acq_disagreement(cf_intensity, bs_intensity):
@@ -1844,8 +1857,13 @@ def build_latest_quarter(facts):
     )
     if wanted.is_empty():
         return pl.DataFrame(schema={"cik": pl.Int64})
+    # 🔴 period_start breaks period_end ties (2026-10-16). A Q2 3-month and a
+    # YTD2 6-month diluted count can share one end date, and .last() then took
+    # whichever row happened to come later: a join reorder upstream changed
+    # latest_q_shares_diluted on 111 rows. Latest start = shortest window =
+    # the discrete quarter, the latest-quarter count. Balances have no start.
     latest = (
-        wanted.sort(["cik", "concept", "period_end"])
+        wanted.sort(["cik", "concept", "period_end", "period_start"], nulls_last=False)
         .group_by(["cik", "concept"])
         .last()
         .select(["cik", "concept", "period_end", "value"])
@@ -2761,6 +2779,7 @@ OUTPUT_ORDER = (
     "taxonomy",
     "filing_form",
     "reporting_currency",
+    "currency_unresolved",
     "off_currency_facts_dropped",
     "fiscal_year_end",
     "latest_fiscal_year",
@@ -3016,7 +3035,8 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False,
     if acceleration.width > 1:
         frame = frame.join(acceleration, on="cik", how="left")
     frame = frame.join(off_currency, on="cik", how="left").with_columns(
-        pl.col("off_currency_facts_dropped").fill_null(0)
+        pl.col("off_currency_facts_dropped").fill_null(0),
+        pl.col("currency_unresolved").fill_null(False),
     )
     frame = add_verdict(frame.join(meta, on="cik", how="left"), allow_imputed=allow_imputed)
     # 🔴 AFTER add_verdict, on purpose: these are reader flags, and running them

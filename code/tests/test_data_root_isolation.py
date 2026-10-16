@@ -37,6 +37,7 @@ def test_subdirectory_of_production_root_is_refused():
         Paths(PRODUCTION_ROOT / "raw")
 
 
+@pytest.mark.integration
 def test_gate0_main_side_outputs_land_in_the_isolated_root(isolated_data_root, tmp_path):
     """The exact call that caused the corruption, pinned.
 

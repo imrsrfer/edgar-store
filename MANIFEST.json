@@ -1,11 +1,11 @@
 {
   "contains": "reference data only: code + SEC-derived store. NO queue, NO portfolio data.",
-  "synced_utc": "2026-10-16T23:25:51Z",
+  "synced_utc": "2026-10-16T23:27:55Z",
   "store_built_utc_oldest": "2026-10-16T20:32:27Z",
   "store_built_utc_newest": "2026-10-16T21:01:27Z",
   "store_build_spread_hours": 0.48,
   "store_vintage_ok": true,
-  "publication_gate": "passed: 282 passed in 18.97s (EDGAR_REQUIRE_STORE=1)",
+  "publication_gate": "passed: 282 passed in 17.61s (EDGAR_REQUIRE_STORE=1)",
   "pruned": {
     "store": [],
     "code": []

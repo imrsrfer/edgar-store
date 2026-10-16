@@ -12,7 +12,7 @@ the screener runs over the universe in **under a second**.
 ## Install
 
 ```
-python -m pip install polars pyarrow requests orjson pytest
+python -m pip install -r requirements.txt   # pinned, Python 3.14.4
 ```
 
 Python 3.11+. `orjson` is optional but roughly halves parse time; the pipeline

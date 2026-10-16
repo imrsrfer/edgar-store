@@ -3,7 +3,7 @@
 
     python .claude/screening/fact_pack.py store
     python .claude/screening/fact_pack.py rows AMPH LQDT
-    python .claude/screening/fact_pack.py rows AMPH --quote AMPH=27.10,1.31e9
+    python .claude/screening/fact_pack.py rows AMPH --quote AMPH=27.10,1.31e9        # cap currency defaults to USD
 
 `store` answers Step 0 of the Opportunity Screener job: store age, the five
 column checks, and whether the helper scripts the job falls back on exist.
@@ -194,10 +194,17 @@ def opus_only_triggers(values):
     }
 
 
-def live_checks(values, price, market_cap):
-    """Share-count check and P/FCF at a LIVE cap. Never derives a cap from shares."""
+def live_checks(values, price, market_cap, cap_currency="USD"):
+    """Share-count check and P/FCF at a LIVE cap. Never derives a cap from shares.
+
+    The P/FCF multiple is computed only when the cap's currency matches the
+    store's reporting_currency: a USD cap over EUR/ILS cash flow is not a
+    multiple (audit 2026-10-15 #1). Pass the cap's currency in --quote."""
     implied = market_cap / price if price else None
-    out = {"live_price": price, "live_market_cap": market_cap, "implied_shares": implied}
+    out = {"live_price": price, "live_market_cap": market_cap,
+           "live_cap_currency": cap_currency, "implied_shares": implied}
+    reporting = values.get("reporting_currency")
+    same_currency = isinstance(reporting, str) and reporting.upper() == cap_currency
     for column in ("shares_diluted", "latest_q_shares_diluted"):
         store = values.get(column)
         if isinstance(store, float) and store > 0 and implied:
@@ -206,7 +213,9 @@ def live_checks(values, price, market_cap):
     out["share_gap_over_25pct"] = (max(gaps) > SHARE_GAP_LIMIT) if gaps else NOT_MEASURED
     for column in ("fcf_after_sbc", "ttm_fcf_after_sbc"):
         flow = values.get(column)
-        if isinstance(flow, float) and flow > 0:
+        if not same_currency:
+            out[f"p_{column}_live"] = NOT_MEASURED  # cap and flow in different units
+        elif isinstance(flow, float) and flow > 0:
             out[f"p_{column}_live"] = round(market_cap / flow, 2)
         else:
             out[f"p_{column}_live"] = None  # null or non-positive: no multiple
@@ -226,8 +235,8 @@ def parse_quotes(items):
     quotes = {}
     for item in items or []:
         ticker, _, nums = item.partition("=")
-        price, _, cap = nums.partition(",")
-        quotes[ticker.upper()] = (float(price), float(cap))
+        price, cap, *ccy = nums.split(",")
+        quotes[ticker.upper()] = (float(price), float(cap), (ccy[0] if ccy else "USD").strip().upper())
     return quotes
 
 
@@ -239,7 +248,7 @@ def main(argv=None):
     rows_cmd = sub.add_parser("rows")
     rows_cmd.add_argument("tickers", nargs="+")
     rows_cmd.add_argument(
-        "--quote", action="append", metavar="TICKER=PRICE,MARKET_CAP",
+        "--quote", action="append", metavar="TICKER=PRICE,MARKET_CAP[,CCY]",
         help="live price and market cap from a tier-1 source; repeatable",
     )
     args = parser.parse_args(argv)

@@ -95,6 +95,23 @@ ELIGIBLE_STATUSES = ("pass", "pass_stale")
 # --------------------------------------------------------------------------
 
 
+def _partition(frame, ok, reason):
+    """Split on ``ok`` without losing null rows (audit 2026-10-15 #4).
+
+    Polars drops a null predicate from BOTH filter(ok) and filter(~ok), so a
+    row whose test input is missing vanished from survivors and rejects alike.
+    Null now lands in rejects as ``unresolved:<reason>`` -- not admitted, and
+    not reported as an evaluated failure either."""
+    ok = ok.cast(pl.Boolean)
+    rejected = frame.filter(ok.is_null() | ~ok).with_columns(
+        pl.when(ok.is_null())
+        .then(pl.lit("unresolved:" + reason))
+        .otherwise(pl.lit(reason))
+        .alias("rejected_because")
+    )
+    return frame.filter(ok.fill_null(False)), rejected
+
+
 def apply_eligibility(frame, args, exclude_tickers):
     """gate0_status pass/pass_stale, non-financial unless asked, min revenue,
     and the exclude list. Returns (survivors, [rejected batches])."""
@@ -105,6 +122,7 @@ def apply_eligibility(frame, args, exclude_tickers):
         excluded_mask = pl.col("ticker").is_in(exclude_tickers) | pl.col(
             "cik"
         ).cast(pl.Utf8).is_in(exclude_tickers)
+        excluded_mask = excluded_mask.fill_null(False)
         batches.append(
             remaining.filter(excluded_mask).with_columns(
                 pl.lit("excluded_list").alias("rejected_because")
@@ -117,12 +135,9 @@ def apply_eligibility(frame, args, exclude_tickers):
         is_financial = pl.lit(False)
         for low, high in parse_sic_ranges(args.exclude_sic):
             is_financial = is_financial | sic.is_between(low, high)
-        batches.append(
-            remaining.filter(is_financial).with_columns(
-                pl.lit("ineligible:financial_sic").alias("rejected_because")
-            )
-        )
-        remaining = remaining.filter(~is_financial)
+        # A null/unparseable SIC is unresolved, not silently dropped (#4).
+        remaining, rejected = _partition(remaining, ~is_financial, "ineligible:financial_sic")
+        batches.append(rejected)
 
     if getattr(args, "lane", None) == "unevaluated":
         # 🔴 Fix 4. 744 rows carry gate0_status='unknown' -- their latest
@@ -139,20 +154,12 @@ def apply_eligibility(frame, args, exclude_tickers):
         status_ok = pl.col("gate0_status") == "unknown"
     else:
         status_ok = pl.col("gate0_status").is_in(list(ELIGIBLE_STATUSES))
-    batches.append(
-        remaining.filter(~status_ok).with_columns(
-            pl.lit("ineligible:gate0_status").alias("rejected_because")
-        )
-    )
-    remaining = remaining.filter(status_ok)
+    remaining, rejected = _partition(remaining, status_ok, "ineligible:gate0_status")
+    batches.append(rejected)
 
     revenue_ok = pl.col("revenue").is_not_null() & (pl.col("revenue") > args.min_revenue)
-    batches.append(
-        remaining.filter(~revenue_ok).with_columns(
-            pl.lit("ineligible:min_revenue").alias("rejected_because")
-        )
-    )
-    remaining = remaining.filter(revenue_ok)
+    remaining, rejected = _partition(remaining, revenue_ok, "ineligible:min_revenue")
+    batches.append(rejected)
 
     return remaining, batches
 
@@ -205,10 +212,7 @@ def apply_growth(frame, lane):
             & (pl.col("quarters_of_accelerating_revenue") >= ACCEL_MIN_QUARTERS)
             & (pl.col("income_quality_direction") == "rising")
         )
-        rejected = frame.filter(~ok).with_columns(
-            pl.lit("accel:not_accelerating").alias("rejected_because")
-        )
-        return frame.filter(ok), rejected
+        return _partition(frame, ok, "accel:not_accelerating")
 
     if lane == "margin2y":
         if "operating_margin_2y_ago" not in frame.columns:
@@ -238,10 +242,7 @@ def apply_growth(frame, lane):
             & (pl.col("operating_margin_latest") > 0)
             & ~passes_5y.fill_null(False)
         )
-        rejected = frame.filter(~ok).with_columns(
-            pl.lit("margin2y:no_recent_turn").alias("rejected_because")
-        )
-        return frame.filter(ok), rejected
+        return _partition(frame, ok, "margin2y:no_recent_turn")
 
     if lane == "unevaluated":
         # Fix 4. The growth leg is the MAIN lane's, unchanged -- what makes
@@ -254,8 +255,7 @@ def apply_growth(frame, lane):
             & fcf_cagr.is_not_null()
             & (fcf_cagr > GROWTH_MIN_FCF_CAGR)
         )
-        rejected = frame.filter(~ok).with_columns(pl.lit("growth").alias("rejected_because"))
-        return frame.filter(ok), rejected
+        return _partition(frame, ok, "growth")
 
     if lane == "value":
         # 🔴 A DECLINE GUARD, not a growth screen -- and deliberately not
@@ -275,10 +275,7 @@ def apply_growth(frame, lane):
         fcf_cagr = _effective_cagr("fcf_per_share")
         fcf_ok = fcf_cagr.is_not_null() & (fcf_cagr >= VALUE_MIN_FCF_CAGR)
         ok = revenue_ok & fcf_ok
-        rejected = frame.filter(~ok).with_columns(
-            pl.lit("value:declining").alias("rejected_because")
-        )
-        return frame.filter(ok), rejected
+        return _partition(frame, ok, "value:declining")
 
     if lane == "inflection":
         fcf_ok = pl.col("fcf_inflection").fill_null(False) & (
@@ -290,8 +287,7 @@ def apply_growth(frame, lane):
         fcf_ok = fcf_cagr.is_not_null() & (fcf_cagr > GROWTH_MIN_FCF_CAGR)
 
     ok = revenue_ok & fcf_ok
-    rejected = frame.filter(~ok).with_columns(pl.lit("growth").alias("rejected_because"))
-    return frame.filter(ok), rejected
+    return _partition(frame, ok, "growth")
 
 
 # --------------------------------------------------------------------------
@@ -314,10 +310,7 @@ def apply_margin_profitable(frame):
         pl.col("operating_margin_latest").is_not_null()
         & (pl.col("operating_margin_latest") > 0)
     )
-    rejected = frame.filter(~ok).with_columns(
-        pl.lit("value:unprofitable").alias("rejected_because")
-    )
-    return frame.filter(ok), rejected
+    return _partition(frame, ok, "value:unprofitable")
 
 
 def apply_margin_expansion(frame):
@@ -336,10 +329,7 @@ def apply_margin_expansion(frame):
         & pl.col("operating_margin_latest").is_not_null()
         & (pl.col("operating_margin_latest") > 0)
     )
-    rejected = frame.filter(~ok).with_columns(
-        pl.lit("margin_expansion").alias("rejected_because")
-    )
-    return frame.filter(ok), rejected
+    return _partition(frame, ok, "margin_expansion")
 
 
 # --------------------------------------------------------------------------
@@ -420,8 +410,7 @@ def apply_quality(frame):
             <= TANGIBLE_BOOK_MAX_YRS_NEGATIVE
         )
     )
-    rejected = frame.filter(~ok).with_columns(pl.lit("quality").alias("rejected_because"))
-    return frame.filter(ok), rejected
+    return _partition(frame, ok, "quality")
 
 
 # --------------------------------------------------------------------------
@@ -460,10 +449,8 @@ def apply_band(frame, min_mktcap, max_mktcap):
         ok = ok & (pl.col("market_cap") >= min_mktcap)
     if max_mktcap is not None:
         ok = ok & (pl.col("market_cap") <= max_mktcap)
-    out_of_band = remaining.filter(~ok).with_columns(
-        pl.lit("band:market_cap").alias("rejected_because")
-    )
-    return remaining.filter(ok), pl.concat([no_cap, out_of_band], how="diagonal_relaxed")
+    remaining, out_of_band = _partition(remaining, ok, "band:market_cap")
+    return remaining, pl.concat([no_cap, out_of_band], how="diagonal_relaxed")
 
 
 # --------------------------------------------------------------------------
@@ -525,8 +512,7 @@ def apply_momentum(frame, prices_supplied, mode="flag"):
         pl.lit(False).alias("drawdown_undiagnosed"),
         pl.col("pct_vs_200ma").is_null().alias("momentum_unknown"),
     )
-    rejected = frame.filter(~ok).with_columns(pl.lit("momentum").alias("rejected_because"))
-    return frame.filter(ok), rejected
+    return _partition(frame, ok, "momentum")
 
 
 # --------------------------------------------------------------------------
@@ -894,12 +880,10 @@ def run_screen(frame, args, exclude_tickers, prices, eps):
     )
     funnel["momentum"] = survivors.height
 
-    survivors = apply_eps_guard(survivors, eps is not None)
+    # Join first: the guard needs fwd_pe/trail_pe, which only eps carries (#8).
     if eps is not None:
         survivors = survivors.join(eps, on="ticker", how="left")
-        survivors = apply_eps_guard(
-            survivors.drop("fwd_trail_ratio", "adjusted_eps_guard"), True
-        )
+    survivors = apply_eps_guard(survivors, eps is not None)
 
     if args.lane == "value":
         survivors = rank_by_cheapness(survivors)
@@ -943,6 +927,11 @@ def run_screen(frame, args, exclude_tickers, prices, eps):
         if all_rejects
         else survivors
     )
+    # Conservation: every lane row is a survivor or carries a reason (#4).
+    if combined.height != frame.height:
+        raise RuntimeError(
+            f"funnel lost rows: {frame.height} in, {combined.height} accounted for"
+        )
     return combined, funnel
 
 

@@ -146,6 +146,34 @@ def test_instant_at_year_end_joins_the_annual_period():
     assert build_facts.label_fact(instant, annual, quarterly, offset) == (2025, "FY")
 
 
+def test_stray_mid_year_instant_never_becomes_a_fiscal_year():
+    """An instant at an unrecognised mid-year date must not invent an FY row.
+
+    CNXC (November year-end) tagged one goodwill line at 2026-08-30 in its Q3
+    10-Q, a day off the 2026-08-31 quarter end. The old fallback labelled it
+    FY2026, which became the company's latest scored year with no flows.
+    """
+    # Arrange
+    annual_fact = make_fact("Revenues", date(2024, 12, 1), date(2025, 11, 30), 100.0,
+                            2025, "FY", "10-K", date(2026, 1, 28), accn="k25")
+    quarter_end = make_fact("Goodwill", None, date(2026, 8, 31), 50.0, 2026, "Q3",
+                            "10-Q", date(2026, 10, 7), accn="q3")
+    stray = make_fact("Goodwill", None, date(2026, 8, 30), 3.7, 2026, "Q3",
+                      "10-Q", date(2026, 10, 7), accn="q3")
+    near_year_end = make_fact("Goodwill", None, date(2023, 12, 2), 40.0, 2025, "FY",
+                              "10-K", date(2026, 1, 28), accn="k25")
+
+    # Act
+    annual, quarterly, offset = build_facts.build_period_labels(
+        [annual_fact, quarter_end, stray]
+    )
+
+    # Assert
+    assert build_facts.label_fact(quarter_end, annual, quarterly, offset) == (2026, "Q3")
+    assert build_facts.label_fact(stray, annual, quarterly, offset) is None
+    assert build_facts.label_fact(near_year_end, annual, quarterly, offset) == (2023, "FY")
+
+
 def test_restated_value_prefers_the_most_recent_filing():
     """A figure restated in a later 10-K resolves to the later accession."""
     # Arrange: FY2025 as first reported, then as restated inside the FY2026 10-K
@@ -559,8 +587,18 @@ def test_serial_acquirer_missing_goodwill_is_not_never_acquired():
     assert row["tangible_book"] is None
 
 
-def test_molson_coors_carried_forward_is_not_plain_pass(universe):
-    """Molson Coors' goodwill and intangibles were reported historically, not now.
+def test_radian_carried_forward_is_not_plain_pass(universe):
+    """Radian's goodwill and intangibles were reported historically, not now.
+
+    Retargeted from Molson Coors (CIK 24545) on 2026-10-16. TAP's "absent at
+    the latest period end" was an artifact of the stray-instant bug fixed in
+    build_facts.label_fact: its latest row was a phantom FY2026 holding only an
+    equity instant at 2026-03-31 (the Q1 10-Q is missing from the archive, so
+    that date was unrecognised). With the phantom gone, TAP's latest year is
+    FY2025 with goodwill and intangibles REPORTED, so it no longer exercises
+    carry-forward. Radian is a clean December filer where it is genuine.
+
+    History of the original Molson Coors pin, kept for context:
 
     Substituted for the round-2 DAN example: under per-component rules,
     structured_absence is checked before carry-forward for a component whose
@@ -578,7 +616,7 @@ def test_molson_coors_carried_forward_is_not_plain_pass(universe):
     on anything it was written to check. The CIK is the real join key and the
     ticker is the one field in this row SEC is free to reorder.
     """
-    row = company(universe, "TAP", by_cik=24545)
+    row = company(universe, "RDN", by_cik=890926)
 
     assert row["resolution_basis"] == "carried_forward"
     assert row["resolution_basis_goodwill"] == "carried_forward"
@@ -1275,3 +1313,33 @@ def test_kimball_lagging_quarters_keep_the_fiscal_year_and_flag_the_ttm_window(
     assert row["ttm_window_end"] < row["period_end"]
     assert row["ttm_window_misaligned"] is True
     assert row["ttm_unavailable"] is False
+
+
+def test_nth_back_uses_fiscal_year_not_row_count():
+    """Audit 2026-10-15 #2: a missing FY2021 must not turn 2019 into the 5y base."""
+    frame = pl.DataFrame({
+        "cik": [1] * 6,
+        "fiscal_year": [2019, 2020, 2022, 2023, 2024, 2025],
+        "revenue": [100.0, 105.0, 115.0, 125.0, 135.0, 150.0],
+    })
+    out = frame.group_by("cik").agg(
+        gate0._nth_back(pl.col("revenue"), 5).alias("r5"),
+        gate0._nth_back(pl.col("revenue"), 4).alias("r4"),
+    ).to_dicts()[0]
+    assert out["r5"] == 105.0   # FY2020, not FY2019
+    assert out["r4"] is None    # FY2021 is missing -> endpoint stays missing
+
+
+def test_enforce_period_currency_drops_minority_unit():
+    """Audit 2026-10-15 #1: one currency per company-period, shares untouched."""
+    facts = pl.DataFrame({
+        "cik": [1, 1, 1, 1, 1],
+        "fiscal_year": [2025] * 5,
+        "fiscal_period": ["FY"] * 5,
+        "concept": ["ocf", "equity", "net_income", "revenue", "shares_diluted"],
+        "unit": ["ILS", "ILS", "USD", "ILS", "shares"],
+        "value": [1.0, 2.0, 3.0, 4.0, 5.0],
+    })
+    kept, dropped = gate0.enforce_period_currency(facts)
+    assert sorted(kept["concept"].to_list()) == ["equity", "ocf", "revenue", "shares_diluted"]
+    assert dropped.to_dicts() == [{"cik": 1, "off_currency_facts_dropped": 1}]

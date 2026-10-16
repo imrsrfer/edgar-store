@@ -225,9 +225,14 @@ def stale_rows(rows, max_age_days, today):
 # --------------------------------------------------------------------------
 
 
-def _closes_for(frame, ticker, single):
-    """The Close series for *ticker* out of a yfinance download frame."""
-    if single:
+def _closes_for(frame, ticker):
+    """The Close series for *ticker* out of a yfinance download frame.
+
+    Shape is read from the frame, not the request length: yfinance >=0.2.5x
+    returns a ticker/field MultiIndex even for one ticker (audit #9)."""
+    import pandas as pd
+
+    if not isinstance(frame.columns, pd.MultiIndex):
         block = frame
     else:
         if ticker not in set(frame.columns.get_level_values(0)):
@@ -259,11 +264,10 @@ def fetch_quotes(tickers, as_of):
         threads=True,
         group_by="ticker",
     )
-    single = len(tickers) == 1
     out = {}
     for ticker in tickers:
         try:
-            closes = _closes_for(frame, ticker, single)
+            closes = _closes_for(frame, ticker)
         except (KeyError, IndexError, TypeError, AttributeError):
             continue
         if closes is None or len(closes) == 0:
@@ -277,12 +281,15 @@ def fetch_quotes(tickers, as_of):
             market_cap = float(cap) if cap else None
         except Exception:  # noqa: BLE001 - a missing cap is reported, never fatal
             market_cap = None
+        # as_of is the date of the last bar, never the run date: a suspended
+        # or stale series must age out of reuse, not look fresh (audit #3).
+        bar_date = closes.index[-1].date()
         out[ticker] = {
             "ticker": ticker,
             "price": price,
             "ma_200": ma_200,
             "market_cap": market_cap,
-            "as_of": as_of,
+            "as_of": min(bar_date, as_of),
         }
     return out
 

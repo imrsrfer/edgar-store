@@ -435,6 +435,37 @@ def _company_provenance(facts):
     )
 
 
+def enforce_period_currency(facts):
+    """Keep one currency per company-period; drop the rest (audit 2026-10-15 #1).
+
+    build_facts' IFRS fallback accepts any currency per tag, so a period could
+    mix ILS OCF with USD net income (WILCF FY2025) and every ratio across them
+    was meaningless. The period's dominant currency wins (ties: the company's
+    modal currency, then lexicographic); off-currency facts become missing,
+    never converted. Returns (facts, per-cik count of dropped facts)."""
+    key = ["cik", "fiscal_year", "fiscal_period"]
+    money = facts.filter(pl.col("unit") != "shares")
+    company = money.group_by("cik").agg(
+        pl.col("unit").mode().sort().first().alias("_company_ccy")
+    )
+    period = (
+        money.group_by(key + ["unit"]).len()
+        .join(company, on="cik", how="left")
+        .with_columns((pl.col("unit") == pl.col("_company_ccy")).alias("_is_company"))
+        .sort(["len", "_is_company", "unit"], descending=[True, True, False])
+        .group_by(key, maintain_order=True)
+        .first()
+        .select(key + [pl.col("unit").alias("_period_ccy")])
+    )
+    joined = facts.join(period, on=key, how="left")
+    foreign = (pl.col("unit") != "shares") & (pl.col("unit") != pl.col("_period_ccy"))
+    dropped = (
+        joined.filter(foreign).group_by("cik").len()
+        .rename({"len": "off_currency_facts_dropped"})
+    )
+    return joined.filter(~foreign.fill_null(False)).drop("_period_ccy"), dropped
+
+
 def _acq_disagreement(cf_intensity, bs_intensity):
     """True when the cash-flow-tag and balance-sheet-delta signals conflict.
 
@@ -894,8 +925,30 @@ def _cagr(latest, earliest, years):
 
 
 def _nth_back(column, offset):
-    """Value from ``offset`` fiscal years before the latest, within a cik group."""
-    return column.shift(offset).last()
+    """Value at fiscal year ``latest - offset`` within a cik group, else null.
+
+    Matches the calendar year, not the row ``offset`` places back: a missing
+    fiscal year must leave the endpoint missing, never silently stretch the
+    window (audit 2026-10-15 #2: 2019 read as the 5y base for FY2025)."""
+    fy = pl.col("fiscal_year")
+    return column.filter(fy == fy.last() - offset).first()
+
+
+# ponytail: share-count jump > 3x between endpoints is read as an unadjusted
+# split (SHOP FY2020 123M vs FY2025 1.30B diluted shares, 10:1 split in 2022)
+# and nulls the per-share CAGR. Upgrade to split-adjusted shares if a real
+# >3x dilution ever needs a number.
+SPLIT_SHARE_RATIO = 3.0
+
+
+def _per_share_cagr(column, offset):
+    ratio = pl.col("shares_diluted").last() / _nth_back(pl.col("shares_diluted"), offset)
+    split_like = ((ratio > SPLIT_SHARE_RATIO) | (ratio < 1 / SPLIT_SHARE_RATIO)).fill_null(False)
+    return (
+        pl.when(split_like)
+        .then(None)
+        .otherwise(_cagr(column.last(), _nth_back(column, offset), offset))
+    )
 
 
 def build_trends(frame):
@@ -920,16 +973,12 @@ def build_trends(frame):
             _nth_back(pl.col("revenue"), CAGR_LONG_YEARS),
             CAGR_LONG_YEARS,
         ).alias("revenue_cagr_5y"),
-        _cagr(
-            pl.col("fcf_per_share").last(),
-            _nth_back(pl.col("fcf_per_share"), CAGR_SHORT_YEARS),
-            CAGR_SHORT_YEARS,
-        ).alias("fcf_per_share_cagr_3y"),
-        _cagr(
-            pl.col("fcf_per_share").last(),
-            _nth_back(pl.col("fcf_per_share"), CAGR_LONG_YEARS),
-            CAGR_LONG_YEARS,
-        ).alias("fcf_per_share_cagr_5y"),
+        _per_share_cagr(pl.col("fcf_per_share"), CAGR_SHORT_YEARS).alias(
+            "fcf_per_share_cagr_3y"
+        ),
+        _per_share_cagr(pl.col("fcf_per_share"), CAGR_LONG_YEARS).alias(
+            "fcf_per_share_cagr_5y"
+        ),
         # 🔴 The endpoints the CAGRs actually rest on, published beside them.
         # (Added 2026-09-08.) fcf_per_share_earliest/_latest are series[0] and
         # series[-1] -- the WHOLE history, which for ALG is 7 years, not 5. A
@@ -950,7 +999,8 @@ def build_trends(frame):
         # using the same shift the CAGRs themselves use. A CAGR can also be
         # null with plenty of history (a negative endpoint 5 years ago is not
         # a data gap), which short_history must not claim.
-        _nth_back(pl.col("fiscal_year"), CAGR_LONG_YEARS).is_null().alias(
+        # Years spanned, not rows counted (audit 2026-10-15 #2).
+        (latest_year - pl.col("fiscal_year").first() < CAGR_LONG_YEARS).alias(
             "short_history"
         ),
         pl.col("operating_margin").last().alias("operating_margin_latest"),
@@ -2419,6 +2469,25 @@ def _normalize_company_name(name_col):
     )
 
 
+# Explicit successor -> predecessor CIK identity, for renames a name match can
+# never join. Add an entry only with a source; never fuzzy-match names instead.
+# 2115436 ExxonMobil Holdings Corp: holding-company successor of 34088 Exxon
+# Mobil Corporation; SEC ticker map points XOM at it, facts stay on 34088
+# (audit 2026-10-15 #5).
+ISSUER_SUCCESSORS = {2115436: 34088}
+
+
+def _dedup_key():
+    """Group key: the mapped predecessor CIK when known, else the normalized name."""
+    canonical = pl.col("cik").replace(ISSUER_SUCCESSORS)
+    linked = pl.col("cik").is_in(list(ISSUER_SUCCESSORS) + list(ISSUER_SUCCESSORS.values()))
+    return (
+        pl.when(linked)
+        .then(pl.lit("CIK:") + canonical.cast(pl.Utf8))
+        .otherwise(_normalize_company_name(pl.col("company_name")))
+    )
+
+
 def deduplicate_by_company_name(frame):
     """Collapse CIKs that share a company name onto the one with real filing data.
 
@@ -2436,7 +2505,7 @@ def deduplicate_by_company_name(frame):
     duplicate_filers.csv report, never written into gate0.csv.
     """
     scored = frame.with_columns(
-        _normalize_company_name(pl.col("company_name")).alias("_norm_name"),
+        _dedup_key().alias("_norm_name"),
         sum(pl.col(c).is_not_null().cast(pl.Int32) for c in DEDUP_CONCEPTS).alias(
             "_dedup_score"
         ),
@@ -2666,6 +2735,7 @@ OUTPUT_ORDER = (
     "taxonomy",
     "filing_form",
     "reporting_currency",
+    "off_currency_facts_dropped",
     "fiscal_year_end",
     "latest_fiscal_year",
     "period_end",
@@ -2836,6 +2906,7 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False,
     # revenue-acceleration columns on up to 17, and reporting_currency on 3 --
     # none of which has anything to do with the reconciliation flag. A concept
     # added to DESCRIBE the data had begun to change what the data said.
+    facts, off_currency = enforce_period_currency(facts)
     scoring_facts = facts.filter(~pl.col("concept").is_in(DIAGNOSTIC_CONCEPTS))
 
     # 🔴 The TTM frame is built BEFORE the annual metrics now: it supplies one
@@ -2916,6 +2987,9 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False,
     frame = _add_investing_reconciliation(frame.join(provenance, on="cik", how="left"))
     if acceleration.width > 1:
         frame = frame.join(acceleration, on="cik", how="left")
+    frame = frame.join(off_currency, on="cik", how="left").with_columns(
+        pl.col("off_currency_facts_dropped").fill_null(0)
+    )
     frame = add_verdict(frame.join(meta, on="cik", how="left"), allow_imputed=allow_imputed)
     # 🔴 AFTER add_verdict, on purpose: these are reader flags, and running them
     # after the verdict is the structural guarantee that none of them can move a

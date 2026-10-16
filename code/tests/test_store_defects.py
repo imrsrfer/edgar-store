@@ -283,7 +283,12 @@ LIVE_CASES = {
     "SWBI": "shares_history_scale_break",
     "RGEN": "shares_history_scale_break",
     "KR": "fy_flows_stale",
-    "FERG": "fy_flows_stale",
+    # FERG removed 2026-10-16: its July->December year-end change used to put
+    # Dec-2025 comparative instants on the July FY2025 row. build_facts now
+    # refuses an unrecognised instant far from any known year-end, so FY2025
+    # is consistent at 2025-07-31 and there is no staleness left to flag. The
+    # 153-day FYE-change logic is still covered by
+    # test_fye_change_gap_below_300_days_still_flags.
     "VMC": "ttm_behind_calendar",
     "LSTR": "ttm_behind_calendar",
     "CTSH": "ttm_behind_calendar",

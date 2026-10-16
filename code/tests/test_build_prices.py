@@ -9,6 +9,7 @@ failure mode; a test suite that only checks the happy path reproduces it.
 from __future__ import annotations
 
 import io
+import sys
 from datetime import date, timedelta
 
 import polars as pl
@@ -304,3 +305,25 @@ def test_framework_pass_source_reports_a_missing_store(tmp_path):
 
     tickers, problem = tickers_from_framework_pass(tmp_path)
     assert tickers == [] and "absent" in problem
+
+
+def test_fetch_quotes_single_ticker_multiindex_stamps_bar_date(monkeypatch):
+    """Audit 2026-10-15 #3/#9: one-ticker MultiIndex parses, and as_of is the
+    last bar's date, not the run date."""
+    import types
+    from datetime import date
+    import pandas as pd
+
+    idx = pd.to_datetime(["2025-07-28", "2025-07-29"])
+    cols = pd.MultiIndex.from_tuples([("ABC", "Close")])
+    frame = pd.DataFrame([[10.0], [11.0]], index=idx, columns=cols)
+
+    class _T:
+        def __init__(self, t):
+            self.fast_info = types.SimpleNamespace(market_cap=None)
+
+    fake = types.SimpleNamespace(download=lambda *a, **k: frame, Ticker=_T)
+    monkeypatch.setitem(sys.modules, "yfinance", fake)
+    out = build_prices.fetch_quotes(["ABC"], date(2026, 10, 15))
+    assert out["ABC"]["price"] == 11.0
+    assert out["ABC"]["as_of"] == date(2025, 7, 29)

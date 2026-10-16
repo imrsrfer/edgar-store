@@ -287,3 +287,15 @@ def test_missing_price_does_not_divide_by_zero():
         row = _identity(price, 1e9, 10_000_000.0)
         assert row["implied_shares"] is None
         assert row["shares_identity_suspect"] is None
+
+
+def test_partition_keeps_null_rows_as_unresolved():
+    """Audit 2026-10-15 #4: a null predicate must not vanish from both sides."""
+    import polars as pl
+    import screen
+    frame = pl.DataFrame({"sic": ["6020", None, "abc", "3571"]})
+    sic = pl.col("sic").cast(pl.Int32, strict=False)
+    kept, rejected = screen._partition(frame, ~sic.is_between(6000, 6799), "fin")
+    assert kept.height + rejected.height == frame.height
+    assert kept["sic"].to_list() == ["3571"]
+    assert sorted(rejected["rejected_because"].to_list()) == ["fin", "unresolved:fin", "unresolved:fin"]

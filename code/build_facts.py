@@ -74,6 +74,10 @@ _CURRENCY_UNIT = re.compile(r"^[A-Z]{3}$")
 # Earliest fiscal year retained, per spec.
 MIN_FISCAL_YEAR = 2019
 
+# How far an unlabelled instant may sit from a known fiscal year-end (by day
+# of year) and still be read as one. Covers 52/53-week year-end drift.
+YEAR_END_TOLERANCE_DAYS = 7
+
 # Sanity bounds on a fiscal year label. SEC's bulk data occasionally carries a
 # corrupt ``fy`` field (e.g. a dollar value where a year belongs), which then
 # poisons every fact sharing that filing's primary period end. Labels outside
@@ -239,6 +243,39 @@ def _year_offset(annual):
     return offsets.most_common(1)[0][0]
 
 
+def _near_fiscal_year_end(end, annual):
+    """True if ``end`` is within a week of any known fiscal year-end's day.
+
+    A week covers 52/53-week filers, whose year-end drifts by a few days.
+    With no annual labels at all there is nothing to check against, so the
+    date is given the benefit of the doubt as before.
+    """
+    if not annual:
+        return True
+    day = end.timetuple().tm_yday
+    for known in annual:
+        gap = abs(day - known.timetuple().tm_yday)
+        if min(gap, 365 - gap) <= YEAR_END_TOLERANCE_DAYS:
+            return True
+    return False
+
+
+def _near_fiscal_year_end(end, annual):
+    """True if ``end`` falls within a week of any known fiscal year-end's day.
+
+    With no annual labels there is nothing to check against, so the date keeps
+    the benefit of the doubt it always had.
+    """
+    if not annual:
+        return True
+    day = end.timetuple().tm_yday
+    for known in annual:
+        gap = abs(day - known.timetuple().tm_yday)
+        if min(gap, 365 - gap) <= YEAR_END_TOLERANCE_DAYS:
+            return True
+    return False
+
+
 def _duration_kind(start, end):
     """Classify a duration fact as annual, quarterly, cumulative YTD, or neither.
 
@@ -275,6 +312,13 @@ def label_fact(fact, annual, quarterly, offset):
             return annual[end], FY
         if end in quarterly:
             return quarterly[end]
+        # 🔴 An instant has no span to classify, so an unrecognised date is only
+        # a fiscal year-end if it falls on the company's own year-end. Without
+        # this, one stray mid-year instant (CNXC's 2026-08-30 goodwill line in
+        # a Q3 10-Q) became a whole FY2026 row with no flows and was scored as
+        # the latest year. (2026-10-16, audit finding 12.)
+        if not _near_fiscal_year_end(end, annual):
+            return None
         return end.year + offset, FY
 
     kind = _duration_kind(fact["start"], end)

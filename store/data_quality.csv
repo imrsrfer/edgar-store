@@ -3,49 +3,30 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1086745,FABC,"FABRIC.AI, INC.",2026,9,"equity,goodwill,intangibles,revenue,net_income,operating_income,ocf,capex,sbc"
 1779476,KRKR,36Kr Holdings Inc.,2025,9,"equity,goodwill,intangibles,revenue,net_income,operating_income,ocf,capex,sbc"
 1640265,,"GPB Holdings II, LP",2024,9,"equity,goodwill,intangibles,revenue,net_income,operating_income,ocf,capex,sbc"
-1888014,AKAN,Akanda Corp.,2025,8,"equity,goodwill,revenue,net_income,operating_income,ocf,capex,sbc"
 1722482,AVTR,"Avantor, Inc.",2026,8,"equity,revenue,net_income,operating_income,ocf,capex,sbc,acq_cf_bs_disagreement"
-1803599,CNXC,Concentrix Corporation,2026,8,"equity,revenue,net_income,operating_income,ocf,capex,sbc,acq_cf_bs_disagreement"
-1016281,CSV,"CARRIAGE SERVICES, INC.",2026,8,"equity,intangibles,revenue,net_income,operating_income,ocf,capex,sbc"
-1877322,ESAB,ESAB Corporation,2026,8,"equity,revenue,net_income,operating_income,ocf,capex,sbc,acq_cf_bs_disagreement"
 1009922,NSFDF,NXT Energy Solutions Inc.,2024,8,"equity,intangibles,revenue,net_income,operating_income,ocf,capex,sbc"
 1725964,NTR,NUTRIEN LTD.,2025,8,"equity,revenue,net_income,operating_income,ocf,capex,sbc,acq_cf_bs_disagreement"
-1682265,ONAR,ONAR Holding Corporation,2026,8,"equity,revenue,net_income,operating_income,ocf,capex,sbc,acq_cf_bs_disagreement"
 704532,ONTO,ONTO INNOVATION INC.,2026,8,"equity,revenue,net_income,operating_income,ocf,capex,sbc,acq_cf_bs_disagreement"
-1000697,WAT,Waters Corporation,2026,8,"equity,revenue,net_income,operating_income,ocf,capex,sbc,acq_cf_bs_disagreement"
 1810997,XPEV,XPENG INC.,2025,8,"equity,intangibles,revenue,net_income,operating_income,ocf,capex,sbc"
 1578742,,"GPB Automotive Portfolio, LP",2024,8,"equity,goodwill,revenue,net_income,operating_income,ocf,capex,sbc"
+1722380,,Meta Data Limited,2024,8,"equity,goodwill,intangibles,revenue,operating_income,ocf,capex,sbc"
 1470683,AEHL,Antelope Enterprise Holdings Ltd,2025,7,"goodwill,revenue,net_income,operating_income,ocf,capex,sbc"
 1338929,AHRO,"AUTHENTIC HOLDINGS, INC.",2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
-1529274,ALKT,"ALKAMI TECHNOLOGY, INC.",2026,7,"revenue,net_income,operating_income,ocf,capex,sbc,acq_cf_bs_disagreement"
 1488139,AMRC,"Ameresco, Inc.",2025,7,"revenue,net_income,operating_income,ocf,capex,sbc,acq_cf_bs_disagreement"
-1129137,AMX,AMERICA MOVIL SAB DE CV/,2025,7,"revenue,net_income,operating_income,ocf,capex,sbc,acq_cf_bs_disagreement"
+1818274,ARAI,Arrive AI Inc.,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 937966,ASML,ASML HOLDING NV,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
-1580808,ATEN,"A10 Networks, Inc.",2026,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 1179821,BGICF,BIRKS GROUP INC.,2026,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
-1589526,BLBD,Blue Bird Corp,2026,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 1718224,BTBD,"BT BRANDS, INC.",2025,7,"revenue,net_income,operating_income,ocf,capex,sbc,acq_cf_bs_disagreement"
-944148,CBZ,"CBIZ, Inc.",2026,7,"intangibles,revenue,net_income,operating_income,ocf,capex,sbc"
-1818201,CCC,CCC INTELLIGENT SOLUTIONS HOLDINGS INC.,2026,7,"revenue,net_income,operating_income,ocf,capex,sbc,acq_cf_bs_disagreement"
-1435064,CETX,"CEMTREX, INC.",2026,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 2094256,CLYD,"BEACON TOPCO, INC.",2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 16868,CNI,CANADIAN NATIONAL RAILWAY CO,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
-816956,CNMD,CONMED CORPORATION,2026,7,"revenue,net_income,operating_income,ocf,capex,sbc,acq_cf_bs_disagreement"
 16875,CP,CANADIAN PACIFIC KANSAS CITY  LTD/CN,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
-1720161,CTRM,Castor Maritime Inc.,2026,7,"revenue,net_income,operating_income,ocf,capex,sbc,acq_cf_bs_disagreement"
-1756770,CURLF,"Curaleaf Holdings, Inc.",2026,7,"revenue,net_income,operating_income,ocf,capex,sbc,acq_cf_bs_disagreement"
 1127248,EMA,EMERA INCORPORATED,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 895728,ENB,ENBRIDGE INC.,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 1666175,FTS,FORTIS INC.,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
-1484769,FUBO,FuboTV Inc.,2025,7,"revenue,net_income,operating_income,ocf,capex,sbc,acq_cf_bs_disagreement"
 1526125,GDS,GDS Holdings Limited,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
-104889,GHC,GRAHAM HOLDINGS CO,2026,7,"revenue,net_income,operating_income,ocf,capex,sbc,acq_cf_bs_disagreement"
 1838716,GNTA,Genenta Science S.p.A.,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
-1983736,GOAI,EVA LIVE INC.,2026,7,"goodwill,revenue,net_income,operating_income,ocf,capex,sbc"
-1086303,HCIL,"Hongchang International Co., Ltd",2025,7,"goodwill,revenue,net_income,operating_income,ocf,capex,sbc"
 1853630,HMELF,Hold Me Ltd.,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 1930021,HOVR,New Horizon Aircraft Ltd.,2026,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
-1563665,HRGN,"Harvard Apparatus Regenerative Technology, Inc.",2026,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 1712356,HRNNF,Hydro One Limited,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 49938,IMO,IMPERIAL OIL LIMITED,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 2007599,LAWR,"Robot Consulting Co., Ltd.",2026,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
@@ -53,35 +34,21 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1888980,LRE,"LEAD REAL ESTATE CO., LTD",2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 1819704,MRM,Medirom Healthcare Technologies Inc.,2024,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 795800,NEXM,NEXMETALS MINING CORP.,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
-1532286,NINE,"Nine Energy Service, Inc.",2026,7,"goodwill,revenue,net_income,operating_income,ocf,capex,sbc"
 1368519,NOA,North American Construction Group Ltd.,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
-80172,NPK,NATIONAL PRESTO INDUSTRIES INC,2026,7,"revenue,net_income,operating_income,ocf,capex,sbc,acq_cf_bs_disagreement"
 2018462,PCLA,PicoCELA Inc.,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
-1117057,PLAG,PLANET GREEN HOLDINGS CORP.,2026,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 1433309,PLTYF,"Plastec Technologies, Ltd.",2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
-797542,QXL,QUANTUM X LABS INC.,2026,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 1708055,RBBN,RIBBON COMMUNICATIONS INC.,2026,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
-1838987,SPWR,SUNPOWER INC.,2026,7,"revenue,net_income,operating_income,ocf,capex,sbc,acq_cf_bs_disagreement"
-24545,TAP,Molson Coors Beverage Company,2026,7,"revenue,net_income,operating_income,ocf,capex,sbc,acq_cf_bs_disagreement"
 1877333,THCH,TH International Limited,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 1232384,TRP,TC ENERGY CORPORATION,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 1683825,TRVG,trivago N.V.,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
-1679268,TUSK,"Mammoth Energy Services, Inc.",2026,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
-2038439,VWAV,VISIONWAVE HOLDINGS INC.,2026,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 1018164,WLFC,WILLIS LEASE FINANCE CORP,2025,7,"intangibles,revenue,net_income,operating_income,ocf,capex,sbc"
 2048271,WSHP,WeShop Holdings Ltd,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
-1788999,XPER,XPERI INC.,2026,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 1670592,YETI,"YETI Holdings, Inc.",2026,7,"revenue,net_income,operating_income,ocf,capex,sbc,acq_cf_bs_disagreement"
 1862044,ZKH,ZKH Group Limited,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
-803649,,EQC LIQUIDATING TRUST,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
+803649,,EQC LIQUIDATING TRUST,2024,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 932782,,Mexican Petroleum,2025,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
-1036848,,MEGA MATRIX CORP.,2024,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 1474464,,NEW YORK REIT LIQUIDATING LLC,2024,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 1637866,,"DEEP GREEN WASTE & RECYCLING, INC.",2024,7,"goodwill,revenue,net_income,operating_income,ocf,capex,sbc"
-1722380,,Meta Data Limited,2024,7,"goodwill,intangibles,revenue,operating_income,ocf,capex,sbc"
-1795579,,Calliditas Therapeutics AB,2024,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
-1835681,,"PowerSchool Holdings, Inc.",2024,7,"revenue,net_income,operating_income,ocf,capex,sbc,acq_cf_bs_disagreement"
-1865408,,Exscientia plc,2024,7,"revenue,net_income,operating_income,ocf,capex,sbc,acq_cf_bs_disagreement"
 1885998,,ROTH CH ACQUISITION V CO.,2024,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 1946216,,"SYLA TECHNOLOGIES CO., LTD.",2024,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
 1984014,,HARRISON GLOBAL HOLDINGS INC.,2024,7,"equity,revenue,net_income,operating_income,ocf,capex,sbc"
@@ -91,42 +58,31 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 2118195,AADX,"Applied Aerospace & Defense, Inc.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2084227,ADBT,"ADVASA HOLDINGS, INC.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2105139,ADIG,ADI Global Distribution Inc.,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1574232,ADXN,Addex Therapeutics Ltd,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2096362,AIAI,AIAI HOLDINGS CORPORATION,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1820878,AIV,Apartment Investment and Management Company,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2035832,AKTS,"Aktis Oncology, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2104204,ALMR,"Alamar Biosciences, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1178670,ALNY,"ALNYLAM PHARMACEUTICALS, INC.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 96664,AMFN,"AMERICAN FUSION, INC.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1851491,AMSS,AMASS BRANDS,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1781629,ANKM,"ANKAM, INC.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2080921,APC,ARKO Petroleum Corp.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1745648,APMD,"Apnimed, Inc.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1818274,ARAI,Arrive AI Inc.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2093536,ARXS,"ARXIS, INC.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2058707,ATTO,"Attovia Therapeutics, Inc.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2096300,AVEX,AEVEX Corp.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1540171,AVLN,Avalyn Pharma Inc.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1747079,BALY,Bally’s Corporation,2025,6,"revenue,net_income,operating_income,ocf,sbc,acq_cf_bs_disagreement"
-1829247,BFRG,"BULLFROG AI HOLDINGS, INC.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1839970,BLSM,"BlossomHill Therapeutics, Inc.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1482541,BNC,BNB Standard Corp,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2085187,BOBS,"Bob's Discount Furniture, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1715497,BORR,Borr Drilling Limited,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1133818,BPTH,"Bio-Path Holdings, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1631463,BRLL,"BARREL ENERGY, INC.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2090646,BRUN,BOOST RUN INC.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2131524,BRVE,"Braveheart Bio, Inc.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1658678,BSEM,"BioStem Technologies, Inc.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-2020737,CABR,"CARING BRANDS, INC.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2021728,CBRS,Cerebras Systems Inc.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2074973,CCXI,Churchill Capital Corp XI,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1935092,CETI,"Cyber Enviro-Tech, Inc.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2066836,CNXU,CONEXEU SCIENCES INC.,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2114044,COAG,"Hemab Therapeutics Holdings, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1334325,CODA,"CODA OCTOPUS GROUP, INC.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-790273,CONC,CONECTISYS CORPORATION,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1357671,CRTD,"CREATD, INC.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
+1357671,CRTD,"CREATD, INC.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1106861,CSDX,CS DIAGNOSTICS CORP.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2105398,CSQR,"CSQUARE, INC.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1035422,CTTH,"CTT PHARMACEUTICAL HOLDINGS, INC.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
@@ -135,27 +91,21 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1861123,EIKN,"EIKON THERAPEUTICS, INC.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2101698,ELMT,The Elmet Group Co.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1844450,ELVA,Electrovaya Inc.,2024,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1595353,EOCN,GALMED PHARMACEUTICALS LTD.,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2110029,EROC,"ERock, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1960355,EXYN,"Exyn Technologies, Inc.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1892704,FBDT,First Breach Inc.,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 39092,FRD,FRIEDMAN INDUSTRIES INC,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1853868,FRVO,Fervo Energy Co,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1781446,GAUZ,GAUZY LTD.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1926293,GCDT,Green Circle Decarbonize Technology Ltd,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-43920,GEF,"GREIF, INC.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2100782,GENB,"Generate Biomedicines, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2074850,GFUZ,GENERAL FUSION GROUP LTD.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2093507,GLND,GREENLAND ENERGY COMPANY,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1898718,GMRS,GMR Solutions Inc.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1990446,GRPS,"TRANS AMERICAN AQUACULTURE, INC.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2111846,GYGY,"GAME YOUR GAME, INC.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1815779,HAFN,Hafnia Limited,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1750704,HAWK,"HawkEye 360, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2079013,HCAC,Hall Chadwick Acquisition Corp.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2021880,HMH,HMH Holding Inc.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2089271,HONA,Honeywell Aerospace Inc,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1959455,HSHP,Himalaya Shipping Ltd.,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2013223,HSLV,Highlander Silver Corp.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1630176,HYEX,Healthy Extracts Inc.,2026,6,"equity,revenue,operating_income,ocf,capex,sbc"
 1115864,ILXP,ECOMINAS CORP.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
@@ -166,14 +116,12 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 2123613,KARD,"Kardigan, Inc.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2102713,KCAC-UN,Kensington Capital Acquisition Corp. VI,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2096997,KLRA,"Kailera Therapeutics, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1935033,KMFG,KEEMO FASHION GROUP LIMITED,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2011134,KNIH,Kioni Holdings Limited,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1081834,KUBR,KUBER RESOURCES CORPORATION,2024,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2079272,LABT,Lakewood-Amedex Biotherapeutics Inc.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1850351,LFTO,"Liftoff Mobile, Inc.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1699963,LIME,"Neutron Holdings, Inc.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2071288,LMRI,"Lumexa Imaging Holdings, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-2064307,LOGC,ContextLogic Holdings Inc.,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2056611,LTGO,"Latigo Biotherapeutics, Inc.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2098430,MAIR,Madison Air Solutions Corporation,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2090312,MBGL,Mobility Global Inc.,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
@@ -186,42 +134,32 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1703625,NAPD,"NAPC Defense, Inc.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1923780,NCL,NORTHANN CORP.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1734005,NIKI,"Niki BioSolutions, Inc.",2025,6,"goodwill,intangibles,revenue,operating_income,capex,sbc"
-1415921,NMM,NAVIOS MARITIME PARTNERS L.P.,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2080023,NSTR,Viking Acquisition Corp. I,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2089283,NUCL,Eagle Nuclear Energy Corp.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1506492,NUWE,"NUWELLIS, INC.",2026,6,"equity,revenue,net_income,operating_income,ocf,sbc"
-1581804,NVGS,NAVIGATOR HOLDINGS LTD,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2000756,NXAT,K Wave Media Ltd.,2024,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2130606,OBX,"OBSIDIAN THERAPEUTICS, INC.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2083632,OCTV,Octave Intelligence plc,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1882782,ODTX,"Odyssey Therapeutics, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1696556,OFRM,"Once Upon a Farm, PBC",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1849380,ONMD,ONEMEDNET CORPORATION,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
+1846416,ONEN,HENNESSY CAPITAL INVESTMENT CORP. VII,2026,6,"equity,revenue,operating_income,ocf,capex,sbc"
 1622244,OWPC,"ONE WORLD PRODUCTS, INC.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1751707,OZVN,OZ Vision Inc.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2069604,PARK,"Park Dental Partners, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1657677,PBLS,"Parabilis Medicines, Inc.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1833835,PSFE,Paysafe Ltd,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1481241,PSHG,Performance Shipping Inc.,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1884082,PSNY,Polestar Automotive Holding UK PLC,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1600222,PXED,"Phoenix Education Partners, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2110105,QNT,Quantinuum Inc.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-811522,QZMRF,QUARTZ MOUNTAIN RESOURCES LTD.,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2118032,RACC,Research Alliance Corporation III,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-2039060,RBNE,Robin Energy Ltd.,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2095743,REA,"Rare Earths Americas, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1787117,REF,Reformation Inc.,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1924064,RLNDF,RoyaLand Co Ltd.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2094433,RMIX,"Suncrete, Inc.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2093101,RNA,"Atrium Therapeutics, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2131040,RVII,Robinhood Ventures Fund II,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1386716,SBLK,Star Bulk Carriers Corp.,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1853921,SCTX,SCRIBE THERAPEUTICS INC.,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1936804,SDA,SunCar Technology Group Inc.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1701756,SDOT,Sadot Group Inc.,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1779977,SEQC,"SeeQC, Inc.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1106213,SFRX,SEAFARER EXPLORATION CORP.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1465470,SHMP,NATURALSHRIMP INCORPORATED,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
+1106213,SFRX,SEAFARER EXPLORATION CORP.,2024,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2096861,SIND,Sinda Ltd.,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1181412,SPCX,SPACE EXPLORATION TECHNOLOGIES CORP.,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2042347,SPTX,"Seaport Therapeutics, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
@@ -231,15 +169,11 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 2086716,STDN,"Standard Nuclear, Inc.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1934114,SUJA,"Suja Life, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2085659,SVAQ,SILICON VALLEY ACQUISITION CORP.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1869467,SVRN,OceanPal Inc.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2092574,SWMR,"Swarmer, Inc",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1409036,TARSF,Silver North Resources Ltd.,2025,6,"equity,revenue,operating_income,ocf,capex,sbc"
-1166663,TEN,TSAKOS ENERGY NAVIGATION LIMITED,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2009714,TMDE,TMD ENERGY LIMITED,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2091349,TRAX,"FIRST TRACKS BIOTHERAPEUTICS, INC.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1660734,TRTN-PA,TRITON INTERNATIONAL LIMITED,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1901203,UCFI,CN Healthy Food Tech Group Corp.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1912847,USEA,United Maritime Corp,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2078008,VGNT,VERSIGENT PLC,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1973062,VIDA,VIDA GLOBAL INC.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1903784,VOGX,"Vogenx, Inc.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
@@ -249,57 +183,41 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1839530,XBP,"XBP Global Holdings, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2088896,XE,"X-Energy, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2097163,XNDU,XANADU QUANTUM TECHNOLOGIES LIMITED,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-2115436,XOM,ExxonMobil Holdings Corp,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2086587,YSS,York Space Systems Inc.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1859836,YSWY,"Yesway, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1997403,ZENA,"ZenaTech, Inc.",2024,6,"equity,revenue,operating_income,ocf,capex,sbc"
 1465311,ZICX,ZICIX CORPORATION,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 17797,,"DUKE ENERGY PROGRESS, LLC.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-28385,,DTE Electric Co,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
+28385,,DTE Electric Co,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 29915,,DOW CHEMICAL CO /DE/,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 49648,,IDAHO POWER CO,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 52485,,INTERSTATE POWER & LIGHT CO,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-54507,,"EVERGY KANSAS CENTRAL, INC.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
+54507,,"EVERGY KANSAS CENTRAL, INC.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 60549,,PPL Corporation,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 81027,,AMERICAN ELECTRIC POWER CO INC.,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 92108,,SOUTHERN CALIFORNIA GAS CO,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 103682,,VIRGINIA ELECTRIC & POWER CO,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 720515,,BASIN ELECTRIC POWER COOPERATIVE,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 888471,,NESTOR PARTNERS,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-931755,,AEI INCOME & GROWTH FUND XXI LIMITED PARTNERSHIP,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1003815,,BCTC IV ASSIGNOR CORP,2024,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1004155,,The Southern Company,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1185198,,AEI INCOME & GROWTH FUND 25 LLC,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
+1004155,,The Southern Company,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1289047,,AI TECHNOLOGY GROUP INC.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1409624,,"HIMALAYA TECHNOLOGIES, INC.",2024,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1468910,,MILLBURN MULTI-MARKETS FUND L.P.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1487712,,SUMISHO AIR LEASE CORP,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1496383,,"Ilustrato Pictures International, Inc.",2024,6,"equity,revenue,operating_income,ocf,capex,sbc"
 1498710,,"Spirit Aviation Holdings, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1499275,,"Groovy Company, Inc.",2024,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1563298,,ENERGY AND WATER DEVELOPMENT CORP.,2024,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1575295,,Allied Corp.,2024,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1601072,,Atlantica Sustainable Infrastructure plc,2024,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1660851,,"FIREFLY ROBOTICS, INC.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1690455,,"FEEL THE WORLD, INC.",2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1721781,,AEP TEXAS INC.,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1772918,,Adams Street Credit Solutions Fund,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1830749,,Achilles Therapeutics plc,2024,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1831114,,NOVUSTERRA INC.,2024,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1834974,,THE LION ELECTRIC COMPANY,2024,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1838876,,"GEOSOLAR TECHNOLOGIES, INC.",2024,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1843993,,"THUNDER BRIDGE CAPITAL PARTNERS IV, INC.",2024,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1853047,,HUDSON ACQUISITION I CORP.,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1856961,,Blue Ocean Acquisition Corp,2024,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1865187,,"Aris Water Solutions, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1865759,,"Pharmaceutical Resource Technology, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1890107,,First Eagle Private Credit Fund,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1935799,,"Bally’s Chicago, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1939365,,"Inspire Veterinary Partners, Inc.",2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1943705,,"REVELYST, INC.",2024,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1953520,,Fidelity Core Real Estate Fund,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1984739,,Investcorp US Private Credit BDC II,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
-1999538,,X1 CAPITAL INC.,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2003397,,Liberty Sirius XM Holdings Inc.,2024,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2006468,,NUSATRIP INCORPORATED,2025,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2012964,,AA Mission Acquisition Corp.,2024,6,"revenue,net_income,operating_income,ocf,capex,sbc"
@@ -379,7 +297,11 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 2139511,,SPIN AI INC.,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 2144182,,JAOVI INC.,2026,6,"revenue,net_income,operating_income,ocf,capex,sbc"
 1420924,ADTI,"Adapti, Inc.",2025,5,"revenue,operating_income,ocf,capex,sbc"
+1930179,ARBB,ARB IOT Group Limited,2025,5,"goodwill,net_income,operating_income,capex,sbc"
+2004489,BMGL,Basel Medical Group Ltd,2025,5,"goodwill,intangibles,net_income,operating_income,sbc"
 1279495,BTE,BAYTEX ENERGY CORP.,2025,5,"goodwill,intangibles,operating_income,capex,sbc"
+793628,CHNR,"CHINA NATURAL RESOURCES, INC.",2024,5,"intangibles,revenue,net_income,operating_income,sbc"
+1346287,CLUS,CLUSTER GROUP HOLDINGS LIMITED CO.,2026,5,"equity,revenue,operating_income,capex,sbc"
 1492617,FWFW,"FLYWHEEL     ADVANCED TECHNOLOGY, INC.",2025,5,"goodwill,intangibles,revenue,capex,sbc"
 1721056,HSCT,HOOPS SCOUTING USA,2025,5,"intangibles,revenue,operating_income,capex,sbc"
 1668438,IMTE,Integrated Media Technology Limited,2025,5,"goodwill,intangibles,operating_income,capex,sbc"
@@ -387,13 +309,12 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1737193,LDSN,APHOENITY INTERNATIONAL HOLDINGS INC.,2024,5,"revenue,operating_income,ocf,capex,sbc"
 1318268,MDEX,"MADISON     TECHNOLOGIES, INC.",2025,5,"goodwill,intangibles,revenue,capex,sbc"
 1487918,OFS,OFS CAPITAL CORPORATION,2025,5,"intangibles,revenue,operating_income,capex,sbc"
-1846416,ONEN,HENNESSY CAPITAL INVESTMENT CORP. VII,2026,5,"revenue,operating_income,ocf,capex,sbc"
 1970743,RMXI,"RMX INDUSTRIES, INC.",2025,5,"revenue,operating_income,ocf,capex,sbc"
 2067674,SBMT,SILVER BOW MINING CORP.,2025,5,"revenue,net_income,operating_income,ocf,sbc"
-819926,SEII,SHARING ECONOMY INTERNATIONAL INC.,2025,5,"goodwill,intangibles,revenue,capex,sbc"
 1418076,SLRC,SLR INVESTMENT CORP.,2025,5,"equity,revenue,operating_income,capex,sbc"
 311337,SU,SUNCOR ENERGY INC,2025,5,"goodwill,intangibles,operating_income,ocf,capex"
 1495584,SVVC,"Firsthand Technology Value Fund, Inc.",2025,5,"equity,revenue,operating_income,capex,sbc"
+1001807,TLK,PERUSAHAAN PERSEROAN PERSERO PT TELEKOMUNIKASI INDONESIA TBK,2024,5,"goodwill,intangibles,revenue,net_income,sbc"
 917851,VALE,VALE S.A.,2025,5,"goodwill,intangibles,ocf,capex,sbc"
 1746119,VGES,VANGUARD GREEN INVESTMENT LIMITED,2025,5,"intangibles,revenue,operating_income,capex,sbc"
 845698,,GRANT PARK FUTURES FUND LIMITED PARTNERSHIP,2025,5,"revenue,operating_income,ocf,capex,sbc"
@@ -404,6 +325,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1461219,,GRAHAM ALTERNATIVE INVESTMENT FUND I LLC,2025,5,"revenue,net_income,operating_income,capex,sbc"
 1461237,,GRAHAM ALTERNATIVE INVESTMENT FUND II LLC,2025,5,"revenue,net_income,operating_income,capex,sbc"
 1702015,,"AIS HOLDINGS GROUP, INC.",2025,5,"intangibles,revenue,operating_income,capex,sbc"
+1848756,,PYROPHYTE ACQUISITION CORP.,2024,5,"goodwill,intangibles,revenue,capex,sbc"
 1872812,,TC BIOPHARM (HOLDINGS) PLC,2024,5,"intangibles,revenue,operating_income,capex,sbc"
 1930054,,Blackstone Private Equity Strategies Fund L.P.,2025,5,"equity,revenue,operating_income,capex,sbc"
 1950572,,BIP Ventures Evergreen BDC,2025,5,"revenue,net_income,operating_income,capex,sbc"
@@ -420,7 +342,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1912582,AIEV,"Thunder Power Holdings, Inc.",2025,4,"revenue,operating_income,capex,sbc"
 1937891,AMCI,AMC Robotics Corporation,2025,4,"goodwill,intangibles,capex,sbc"
 1018724,AMZN,AMAZON COM INC,2026,4,"equity,revenue,operating_income,acq_cf_bs_disagreement"
-1930179,ARBB,ARB IOT Group Limited,2025,4,"goodwill,operating_income,capex,sbc"
 1287750,ARCC,Ares Capital Corp,2025,4,"revenue,operating_income,capex,sbc"
 1882198,ATEK,ATHENA TECHNOLOGY ACQUISITION CORP. II,2025,4,"revenue,operating_income,capex,sbc"
 1973832,AU,AngloGold Ashanti plc,2025,4,"goodwill,intangibles,operating_income,sbc"
@@ -432,16 +353,13 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1310488,BFNH,"BIOFORCE NANOSCIENCES HOLDINGS, INC.",2025,4,"revenue,operating_income,capex,sbc"
 1759136,BHATF,Blue Hat Interactive Entertainment Technology,2024,4,"goodwill,intangibles,ocf,capex"
 1487718,BLTH,AMERICAN BATTERY MATERIALS INC.,2025,4,"goodwill,intangibles,revenue,capex"
-2004489,BMGL,Basel Medical Group Ltd,2025,4,"goodwill,intangibles,operating_income,sbc"
 1444839,BRVO,BRAVO MULTINATIONAL INCORPORATED,2025,4,"revenue,operating_income,capex,sbc"
 1429937,BTG,B2GOLD CORP,2025,4,"goodwill,intangibles,revenue,capex"
 2034400,BTTC,BLACK TITAN CORPORATION,2025,4,"revenue,operating_income,capex,sbc"
 1736035,BXSL,Blackstone Secured Lending Fund,2025,4,"revenue,operating_income,capex,sbc"
 1544206,CGBD,"Carlyle Secured Lending, Inc.",2025,4,"revenue,operating_income,capex,sbc"
-793628,CHNR,"CHINA NATURAL RESOURCES, INC.",2024,4,"intangibles,revenue,operating_income,sbc"
 1534254,CION,CION Investment Corporation,2025,4,"revenue,operating_income,capex,sbc"
 1362516,CLRI,"CLEARTRONIC, INC.",2025,4,"intangibles,operating_income,capex,sbc"
-1346287,CLUS,CLUSTER GROUP HOLDINGS LIMITED CO.,2026,4,"revenue,operating_income,capex,sbc"
 1385280,CNK,"Cinemark Holdings, Inc.",2025,4,"equity,operating_income,ocf,capex"
 1163165,COP,ConocoPhillips,2025,4,"goodwill,intangibles,operating_income,capex"
 1951089,CRML,Critical Metals Corp.,2025,4,"goodwill,intangibles,revenue,operating_income"
@@ -450,6 +368,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1404281,ELDN,"Eledon Pharmaceuticals, Inc.",2025,4,"goodwill,revenue,operating_income,capex"
 1866226,EMAT,EVOLUTION METALS & TECHNOLOGIES CORP.,2025,4,"intangibles,revenue,capex,sbc"
 1513363,FDUS,FIDUS INVESTMENT Corp,2025,4,"revenue,operating_income,capex,sbc"
+1061736,FMX,"Mexican Economic Development, Inc.",2024,4,"goodwill,net_income,operating_income,ocf"
 1825248,FRBP,FRANKLIN BSP CAPITAL CORPORATION,2025,4,"revenue,operating_income,capex,sbc"
 1422183,FSK,FS KKR Capital Corp.,2025,4,"revenue,operating_income,capex,sbc"
 1341335,FSM,FORTUNA MINING CORP.,2025,4,"goodwill,intangibles,ocf,capex"
@@ -496,15 +415,14 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1653384,RWAY,Runway Growth Finance Corp.,2025,4,"revenue,operating_income,capex,sbc"
 1424864,RYES,RISE GOLD CORP.,2025,4,"revenue,operating_income,capex,sbc"
 1377936,SAR,SARATOGA INVESTMENT CORP.,2026,4,"revenue,operating_income,capex,sbc"
+819926,SEII,SHARING ECONOMY INTERNATIONAL INC.,2025,4,"intangibles,revenue,capex,sbc"
 1713748,SKE,Skeena Resources Limited,2025,4,"goodwill,intangibles,revenue,operating_income"
-1652539,SNRG,SUSGLOBAL ENERGY CORP.,2025,4,"goodwill,intangibles,operating_income,capex"
 1884046,SPKL,Spark I Acquisition Corp,2025,4,"revenue,operating_income,capex,sbc"
 1493712,STME,Stimcell Energetics Inc.,2026,4,"revenue,operating_income,capex,sbc"
 1745431,STNE,StoneCo Ltd.,2024,4,"goodwill,intangibles,revenue,operating_income"
 1803096,STRG,"Starguide Group, Inc.",2026,4,"goodwill,intangibles,capex,sbc"
 1370755,TCPC,BLACKROCK TCP CAPITAL CORP.,2025,4,"revenue,operating_income,capex,sbc"
 1789769,TIL,"Instil Bio, Inc.",2025,4,"goodwill,intangibles,revenue,capex"
-1001807,TLK,PERUSAHAAN PERSEROAN PERSERO PT TELEKOMUNIKASI INDONESIA TBK,2024,4,"goodwill,intangibles,revenue,sbc"
 1463208,TLSS,"Transportation and Logistics Systems, Inc.",2025,4,"goodwill,intangibles,revenue,capex"
 1580345,TPVG,TriplePoint Venture Growth BDC Corp.,2025,4,"revenue,operating_income,capex,sbc"
 1508655,TSLX,"Sixth Street Specialty Lending, Inc.",2025,4,"revenue,operating_income,capex,sbc"
@@ -586,7 +504,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1838162,,SLAM CORP.,2024,4,"revenue,operating_income,capex,sbc"
 1841514,,"Commonwealth Credit Partners BDC I, Inc.",2025,4,"revenue,operating_income,capex,sbc"
 1842138,,WarpSpeed Taxi Inc.,2024,4,"revenue,operating_income,capex,sbc"
-1848756,,PYROPHYTE ACQUISITION CORP.,2024,4,"goodwill,revenue,capex,sbc"
 1849089,,"LAFAYETTE SQUARE USA, INC.",2025,4,"revenue,operating_income,capex,sbc"
 1849894,,MSD Investment Corp.,2025,4,"revenue,operating_income,capex,sbc"
 1850787,,"Kayne DL 2021, Inc.",2025,4,"revenue,operating_income,capex,sbc"
@@ -606,6 +523,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1888846,,"Ultimate Holdings Group, Inc.",2025,4,"revenue,operating_income,capex,sbc"
 1889106,,ALPHATIME ACQUISITION CORP,2024,4,"revenue,operating_income,capex,sbc"
 1889450,,FUTURETECH II ACQUISITION CORP.,2024,4,"revenue,operating_income,capex,sbc"
+1890107,,First Eagle Private Credit Fund,2025,4,"revenue,operating_income,capex,sbc"
 1895316,,BRIGHTWOOD CAPITAL CORPORATION I,2025,4,"revenue,operating_income,capex,sbc"
 1899017,,BAIN CAPITAL PRIVATE CREDIT,2025,4,"revenue,operating_income,capex,sbc"
 1899996,,Fidelity Private Credit Company LLC,2025,4,"revenue,operating_income,capex,sbc"
@@ -692,6 +610,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1930419,ALRTF,ALR Technologies SG Ltd.,2025,3,"revenue,operating_income,capex"
 1865111,ALSAF,ALPHA STAR ACQUISITION CORPORATION,2025,3,"revenue,capex,sbc"
 775057,ALTX,ALTEX INDUSTRIES INC,2025,3,"operating_income,capex,sbc"
+1129137,AMX,AMERICA MOVIL SAB DE CV/,2024,3,"goodwill,net_income,sbc"
 1570132,ANVI,"ANVI GLOBAL HOLDINGS, INC.",2026,3,"revenue,capex,sbc"
 1763660,APGH,ALEEANPEACE GROUP HOLDINGS LIMITED,2025,3,"revenue,operating_income,capex"
 1894525,APUS,"APIMEDS PHARMACEUTICALS US, INC.",2025,3,"goodwill,intangibles,revenue"
@@ -724,9 +643,9 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1896212,CDT,CDT EQUITY INC.,2025,3,"intangibles,revenue,capex"
 1870404,CERO,"CERO THERAPEUTICS HOLDINGS, INC.",2025,3,"revenue,operating_income,capex"
 1789972,CGEM,"CULLINAN THERAPEUTICS, INC.",2025,3,"goodwill,intangibles,revenue"
+1649009,CHAI,"CORE AI HOLDINGS, INC.",2025,3,"goodwill,capex,sbc"
 1459188,CHEV,CHARGING ROBOTICS INC.,2025,3,"revenue,capex,sbc"
 1527613,CIMG,CIMG Inc.,2025,3,"goodwill,capex,sbc"
-1868995,CINT,CI&T Inc,2025,3,"goodwill,intangibles,acq_cf_bs_disagreement"
 1768446,CLYM,"CLIMB BIO, INC.",2025,3,"goodwill,intangibles,revenue"
 1892500,CMND,Clearmind Medicine Inc.,2025,3,"revenue,operating_income,capex"
 1263364,COPR,IDAHO COPPER CORPORATION,2026,3,"intangibles,revenue,capex"
@@ -752,6 +671,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1355444,EMBJ,EMBRAER S.A.,2025,3,"goodwill,intangibles,sbc"
 1956439,ENHA,Enhanced Group Inc.,2025,3,"revenue,capex,sbc"
 890821,ENVB,"ENVERIC BIOSCIENCES, INC.",2025,3,"goodwill,revenue,capex"
+1595353,EOCN,GALMED PHARMACEUTICALS LTD.,2025,3,"revenue,operating_income,capex"
 1726126,EPSN,EPSILON ENERGY LTD.,2025,3,"goodwill,intangibles,capex"
 1140625,EQNR,EQUINOR ASA,2025,3,"goodwill,intangibles,sbc"
 1551182,ETN,EATON CORPORATION plc,2025,3,"operating_income,sbc,acq_cf_bs_disagreement"
@@ -761,10 +681,10 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1416876,FCHS,"FIRST CHOICE HEALTHCARE SOLUTIONS, INC.",2025,3,"revenue,capex,sbc"
 849997,FECOF,FEC RESOURCES INC.,2024,3,"revenue,capex,sbc"
 1468522,FER,Ferrovial N.V.,2025,3,"operating_income,capex,sbc"
+1989930,FGL,Founder Group Limited,2024,3,"net_income,operating_income,sbc"
 1811999,FMHS,"FARMHOUSE, INC. /NV",2025,3,"intangibles,capex,sbc"
 1333141,FMS,FRESENIUS MEDICAL CARE AG,2025,3,"capex,sbc,acq_cf_bs_disagreement"
 1888151,FMTOF,FEMTO TECHNOLOGIES INC.,2024,3,"operating_income,ocf,capex"
-1061736,FMX,"Mexican Economic Development, Inc.",2024,3,"goodwill,operating_income,ocf"
 1769697,FNUC,Frontier Nuclear and Minerals Inc.,2025,3,"revenue,operating_income,capex"
 2017526,FRNM,"Freenome, Inc.",2025,3,"revenue,capex,sbc"
 928054,FTK,FLOTEK INDUSTRIES INC/CN,2025,3,"goodwill,intangibles,capex"
@@ -816,6 +736,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1960262,LUDG,"Ludwig Enterprises, Inc.",2025,3,"revenue,capex,sbc"
 2016221,MACI,Melar Acquisition Corp. I/Cayman,2025,3,"revenue,capex,sbc"
 1396440,MAIN,Main Street Capital Corporation,2025,3,"revenue,operating_income,capex"
+2027265,MB,MASTERBEEF GROUP,2024,3,"net_income,operating_income,sbc"
 1859035,MCAG,MOUNTAIN CREST ACQUISITION CORP. V,2025,3,"revenue,capex,sbc"
 1954488,MENS,Jyong Biotech Ltd.,2025,3,"revenue,capex,sbc"
 1698990,MGY,Magnolia Oil & Gas Corp,2025,3,"goodwill,intangibles,capex"
@@ -823,6 +744,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1800392,MLGO,MicroAlgo Inc.,2025,3,"goodwill,intangibles,sbc"
 1085921,MMTIF,MICROMEM TECHNOLOGIES INC.,2025,3,"revenue,net_income,operating_income"
 1098462,MTLK,Metalink Ltd.,2025,3,"revenue,capex,sbc"
+1712178,NAAS,NaaS Technology Inc.,2024,3,"goodwill,net_income,capex"
 1778016,NBP,NovaBridge Biosciences,2025,3,"goodwill,intangibles,revenue"
 1751912,NGEN,NERVGEN PHARMA CORP.,2025,3,"revenue,operating_income,capex"
 1605481,NGLD,NEVADA CANYON GOLD CORP.,2025,3,"revenue,operating_income,capex"
@@ -855,10 +777,12 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1771885,QNTM,Quantum BioPharma Ltd.,2025,3,"revenue,net_income,capex"
 1753391,QSJC,"TANCHENG GROUP CO., LTD.",2025,3,"intangibles,capex,sbc"
 1487091,QWTR,"QUEST WATER GLOBAL, INC.",2024,3,"revenue,operating_income,capex"
+811522,QZMRF,QUARTZ MOUNTAIN RESOURCES LTD.,2025,3,"revenue,operating_income,capex"
 1415397,RAPH,Raphael Pharmaceutical Inc.,2025,3,"intangibles,revenue,capex"
 1812173,RBOT,VICARIOUS SURGICAL INC.,2025,3,"goodwill,intangibles,revenue"
 1594204,RBTK,ZHEN DING RESOURCES INC.,2025,3,"revenue,capex,sbc"
 1442620,RCON,"RECON TECHNOLOGY, LTD",2026,3,"goodwill,intangibles,sbc"
+1848763,RNW,CANADA PENSION PLAN INVESTMENT BOARD,2025,3,"goodwill,intangibles,net_income"
 1910975,RPDL,RAPID LINE INC.,2026,3,"operating_income,capex,sbc"
 1836295,RTGN,RETINALGENIX TECHNOLOGIES INC.,2025,3,"revenue,operating_income,capex"
 1509261,RZLT,"Rezolute, Inc.",2026,3,"intangibles,revenue,capex"
@@ -866,10 +790,12 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1912540,SCVE,SOUND CAVE TECHNOLOGY INC.,2025,3,"operating_income,capex,sbc"
 1331421,SDCO,"SDR DRONE, INC.",2025,3,"revenue,capex,sbc"
 1624985,SFCX,SUPA Consolidated Inc.,2025,3,"revenue,capex,sbc"
+1878057,SGHC,Super Group (SGHC) Limited,2024,3,"equity,operating_income,acq_cf_bs_disagreement"
 1422892,SGLY,SINGULARITY FUTURE TECHNOLOGY LTD.,2026,3,"intangibles,capex,sbc"
 1642159,SIGY,"SIGYN THERAPEUTICS, INC.",2024,3,"intangibles,revenue,capex"
 1794942,SKFG,"STARK FOCUS GROUP, INC.",2025,3,"revenue,capex,sbc"
 1537137,SLI,Standard Lithium Ltd.,2025,3,"revenue,ocf,capex"
+1652539,SNRG,SUSGLOBAL ENERGY CORP.,2025,3,"intangibles,operating_income,capex"
 2019061,SOBO,SOUTH BOW CORPORATION,2025,3,"operating_income,capex,sbc"
 1490161,SOWG,SOW GOOD INC.,2025,3,"goodwill,intangibles,capex"
 1227282,SPOWF,STRATA POWER CORPORATION,2025,3,"operating_income,capex,sbc"
@@ -889,6 +815,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1190723,TS,Tenaris SA,2025,3,"goodwill,intangibles,sbc"
 1977837,USDW,MADE IN USA INC.,2026,3,"operating_income,capex,sbc"
 1111335,VC,VISTEON CORP,2025,3,"goodwill,operating_income,capex"
+1930510,VCIG,VCI Global Limited,2024,3,"goodwill,net_income,operating_income"
 1293135,VET,VERMILION ENERGY INC.,2025,3,"operating_income,ocf,capex"
 727510,VISK,"Viskase Holdings, Inc.",2025,3,"revenue,capex,sbc"
 1082733,VISM,"VISIUM TECHNOLOGIES, INC.",2025,3,"intangibles,capex,sbc"
@@ -993,6 +920,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1852536,,"Intorio, Corp.",2024,3,"intangibles,capex,sbc"
 1852707,,"BETTER FOR YOU WELLNESS, INC.",2024,3,"intangibles,revenue,capex"
 1852889,,Libity,2025,3,"revenue,capex,sbc"
+1853047,,HUDSON ACQUISITION I CORP.,2025,3,"revenue,capex,sbc"
 1854149,,Agriculture & Natural Solutions Acquisition Corporation,2025,3,"revenue,capex,sbc"
 1854401,,BRIDGE INVESTMENT GROUP HOLDINGS INC.,2024,3,"operating_income,capex,acq_cf_bs_disagreement"
 1854795,,INTEGRATED RAIL AND RESOURCES ACQUISITION CORP.,2024,3,"revenue,capex,sbc"
@@ -1040,6 +968,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1976927,,"Invesco Commercial Real Estate Finance Trust, Inc.",2025,3,"revenue,operating_income,capex"
 1995413,,COLOMBIER ACQUISITION CORP. II,2024,3,"revenue,capex,sbc"
 1995648,,AFB LIMITED,2024,3,"operating_income,capex,sbc"
+1999538,,X1 CAPITAL INC.,2024,3,"operating_income,capex,sbc"
 2002038,,LEGATO MERGER CORP. III,2025,3,"revenue,capex,sbc"
 2006291,,Churchill Capital Corp IX/Cayman,2025,3,"revenue,capex,sbc"
 2006815,,Voyager Acquisition Corp./Cayman Islands,2025,3,"revenue,capex,sbc"
@@ -1065,6 +994,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 2079546,,Cibatella Corp.,2026,3,"operating_income,capex,sbc"
 2087656,,"MYX, Inc.",2026,3,"operating_income,capex,sbc"
 824142,AAON,"AAON, INC.",2025,2,"goodwill,acq_cf_bs_disagreement"
+2023311,AAPG,ASCENTAGE PHARMA GROUP INTERNATIONAL,2024,2,"net_income,operating_income"
 318306,ABEO,ABEONA THERAPEUTICS INC.,2025,2,"goodwill,intangibles"
 1893219,ABPO,"Abpro Holdings, Inc.",2025,2,"revenue,capex"
 1672688,ABSI,ABSCI CORP,2025,2,"goodwill,acq_cf_bs_disagreement"
@@ -1083,6 +1013,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1822523,AFCG,ADVANCED FLOWER CAPITAL INC.,2025,2,"operating_income,capex"
 2060016,AGCC,AGENCIA COMERCIAL SPIRITS LTD,2025,2,"capex,sbc"
 1178819,AGI,ALAMOS GOLD INC.,2025,2,"goodwill,intangibles"
+2009233,AGRZ,Agroz Inc.,2024,2,"net_income,sbc"
 1514443,AGSS,"AMERIGUARD SECURITY SERVICES, INC.",2025,2,"capex,sbc"
 1304409,AHNRF,ATHENA GOLD CORPORATION,2024,2,"revenue,capex"
 1763329,AIBT,"AIBOTICS, INC.",2025,2,"capex,sbc"
@@ -1090,6 +1021,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1750,AIR,AAR CORP,2026,2,"operating_income,acq_cf_bs_disagreement"
 1009891,AIRI,AIR INDUSTRIES GROUP,2025,2,"goodwill,intangibles"
 353184,AIRT,"Air T, Inc.",2026,2,"sbc,acq_cf_bs_disagreement"
+1888014,AKAN,Akanda Corp.,2024,2,"goodwill,sbc"
 925261,AKO-A,Andina Bottling Co Inc,2025,2,"operating_income,sbc"
 1541157,AKTX,"Akari Therapeutics, Plc",2025,2,"revenue,capex"
 1755101,ALDS,"APPLIFE DIGITAL SOLUTIONS, INC.",2026,2,"capex,sbc"
@@ -1103,6 +1035,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 821026,ANDE,"ANDERSONS, INC.",2025,2,"operating_income,acq_cf_bs_disagreement"
 1815974,ANEB,"ANEBULO PHARMACEUTICALS, INC.",2025,2,"revenue,capex"
 715446,ANIX,"ANIXA BIOSCIENCES, INC.",2025,2,"revenue,capex"
+1781629,ANKM,"ANKAM, INC.",2025,2,"capex,sbc"
 1880438,ANTX,"AN2 Therapeutics, Inc.",2025,2,"revenue,capex"
 1841666,APA,APA CORPORATION,2025,2,"goodwill,revenue"
 1802883,API,"Agora, Inc.",2025,2,"goodwill,acq_cf_bs_disagreement"
@@ -1118,6 +1051,8 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 316888,ASM,Avino Silver & Gold Mines Ltd.,2025,2,"operating_income,capex"
 1612042,ASND,Ascendis Pharma A/S,2025,2,"goodwill,capex"
 1123452,ASR,SOUTHEAST AIRPORT GROUP,2024,2,"capex,sbc"
+1860805,ASTL,ALGOMA STEEL GROUP INC.,2025,2,"net_income,sbc"
+1122411,ASX,"ASE Technology Holding Co., Ltd.",2025,2,"goodwill,net_income"
 1488039,ATOS,"ATOSSA THERAPEUTICS, INC.",2025,2,"intangibles,revenue"
 1755058,AUC,ATIF HOLDINGS LIMITED,2024,2,"goodwill,sbc"
 1011509,AUMN,Golden Minerals Company,2024,2,"revenue,capex"
@@ -1186,10 +1121,10 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 949157,CENX,Century Aluminum Company,2025,2,"goodwill,intangibles"
 1310630,CFOO,China Foods Holdings Ltd.,2025,2,"capex,sbc"
 1455365,CGTX,"Cognition Therapeutics, Inc.",2025,2,"revenue,capex"
-1649009,CHAI,"CORE AI HOLDINGS, INC.",2025,2,"capex,sbc"
 1630212,CHGA,CHANGE AGENTS CORPORATION,2025,2,"revenue,capex"
 1738758,CHR,"Cheer Holding, Inc.",2025,2,"capex,sbc"
 823277,CHSCP,CHS Inc.,2025,2,"sbc,acq_cf_bs_disagreement"
+1868995,CINT,CI&T Inc,2025,2,"goodwill,intangibles"
 813716,CIRX,CirTran Corporation,2025,2,"capex,sbc"
 1763925,CJAX,CoJax Oil and Gas Corporation,2025,2,"capex,sbc"
 1723596,CLBK,"Columbia Financial, Inc.",2025,2,"intangibles,operating_income"
@@ -1259,6 +1194,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 918608,EGO,ELDORADO GOLD CORP /FI,2025,2,"intangibles,ocf"
 1739104,ELAN,Elanco Animal Health Incorporated,2025,2,"operating_income,acq_cf_bs_disagreement"
 1907184,ELBM,Electra Battery Materials Corp,2025,2,"revenue,operating_income"
+946394,ELLO,ELLOMAY CAPITAL LTD.,2024,2,"goodwill,net_income"
 1041792,ELPC,ENERGY CO OF PARANA,2024,2,"capex,sbc"
 1438461,ELRE,Yinfu Gold Corporation,2026,2,"capex,sbc"
 2076765,ELVX,ELVENTIX TECHNOLOGY CORPORATION,2026,2,"capex,sbc"
@@ -1283,7 +1219,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 840489,FCFS,"FIRSTCASH HOLDINGS, INC.",2025,2,"operating_income,acq_cf_bs_disagreement"
 1590418,FCUV,FOCUS UNIVERSAL INC.,2025,2,"intangibles,sbc"
 1543652,FFLO,Free Flow USA Inc.,2025,2,"capex,sbc"
-1989930,FGL,Founder Group Limited,2024,2,"operating_income,sbc"
 1899883,FIP,FTAI INFRASTRUCTURE INC.,2025,2,"operating_income,acq_cf_bs_disagreement"
 1947016,FJET,"STARFIGHTERS SPACE, INC.",2025,2,"revenue,operating_income"
 1868941,FLNC,"Fluence Energy, Inc.",2025,2,"operating_income,acq_cf_bs_disagreement"
@@ -1304,6 +1239,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 105744,GBR,"NEW CONCEPT ENERGY, INC.",2025,2,"capex,sbc"
 1695473,GCAN,"TRAFALGAR INTERNATIONAL, INC.",2025,2,"revenue,capex"
 1848672,GDLG,GLIDELOGIC CORP.,2026,2,"capex,sbc"
+1873093,GDTC,CytoMed Therapeutics Limited,2025,2,"net_income,operating_income"
 40545,GE,GENERAL ELECTRIC CO,2025,2,"operating_income,acq_cf_bs_disagreement"
 1831096,GEG,"GREAT ELM GROUP, INC.",2026,2,"capex,acq_cf_bs_disagreement"
 886744,GERN,GERON CORP,2025,2,"revenue,capex"
@@ -1322,6 +1258,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1595248,GNPX,"Genprex, Inc.",2025,2,"revenue,capex"
 1346917,GNTOF,GENTOR RESOURCES INC.,2025,2,"revenue,capex"
 1792941,GNVR,GENVOR     INCORPORATED,2025,2,"revenue,capex"
+1983736,GOAI,EVA LIVE INC.,2025,2,"goodwill,sbc"
 1591588,GOLD,"GOLD.COM, INC.",2026,2,"operating_income,acq_cf_bs_disagreement"
 40987,GPC,GENUINE PARTS CO,2025,2,"operating_income,acq_cf_bs_disagreement"
 1408075,GPK,Graphic Packaging Holding Co,2025,2,"capex,acq_cf_bs_disagreement"
@@ -1330,7 +1267,8 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1444192,GRCE,"Grace Therapeutics, Inc.",2026,2,"revenue,capex"
 1438569,GRFS,Grifols SA,2024,2,"sbc,acq_cf_bs_disagreement"
 1907223,GRML,GREENLAND     MINES LTD,2025,2,"revenue,capex"
-1839799,GRSD,Grandstand Limited,2025,2,"sbc,acq_cf_bs_disagreement"
+1990446,GRPS,"TRANS AMERICAN AQUACULTURE, INC.",2024,2,"operating_income,sbc"
+1839799,GRSD,Grandstand Limited,2025,2,"goodwill,sbc"
 42582,GT,THE GOODYEAR TIRE & RUBBER COMPANY,2025,2,"operating_income,acq_cf_bs_disagreement"
 825324,GTIM,Good         Times Restaurants Inc.,2025,2,"intangibles,acq_cf_bs_disagreement"
 1468174,H,Hyatt Hotels Corp,2025,2,"operating_income,acq_cf_bs_disagreement"
@@ -1338,6 +1276,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 45012,HAL,HALLIBURTON COMPANY,2025,2,"intangibles,sbc"
 1954594,HAO,Haoxi Health Technology Limited,2026,2,"capex,sbc"
 1691303,HCC,"WARRIOR MET COAL, INC.",2025,2,"goodwill,intangibles"
+1086303,HCIL,"Hongchang International Co., Ltd",2024,2,"goodwill,sbc"
 2023730,HDRN,"Hadron Energy, Inc.",2025,2,"capex,sbc"
 354707,HE,"HAWAIIAN ELECTRIC INDUSTRIES, INC.",2025,2,"goodwill,intangibles"
 1850235,HEPS,D-MARKET Electronic Services & Trading,2024,2,"goodwill,intangibles"
@@ -1365,6 +1304,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1815566,IFBD,"Infobird Co., Ltd",2025,2,"capex,sbc"
 1708688,IFRX,InflaRx N.V.,2025,2,"intangibles,operating_income"
 1980295,IMAA,IMA TECH,2025,2,"capex,sbc"
+1123134,IMOS,ChipMOS TECHNOLOGIES INC.,2024,2,"net_income,sbc"
 1280776,IMUX,"Immunic, Inc.",2025,2,"goodwill,revenue"
 1764013,IMVT,"IMMUNOVANT, INC.",2026,2,"revenue,operating_income"
 1857044,INDP,"Indaptus Therapeutics, Inc.",2025,2,"revenue,capex"
@@ -1395,6 +1335,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1611005,KEN,KENON HOLDINGS LTD.,2025,2,"goodwill,intangibles"
 701818,KGC,KINROSS GOLD CORP,2025,2,"goodwill,intangibles"
 319201,KLAC,KLA Corporation,2026,2,"operating_income,acq_cf_bs_disagreement"
+1935033,KMFG,KEEMO FASHION GROUP LIMITED,2025,2,"capex,sbc"
 1170010,KMX,"CARMAX, INC.",2026,2,"operating_income,acq_cf_bs_disagreement"
 1587523,KN,Knowles Corporation,2025,2,"ocf,acq_cf_bs_disagreement"
 1509991,KOS,Kosmos Energy Ltd.,2025,2,"operating_income,capex"
@@ -1422,6 +1363,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1842167,LLPS,Limitless Projects Inc.,2025,2,"capex,sbc"
 1477960,LMED,LATAMED AI CORP.,2025,2,"capex,sbc"
 1527728,LNAI,Lunai Bioworks Inc.,2025,2,"revenue,capex"
+1972074,LNKS,Linkers Industries Limited,2025,2,"net_income,sbc"
 750004,LNWO,"LIGHT & WONDER, INC.",2025,2,"capex,acq_cf_bs_disagreement"
 1840780,LOCL,Local Bounti Corporation/DE,2025,2,"goodwill,acq_cf_bs_disagreement"
 1620463,LONA,"LeonaBio, Inc.",2025,2,"revenue,capex"
@@ -1434,11 +1376,12 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1816319,LYTHF,LYTUS TECHNOLOGIES HOLDINGS PTV. LTD.,2025,2,"operating_income,sbc"
 1958217,LZM,Lifezone Metals Limited,2025,2,"capex,acq_cf_bs_disagreement"
 1515317,MAGE,MAGELLAN COPPER & GOLD CORP.,2025,2,"revenue,capex"
+2046117,MAGH,Magnitude International Ltd,2025,2,"net_income,sbc"
 1878313,MAIA,"MAIA Biotechnology, Inc.",2025,2,"revenue,capex"
 1993097,MASK,3 E Network Technology Group Limited,2025,2,"capex,sbc"
-2027265,MB,MASTERBEEF GROUP,2024,2,"operating_income,sbc"
 1610590,MBAI,MBody AI Ltd.,2025,2,"revenue,capex"
 1680048,MBIO,"MUSTANG BIO, INC.",2025,2,"revenue,capex"
+1993431,MCRP,Micropolis Holding Company,2024,2,"net_income,sbc"
 1133519,MCUJF,MEDICURE INC.,2024,2,"operating_income,capex"
 1997296,MDCX,MEDICUS PHARMA LTD.,2025,2,"revenue,capex"
 67716,MDU,MDU RESOURCES GROUP INC,2025,2,"intangibles,acq_cf_bs_disagreement"
@@ -1470,7 +1413,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 2030522,MWYN,"MARWYNN HOLDINGS, INC.",2026,2,"goodwill,capex"
 66418,MXC,MEXCO ENERGY CORPORATION,2026,2,"goodwill,intangibles"
 899923,MYGN,"MYRIAD GENETICS, INC.",2025,2,"capex,acq_cf_bs_disagreement"
-1712178,NAAS,NaaS Technology Inc.,2024,2,"capex,acq_cf_bs_disagreement"
 1164771,NAK,NORTHERN DYNASTY MINERALS LTD,2025,2,"revenue,capex"
 1808805,NAUT,"Nautilus Biotechnology, Inc.",2025,2,"revenue,operating_income"
 1512228,NB,NioCorp Developments Ltd.,2026,2,"revenue,operating_income"
@@ -1514,6 +1456,8 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1848334,OKMN,OKMIN RESOURCES INC.,2025,2,"capex,sbc"
 1849296,OKYO,OKYO Pharma Limited,2025,2,"revenue,operating_income"
 1750284,OLMA,"OLEMA PHARMACEUTICALS, INC.",2025,2,"revenue,capex"
+1378239,OMAB,Central North Airport Group,2024,2,"net_income,sbc"
+1682265,ONAR,ONAR Holding Corporation,2025,2,"ocf,acq_cf_bs_disagreement"
 1782107,ONCO,"Onconetix, Inc.",2025,2,"intangibles,capex"
 1825452,ONFO,ONFOLIO HOLDINGS INC.,2025,2,"capex,acq_cf_bs_disagreement"
 1858985,ONON,On Holding AG,2025,2,"goodwill,intangibles"
@@ -1540,8 +1484,10 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 313216,PHG,KONINKLIJKE PHILIPS NV,2025,2,"ocf,acq_cf_bs_disagreement"
 2035709,PHOE,Phoenix     Asia Holdings Limited,2026,2,"capex,sbc"
 2030482,PLMK,PLUM ACQUISITION CORP. IV,2025,2,"revenue,capex"
+2064764,PLSM,Pulsenmore Ltd.,2025,2,"net_income,operating_income"
 2075320,PLYX,"Polaryx Therapeutics, Inc.",2025,2,"revenue,capex"
 1956166,PMA,Ming     Shing Group Holdings Limited,2026,2,"capex,sbc"
+2012096,PMAX,Powell Max Limited,2024,2,"net_income,sbc"
 1115055,PNFP,Pinnacle Financial Partners Inc.,2024,2,"operating_income,acq_cf_bs_disagreement"
 56868,PNRG,PrimeEnergy Resources Corporation,2025,2,"operating_income,sbc"
 1784058,PNYG,Pony Group Inc.,2025,2,"capex,sbc"
@@ -1564,10 +1510,12 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1996192,QNME,"Quanome Technologies, Inc.",2026,2,"goodwill,sbc"
 824416,QPRC,QUEST PATENT RESEARCH CORPORATION,2025,2,"revenue,capex"
 1494413,QUTX,TWO HANDS CORPORATION,2025,2,"capex,sbc"
+797542,QXL,QUANTUM X LABS INC.,2025,2,"revenue,capex"
 85961,R,RYDER SYSTEM INC,2025,2,"operating_income,acq_cf_bs_disagreement"
 2057381,RADC,READVANTAGE CORP.,2026,2,"capex,sbc"
 1320854,RAIL,"FREIGHTCAR AMERICA, INC.",2025,2,"goodwill,intangibles"
 1885680,RAJAF,"Cordyceps Sunshine Biotech Holdings Co., Ltd.",2025,2,"capex,sbc"
+1135951,RDY,DR. REDDY’S LABORATORIES LIMITED,2025,2,"goodwill,net_income"
 1384195,REI,"Ring Energy, Inc.",2025,2,"goodwill,intangibles"
 1001614,REPX,"Riley Exploration Permian, Inc.",2025,2,"goodwill,intangibles"
 1838957,RERE,ATRenew Inc.,2025,2,"goodwill,revenue"
@@ -1586,12 +1534,12 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1412126,RMSL,"REMSLEEP HOLDINGS, INC.",2025,2,"capex,sbc"
 1434740,RNGC,RANGER GOLD CORP.,2026,2,"capex,sbc"
 1438943,RNGE,"RANGE IMPACT, INC.",2025,2,"goodwill,capex"
-1848763,RNW,CANADA PENSION PLAN INVESTMENT BOARD,2025,2,"goodwill,intangibles"
 1802768,RPRX,Royalty Pharma plc,2025,2,"intangibles,capex"
 315852,RRC,RANGE RESOURCES CORP,2025,2,"operating_income,capex"
 83350,RSRV,RESERVE PETROLEUM CO,2025,2,"capex,sbc"
 1742927,RVPH,"Reviva Pharmaceuticals Holdings, Inc.",2025,2,"revenue,capex"
 1231346,SA,Seabridge Gold Inc.,2025,2,"revenue,operating_income"
+2029138,SAGT,SAGTEC GLOBAL LIMITED,2024,2,"net_income,operating_income"
 1753368,SANG,SANGOMA TECHNOLOGIES CORP,2025,2,"operating_income,acq_cf_bs_disagreement"
 1434754,SB,"SAFE BULKERS, INC.",2025,2,"revenue,capex"
 1170858,SBS,COMPANHIA DE SANEAMENTO BASICO DO ESTADO DE SAO PAULO-SABESP,2024,2,"operating_income,sbc"
@@ -1605,13 +1553,14 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1289877,SFL,SFL Corporation Ltd.,2025,2,"capex,sbc"
 1347408,SGBAF,SES S.A.,2025,2,"intangibles,sbc"
 95574,SGC,"SUPERIOR GROUP OF COMPANIES, INC.",2025,2,"operating_income,acq_cf_bs_disagreement"
-1878057,SGHC,Super Group (SGHC) Limited,2024,2,"operating_income,acq_cf_bs_disagreement"
 1400118,SGMT,Sagimet Biosciences Inc.,2025,2,"revenue,capex"
 1002590,SGU,"STAR GROUP, L.P.",2025,2,"sbc,acq_cf_bs_disagreement"
 1822479,SHC,SOTERA HEALTH COMPANY,2025,2,"operating_income,acq_cf_bs_disagreement"
 1306965,SHEL,Shell plc,2025,2,"operating_income,capex"
+1465470,SHMP,NATURALSHRIMP INCORPORATED,2025,2,"capex,sbc"
 89800,SHW,THE SHERWIN-WILLIAMS COMPANY,2025,2,"operating_income,acq_cf_bs_disagreement"
 1049659,SID,NATIONAL STEEL CO,2024,2,"goodwill,sbc"
+1094324,SIFY,SIFY TECHNOLOGIES LTD,2025,2,"intangibles,net_income"
 887153,SIM,"GRUPO SIMEC, S.A.B. de C.V.",2024,2,"operating_income,sbc"
 849869,SLGN,SILGAN HOLDINGS INC,2025,2,"operating_income,acq_cf_bs_disagreement"
 1390478,SLS,"SELLAS Life Sciences Group, Inc.",2025,2,"revenue,capex"
@@ -1629,6 +1578,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 867038,SPND,SPINDLETOP OIL & GAS CO.,2025,2,"capex,sbc"
 803097,SPQS,"SPORTSQUEST, INC.",2025,2,"capex,sbc"
 1192323,SPST,"Superstar Platforms, Inc.",2025,2,"capex,sbc"
+1838987,SPWR,SUNPOWER INC.,2025,2,"capex,acq_cf_bs_disagreement"
 1383395,SQNS,SEQUANS COMMUNICATIONS S.A.,2024,2,"revenue,capex"
 318299,SRCO,"SPARTA COMMERCIAL SERVICES, INC.",2026,2,"capex,sbc"
 1401835,SRGZ,Star Gold Corp.,2026,2,"revenue,capex"
@@ -1693,7 +1643,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1947244,USGO,U.S. GOLDMINING INC.,2025,2,"revenue,capex"
 755001,UTL,UNITIL CORPORATION,2025,2,"intangibles,sbc"
 1729173,UXIN,Uxin Ltd,2025,2,"goodwill,intangibles"
-1930510,VCIG,VCI Global Limited,2024,2,"goodwill,operating_income"
 1393052,VEEV,Veeva Systems Inc.,2026,2,"capex,acq_cf_bs_disagreement"
 1468091,VEON,VEON Ltd.,2025,2,"intangibles,ocf"
 1806837,VERX,"Vertex, Inc.",2025,2,"intangibles,capex"
@@ -1703,6 +1652,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1907909,VOXR,Vox Royalty Corp.,2025,2,"operating_income,capex"
 1701963,VS,VERSUS SYSTEMS INC.,2025,2,"goodwill,capex"
 797721,VSAT,"VIASAT, INC.",2026,2,"capex,acq_cf_bs_disagreement"
+2038439,VWAV,VISIONWAVE HOLDINGS INC.,2025,2,"revenue,capex"
 1745078,VYND,"Vynleads, Inc.",2025,2,"capex,sbc"
 732712,VZ,VERIZON COMMUNICATIONS INC,2025,2,"capex,acq_cf_bs_disagreement"
 1515139,WAST,WASTE ENERGY CORP.,2025,2,"intangibles,capex"
@@ -1710,8 +1660,10 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1826660,WETH,WETOUCH TECHNOLOGY INC.,2025,2,"intangibles,sbc"
 1616156,WEWA,"WEWARDS, INC.",2026,2,"capex,sbc"
 1699136,WHD,"Cactus, Inc.",2025,2,"capex,acq_cf_bs_disagreement"
+1030997,WILCF,G WILLI FOOD INTERNATIONAL LTD,2025,2,"goodwill,net_income"
 1770088,WIMI,WiMi Hologram Cloud Inc.,2025,2,"goodwill,intangibles"
 946486,WINT,WINDTREE THERAPEUTICS INC /DE/,2024,2,"intangibles,revenue"
+1123799,WIT,WIPRO LIMITED,2025,2,"goodwill,net_income"
 1929783,WOK,WORK Medical Technology Group LTD,2025,2,"operating_income,sbc"
 1364125,WRN,WESTERN COPPER AND GOLD CORPORATION,2025,2,"revenue,operating_income"
 108312,WWD,"WOODWARD, INC.",2025,2,"operating_income,acq_cf_bs_disagreement"
@@ -1720,9 +1672,11 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1999860,WYHG,Wing Yip Food Holdings Group Limited,2025,2,"operating_income,sbc"
 1534525,XBIO,"XENETIC BIOSCIENCES, INC.",2025,2,"goodwill,capex"
 1979887,XCH,XCHG Limited,2025,2,"intangibles,capex"
+34088,XOM,Exxon Mobil Corporation,2025,2,"operating_income,sbc"
 1770450,XRX,XEROX HOLDINGS CORPORATION,2025,2,"operating_income,acq_cf_bs_disagreement"
 1347858,XXII,"22nd Century Group, Inc.",2025,2,"goodwill,acq_cf_bs_disagreement"
 895464,YBGJ,YUBO INTERNATIONAL BIOTECH LIMITED,2025,2,"capex,sbc"
+1782037,YGMZF,MingZhu Logistics Holdings Limited,2024,2,"goodwill,sbc"
 1042187,YHGJ,YUNHONG GREEN CTI LTD.,2025,2,"goodwill,capex"
 1674440,YYAI,AiRWA INC.,2026,2,"capex,sbc"
 1966678,ZDAI,"DirectBooking     Technology Co., Ltd.",2026,2,"capex,sbc"
@@ -1739,13 +1693,10 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1412665,,"MIDWESTONE FINANCIAL GROUP, INC.",2024,2,"operating_income,acq_cf_bs_disagreement"
 1049782,,"BROOKLINE BANCORP, INC",2024,2,"operating_income,acq_cf_bs_disagreement"
 58492,,LEGGETT & PLATT INC,2025,2,"operating_income,acq_cf_bs_disagreement"
-1532961,,"NV5 Global, Inc.",2024,2,"operating_income,acq_cf_bs_disagreement"
 1398453,,"XINYUAN REAL ESTATE CO., LTD.",2024,2,"goodwill,intangibles"
-1836934,,Zenvia Inc.,2024,2,"goodwill,intangibles"
 1961,,GEMAXEL INC. (formerly known as Worlds Inc.),2024,2,"revenue,capex"
 27673,,DEERE JOHN CAPITAL CORP,2025,2,"operating_income,capex"
 28412,,COMERICA INC,2024,2,"operating_income,capex"
-34088,,Exxon Mobil Corporation,2025,2,"operating_income,sbc"
 38723,,1st FRANKLIN FINANCIAL CORPORATION,2025,2,"operating_income,sbc"
 91882,,"DOMINION ENERGY SOUTH CAROLINA, INC.",2025,2,"revenue,sbc"
 92521,,SOUTHWESTERN PUBLIC SERVICE CO,2025,2,"revenue,sbc"
@@ -1777,6 +1728,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 894560,,"BIOETHICS, LTD.",2024,2,"capex,sbc"
 914748,,"EVEREST REINSURANCE HOLDINGS, INC.",2025,2,"operating_income,capex"
 926844,,FUSS BRANDS CORP.,2024,2,"revenue,capex"
+931755,,AEI INCOME & GROWTH FUND XXI LIMITED PARTNERSHIP,2025,2,"capex,sbc"
 933136,,Mr. Cooper Group Inc.,2024,2,"operating_income,acq_cf_bs_disagreement"
 934612,,"BURLINGTON NORTHERN SANTA FE, LLC",2025,2,"capex,sbc"
 944130,,"MINISTRY PARTNERS INVESTMENT COMPANY, LLC",2025,2,"operating_income,sbc"
@@ -1788,6 +1740,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1138724,,"GLOBAL ARENA HOLDING, INC.",2025,2,"revenue,sbc"
 1140465,,HSBC Bank plc,2024,2,"revenue,capex"
 1160791,,GOLD RESOURCE CORP,2025,2,"goodwill,intangibles"
+1185198,,AEI INCOME & GROWTH FUND 25 LLC,2025,2,"capex,sbc"
 1193311,,Oncor Electric Delivery Company LLC,2025,2,"capex,sbc"
 1230992,,MAG SILVER CORP,2024,2,"revenue,operating_income"
 1281845,,"UNIQUE LOGISTICS INTERNATIONAL, INC.",2024,2,"sbc,acq_cf_bs_disagreement"
@@ -1837,6 +1790,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1485074,,"Freeze Tag, Inc.",2024,2,"capex,sbc"
 1497230,,FYNTECHNICAL INNOVATIONS INC.,2024,2,"capex,sbc"
 1503707,,"NORTHSTAR HEALTHCARE INCOME, INC.",2024,2,"operating_income,capex"
+1532961,,"NV5 Global, Inc.",2024,2,"operating_income,acq_cf_bs_disagreement"
 1538990,,STORE CAPITAL LLC,2025,2,"operating_income,capex"
 1544190,,"SHEPHERD’S FINANCE, LLC",2025,2,"revenue,operating_income"
 1544400,,NFiniTi inc.,2024,2,"capex,sbc"
@@ -1851,7 +1805,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1640251,,WINS Finance Holdings Inc.,2024,2,"operating_income,sbc"
 1640982,,"ATEL 17, LLC",2024,2,"capex,sbc"
 1672572,,LANDBAY INC,2025,2,"capex,sbc"
-1672886,,ZHONG YUAN BIO-TECHNOLOGY HOLDINGS LIMITED,2024,2,"goodwill,capex"
 1678848,,CAMBELL INTERNATIONAL HOLDING CORP.,2024,2,"capex,sbc"
 1680056,,ORLA MINING LTD.,2025,2,"goodwill,intangibles"
 1683252,,"Token Communities, Ltd.",2025,2,"capex,sbc"
@@ -1876,6 +1829,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1818550,,INCORDEX CORP.,2024,2,"capex,sbc"
 1821160,,GUILD HOLDINGS COMPANY,2024,2,"operating_income,acq_cf_bs_disagreement"
 1828739,,"ARCULUS SYSTEM CO., LTD.",2024,2,"capex,sbc"
+1836934,,Zenvia Inc.,2024,2,"goodwill,intangibles"
 1839133,,"IR-MED, INC",2024,2,"revenue,capex"
 1842356,,Wag! Group Co.,2024,2,"operating_income,acq_cf_bs_disagreement"
 1842563,,"GO GO BUYERS, INC.",2025,2,"capex,sbc"
@@ -1900,6 +1854,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1946997,,"EQT Exeter Real Estate Income Trust, Inc.",2025,2,"operating_income,capex"
 1951051,,JAAG ENTERPRISES LTD.,2024,2,"capex,sbc"
 1956055,,BUKIT JALIL GLOBAL ACQUISITION 1 LTD.,2024,2,"revenue,capex"
+1960208,,Carbon Revolution Public Limited Company,2024,2,"net_income,operating_income"
 1964021,,noco-noco Inc.,2024,2,"revenue,capex"
 1964630,,Vast Renewables Limited,2024,2,"goodwill,operating_income"
 1976870,,BRB FOODS INC.,2025,2,"capex,sbc"
@@ -1927,7 +1882,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1675149,AA,Alcoa Corp,2025,1,operating_income
 1420529,AACG,ATA Creativity Global,2025,1,acq_cf_bs_disagreement
 1098009,AAGH,America Great Health,2025,1,capex
-2023311,AAPG,ASCENTAGE PHARMA GROUP INTERNATIONAL,2024,1,operating_income
 320193,AAPL,Apple Inc.,2025,1,goodwill
 1672571,AAQL,Antiaging Quantum Living Inc.,2026,1,sbc
 1993344,AAUC,ALLIED GOLD CORPORATION,2025,1,operating_income
@@ -1978,7 +1932,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 880266,AGCO,AGCO CORP /DE,2025,1,acq_cf_bs_disagreement
 1831097,AGL,"agilon health, inc.",2025,1,acq_cf_bs_disagreement
 1705402,AGMH,AGM Group Holdings Inc.,2025,1,sbc
-2009233,AGRZ,Agroz Inc.,2024,1,sbc
 78749,AGYS,"AGILYSYS, INC.",2026,1,acq_cf_bs_disagreement
 1725255,AHCO,AdaptHealth Corp.,2025,1,acq_cf_bs_disagreement
 1702318,AHG,Akso Health Group,2026,1,sbc
@@ -2006,6 +1959,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1317685,ALH,Alliance Laundry Holdings Inc.,2025,1,acq_cf_bs_disagreement
 1809104,ALIT,"Alight, Inc. / Delaware",2025,1,acq_cf_bs_disagreement
 766421,ALK,"ALASKA AIR GROUP, INC.",2025,1,acq_cf_bs_disagreement
+1529274,ALKT,"ALKAMI TECHNOLOGY, INC.",2025,1,acq_cf_bs_disagreement
 1737287,ALLO,"Allogene Therapeutics, Inc.",2025,1,intangibles
 1365767,ALLT,ALLOT LTD.,2025,1,acq_cf_bs_disagreement
 1670061,ALM,Almonty Industries Inc.,2025,1,capex
@@ -2078,9 +2032,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1426800,ASMB,"Assembly Biosciences, Inc.",2025,1,goodwill
 792987,ASTE,"Astec Industries, Inc.",2025,1,acq_cf_bs_disagreement
 1083446,ASTH,"Astrana Health, Inc.",2025,1,acq_cf_bs_disagreement
-1860805,ASTL,ALGOMA STEEL GROUP INC.,2025,1,sbc
 884144,ASUR,"ASURE SOFTWARE, INC.",2025,1,revenue
-1122411,ASX,"ASE Technology Holding Co., Ltd.",2025,1,acq_cf_bs_disagreement
 720500,ASYS,"AMTECH SYSTEMS, INC.",2025,1,acq_cf_bs_disagreement
 1684688,ATCX,ATLAS CRITICAL MINERALS CORPORATION,2025,1,intangibles
 1068689,ATDS,"DATA443 RISK MITIGATION, INC.",2025,1,capex
@@ -2143,6 +2095,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 729580,BELFA,BEL FUSE INC /NJ,2025,1,acq_cf_bs_disagreement
 14693,BF-B,BROWN FORMAN CORP,2026,1,acq_cf_bs_disagreement
 1437578,BFAM,BRIGHT HORIZONS FAMILY SOLUTIONS INC.,2025,1,acq_cf_bs_disagreement
+1829247,BFRG,"BULLFROG AI HOLDINGS, INC.",2025,1,capex
 2019435,BGL,Blue Gold Limited,2025,1,revenue
 1130166,BGMS,"BIO GREEN MED SOLUTION, INC.",2025,1,capex
 1278027,BGS,"B&G FOODS, INC.",2026,1,acq_cf_bs_disagreement
@@ -2216,6 +2169,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 2037400,CAAS,"China Automotive Systems, Inc.",2025,1,sbc
 1759138,CABA,"CABALETTA BIO, INC.",2025,1,revenue
 1632127,CABO,"Cable One, Inc.",2025,1,acq_cf_bs_disagreement
+2020737,CABR,"CARING BRANDS, INC.",2025,1,capex
 16058,CACI,CACI INTERNATIONAL INC,2026,1,acq_cf_bs_disagreement
 1841387,CADL,"CANDEL THERAPEUTICS, INC.",2025,1,revenue
 1173382,CAE,CAE INC.,2025,1,intangibles
@@ -2234,7 +2188,9 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 2065601,CBC,"Central Bancompany, Inc.",2025,1,operating_income
 1067294,CBRL,"Cracker Barrel Old Country Store, Inc.",2026,1,goodwill
 16040,CBT,CABOT CORP,2025,1,acq_cf_bs_disagreement
+944148,CBZ,"CBIZ, Inc.",2025,1,intangibles
 1627223,CC,The Chemours Company,2025,1,operating_income
+1818201,CCC,CCC INTELLIGENT SOLUTIONS HOLDINGS INC.,2025,1,acq_cf_bs_disagreement
 1392326,CCEC,CAPITAL CLEAN ENERGY CARRIERS CORP.,2025,1,revenue
 1650107,CCEP,COCA-COLA EUROPACIFIC PARTNERS plc,2025,1,acq_cf_bs_disagreement
 1219601,CCK,"CROWN HOLDINGS, INC.",2025,1,acq_cf_bs_disagreement
@@ -2259,6 +2215,8 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 887733,CENT,Central Garden & Pet Company,2025,1,acq_cf_bs_disagreement
 1717161,CEPU,Central Puerto S.A.,2024,1,sbc
 1827090,CERT,"Certara, Inc.",2025,1,acq_cf_bs_disagreement
+1935092,CETI,"Cyber Enviro-Tech, Inc.",2025,1,revenue
+1435064,CETX,"CEMTREX, INC.",2025,1,acq_cf_bs_disagreement
 1173489,CEVA,"Ceva, Inc.",2025,1,acq_cf_bs_disagreement
 1324404,CF,"CF INDUSTRIES HOLDINGS, INC.",2025,1,acq_cf_bs_disagreement
 1293818,CFOR,CAPFORCE INC.,2025,1,goodwill
@@ -2278,6 +2236,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1486159,CHRD,Chord Energy Corporation,2025,1,intangibles
 1043277,CHRW,"C. H. ROBINSON WORLDWIDE, INC.",2025,1,acq_cf_bs_disagreement
 1825349,CHSN,Chanson International Holding,2025,1,sbc
+1132924,CHT,"Chunghwa Telecom Co., Ltd.",2024,1,net_income
 1766502,CHWY,"Chewy, Inc.",2025,1,acq_cf_bs_disagreement
 936395,CIEN,Ciena Corp,2025,1,acq_cf_bs_disagreement
 1157557,CIG,ENERGY CO OF MINAS GERAIS,2024,1,operating_income
@@ -2311,8 +2270,10 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1677703,CNDT,CONDUENT INC,2025,1,operating_income
 1352952,CNFN,CFN ENTERPRISES INC.,2025,1,sbc
 1953575,CNL,Collective Mining Ltd.,2025,1,revenue
+816956,CNMD,CONMED CORPORATION,2025,1,acq_cf_bs_disagreement
 1729427,CNSP,"CNS Pharmaceuticals, Inc.",2025,1,revenue
 1842952,CNTX,CONTEXT THERAPEUTICS INC.,2025,1,revenue
+1803599,CNXC,Concentrix Corporation,2025,1,acq_cf_bs_disagreement
 1727255,COBA,CHILEAN COBALT CORP.,2025,1,capex
 1345126,CODI,COMPASS DIVERSIFIED HOLDINGS,2025,1,acq_cf_bs_disagreement
 1770561,CODQL,Coronado Global Resources Inc.,2025,1,operating_income
@@ -2366,6 +2327,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 790051,CSL,CARLISLE COMPANIES INCORPORATED,2025,1,acq_cf_bs_disagreement
 1504379,CSTE,Caesarstone Ltd.,2025,1,acq_cf_bs_disagreement
 1447362,CSTL,"CASTLE BIOSCIENCES, INC.",2025,1,acq_cf_bs_disagreement
+1016281,CSV,"CARRIAGE SERVICES, INC.",2025,1,intangibles
 277948,CSX,CSX CORPORATION,2025,1,acq_cf_bs_disagreement
 723254,CTAS,Cintas Corporation,2026,1,acq_cf_bs_disagreement
 1793229,CTEV,CLARITEV CORPORATION,2025,1,acq_cf_bs_disagreement
@@ -2373,11 +2335,13 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1855175,CTNM,"Contineum Therapeutics, Inc.",2025,1,revenue
 1951667,CTNT,Cheetah Net Supply Chain Service Inc.,2025,1,capex
 1981599,CTRI,"Centuri Holdings, Inc.",2025,1,acq_cf_bs_disagreement
+1720161,CTRM,Castor Maritime Inc.,2025,1,acq_cf_bs_disagreement
 26058,CTS,CTS CORPORATION,2025,1,acq_cf_bs_disagreement
 1058290,CTSH,COGNIZANT TECHNOLOGY SOLUTIONS CORPORATION,2025,1,acq_cf_bs_disagreement
 2047148,CTW,CTW Cayman,2025,1,sbc
 723603,CULP,CULP INC,2026,1,goodwill
 1995704,CUPR,Cuprina Holdings (Cayman) Limited,2025,1,sbc
+1756770,CURLF,"Curaleaf Holdings, Inc.",2025,1,acq_cf_bs_disagreement
 278166,CVCO,"CAVCO INDUSTRIES, INC.",2026,1,acq_cf_bs_disagreement
 1590584,CVEO,Civeo Corp,2025,1,acq_cf_bs_disagreement
 1290900,CVGI,"COMMERCIAL VEHICLE GROUP, INC.",2025,1,goodwill
@@ -2399,6 +2363,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1075736,CXDO,"Crexendo, Inc.",2025,1,acq_cf_bs_disagreement
 1569345,CXM,"Sprinklr, Inc.",2026,1,intangibles
 25445,CXT,"CRANE NXT, CO.",2025,1,acq_cf_bs_disagreement
+932695,CYD,China Yuchai International Limited,2024,1,net_income
 1108109,CYH,"COMMUNITY HEALTH SYSTEMS, INC.",2025,1,acq_cf_bs_disagreement
 1124524,CYRX,"CRYOPORT, INC.",2025,1,acq_cf_bs_disagreement
 1601936,CYTOF,Altamira Therapeutics Ltd.,2024,1,revenue
@@ -2508,7 +2473,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 701719,ELA,ENVELA CORPORATION,2025,1,sbc
 1840563,ELAB,PMGC HOLDINGS INC.,2025,1,operating_income
 1600033,ELF,"e.l.f. Beauty, Inc.",2026,1,acq_cf_bs_disagreement
-946394,ELLO,ELLOMAY CAPITAL LTD.,2024,1,goodwill
 1035354,ELOX,"ELOXX PHARMACEUTICALS, INC.",2025,1,capex
 2015691,ELPW,Elong Power Holding Ltd.,2025,1,sbc
 1601485,ELTX,"Elicio Therapeutics, Inc.",2025,1,revenue
@@ -2540,6 +2504,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 33213,EQT,EQT CORPORATION,2025,1,acq_cf_bs_disagreement
 1761918,ERAS,"Erasca, Inc.",2025,1,revenue
 748592,ERNA,Ernexa Therapeutics Inc.,2025,1,revenue
+1877322,ESAB,ESAB Corporation,2025,1,acq_cf_bs_disagreement
 866706,ESE,ESCO TECHNOLOGIES INC.,2025,1,acq_cf_bs_disagreement
 1341170,ESEA,EUROSEAS LTD.,2025,1,capex
 1590714,ESI,Element Solutions Inc,2025,1,acq_cf_bs_disagreement
@@ -2638,6 +2603,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1262039,FTNT,"FORTINET, INC.",2025,1,acq_cf_bs_disagreement
 2027262,FTRKF,FAST TRACK GROUP,2026,1,sbc
 1659166,FTV,Fortive Corporation,2025,1,acq_cf_bs_disagreement
+1484769,FUBO,FuboTV Inc.,2024,1,acq_cf_bs_disagreement
 1999001,FUN,Six Flags Entertainment Corporation/NEW,2025,1,acq_cf_bs_disagreement
 1762301,FVRR,Fiverr International Ltd.,2025,1,acq_cf_bs_disagreement
 1560385,FWONA,LIBERTY MEDIA CORPORATION,2025,1,acq_cf_bs_disagreement
@@ -2652,7 +2618,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1609711,GDDY,GoDaddy Inc.,2025,1,acq_cf_bs_disagreement
 1928340,GDHG,Golden Heaven Group Holdings Ltd.,2025,1,capex
 1809519,GDRX,"GoodRx Holdings, Inc.",2025,1,acq_cf_bs_disagreement
-1873093,GDTC,CytoMed Therapeutics Limited,2025,1,operating_income
 1743725,GDYN,"Grid Dynamics Holdings, Inc.",2025,1,acq_cf_bs_disagreement
 1932393,GEHC,GE HEALTHCARE TECHNOLOGIES INC.,2025,1,acq_cf_bs_disagreement
 1920092,GELS,Gelteq Limited,2025,1,sbc
@@ -2667,6 +2632,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 42888,GGG,GRACO INC.,2025,1,acq_cf_bs_disagreement
 1886190,GGR,GOGORO INC.,2025,1,intangibles
 1576280,GH,"GUARDANT HEALTH, INC.",2025,1,acq_cf_bs_disagreement
+104889,GHC,GRAHAM HOLDINGS CO,2025,1,acq_cf_bs_disagreement
 1724755,GHG,GreenTree Hospitality Group Ltd.,2025,1,sbc
 716314,GHM,GRAHAM CORPORATION,2026,1,acq_cf_bs_disagreement
 1855129,GHRS,GH Research PLC,2025,1,revenue
@@ -2765,8 +2731,10 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1645590,HPE,HEWLETT PACKARD ENTERPRISE COMPANY,2025,1,acq_cf_bs_disagreement
 47217,HPQ,HP INC.,2025,1,acq_cf_bs_disagreement
 1428336,HQY,"HEALTHEQUITY, INC.",2026,1,acq_cf_bs_disagreement
+1563665,HRGN,"Harvard Apparatus Regenerative Technology, Inc.",2025,1,capex
 1802665,HRMY,"HARMONY BIOSCIENCES HOLDINGS, INC.",2025,1,goodwill
 1861737,HSAI,Hesai Group,2025,1,goodwill
+1959455,HSHP,Himalaya Shipping Ltd.,2025,1,capex
 1813603,HSTA,HESTIA INSIGHT INC.,2025,1,capex
 1095565,HSTM,HEALTHSTREAM INC,2025,1,acq_cf_bs_disagreement
 47111,HSY,HERSHEY CO,2025,1,acq_cf_bs_disagreement
@@ -2827,7 +2795,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1506184,IMMP,Immutep Limited,2025,1,operating_income
 1058811,IMMR,Immersion Corporation,2026,1,intangibles
 1873835,IMMX,"IMMIX BIOPHARMA, INC.",2025,1,revenue
-1123134,IMOS,ChipMOS TECHNOLOGIES INC.,2024,1,sbc
 1660046,IMRN,IMMURON LIMITED,2025,1,capex
 1790340,IMRX,Immuneering Corporation,2025,1,revenue
 2019804,IMSR,TERRESTRIAL ENERGY INC.,2025,1,revenue
@@ -2991,10 +2958,10 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1158895,LMAT,"LEMAITRE VASCULAR, INC.",2025,1,acq_cf_bs_disagreement
 1342423,LMNR,LIMONEIRA COMPANY,2025,1,capex
 1499849,LND,BrasilAgro – Brazilian Agricultural Real Estate Company,2025,1,goodwill
-1972074,LNKS,Linkers Industries Limited,2025,1,sbc
 836157,LNN,Lindsay Corporation,2024,1,acq_cf_bs_disagreement
 1932072,LOBO,LOBO TECHNOLOGIES LTD.,2025,1,sbc
 1120970,LODE,Comstock Inc.,2025,1,capex
+2064307,LOGC,ContextLogic Holdings Inc.,2025,1,capex
 1032975,LOGI,LOGITECH INTERNATIONAL S.A.,2026,1,acq_cf_bs_disagreement
 1711375,LOMA,LOMA NEGRA COMPANIA INDUSTRIALARGENTINA SOCIEDAD ANONIMA,2024,1,operating_income
 1568969,LOTT,TECHLOTT INC.,2025,1,capex
@@ -3028,7 +2995,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1286139,LZ,"LegalZoom.com, Inc.",2025,1,acq_cf_bs_disagreement
 57131,LZB,LA-Z-BOY INCORPORATED,2026,1,acq_cf_bs_disagreement
 1141391,MA,Mastercard Incorporated,2025,1,acq_cf_bs_disagreement
-2046117,MAGH,Magnitude International Ltd,2025,1,sbc
 41719,MAGN,Magnera Corporation,2025,1,acq_cf_bs_disagreement
 1520358,MAMA,"Mama’s Creations, Inc.",2026,1,acq_cf_bs_disagreement
 2008007,MAMK,MaxsMaking Inc.,2025,1,sbc
@@ -3048,7 +3014,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 927653,MCK,McKESSON CORPORATION,2026,1,acq_cf_bs_disagreement
 1059556,MCO,MOODY'S CORPORATION,2025,1,acq_cf_bs_disagreement
 907242,MCRI,"MONARCH CASINO & RESORT, INC.",2025,1,operating_income
-1993431,MCRP,Micropolis Holding Company,2024,1,sbc
 2035992,MCTA,Charming Medical Limited,2026,1,sbc
 893949,MD,"Pediatrix Medical Group, Inc.",2025,1,acq_cf_bs_disagreement
 1833498,MDAI,"SPECTRAL AI, INC.",2025,1,capex
@@ -3153,7 +3118,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1834488,NABL,"N-able, Inc.",2025,1,acq_cf_bs_disagreement
 1386570,NAGE,"NIAGEN BIOSCIENCE, INC.",2025,1,capex
 2026514,NAMM,Namib Minerals,2025,1,operating_income
-1936258,NAMS,NewAmsterdam Pharma Company N.V.,2025,1,intangibles
 1974138,NATL,NCR ATLEOS CORPORATION,2025,1,acq_cf_bs_disagreement
 275053,NATR,"NATURE’S SUNSHINE PRODUCTS, INC.",2025,1,intangibles
 1639723,NAVN,"NAVAN, INC.",2026,1,acq_cf_bs_disagreement
@@ -3181,6 +3145,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 912061,NHTC,Natural Health Trends Corp.,2025,1,goodwill
 1003935,NICE,NICE LTD.,2025,1,acq_cf_bs_disagreement
 772263,NICH,NITCHES INC.,2024,1,capex
+1532286,NINE,"Nine Energy Service, Inc.",2025,1,goodwill
 1966233,NIPG,NIP Group Inc.,2024,1,sbc
 2054696,NIQ,NIQ Global Intelligence plc,2025,1,acq_cf_bs_disagreement
 1981662,NIVF,NEWGENIVF GROUP LIMITED,2025,1,sbc
@@ -3189,6 +3154,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 2067627,NKLR,TERRA INNOVATUM GLOBAL N.V.,2025,1,revenue
 906709,NKTR,Nektar Therapeutics,2025,1,goodwill
 72162,NL,"NLI HOLDINGS, INC.",2025,1,sbc
+1415921,NMM,NAVIOS MARITIME PARTNERS L.P.,2025,1,operating_income
 1643303,NNDM,NANO DIMENSION LTD.,2025,1,acq_cf_bs_disagreement
 1379006,NNVC,"NANOVIRICIDES, INC.",2026,1,sbc
 924613,NOK,Nokia Corporation,2025,1,acq_cf_bs_disagreement
@@ -3198,6 +3164,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1823466,NOTE,"FiscalNote Holdings, Inc.",2025,1,acq_cf_bs_disagreement
 1021860,NOV,NOV INC.,2025,1,acq_cf_bs_disagreement
 1373715,NOW,"ServiceNow, Inc.",2025,1,acq_cf_bs_disagreement
+80172,NPK,NATIONAL PRESTO INDUSTRIES INC,2025,1,acq_cf_bs_disagreement
 71829,NPKI,NPK International Inc.,2025,1,acq_cf_bs_disagreement
 1978111,NPLY,NAPLOY CORP.,2025,1,sbc
 1164863,NPO,ENPRO INC,2025,1,intangibles
@@ -3256,7 +3223,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1637715,OKUR,"ONKURE THERAPEUTICS, INC.",2025,1,revenue
 1314196,OLB,"The OLB Group, Inc.",2025,1,capex
 74303,OLN,Olin Corporation,2025,1,acq_cf_bs_disagreement
-1378239,OMAB,Central North Airport Group,2024,1,sbc
 29989,OMC,OMNICOM GROUP INC.,2025,1,acq_cf_bs_disagreement
 926326,OMCL,"OMNICELL, INC",2025,1,acq_cf_bs_disagreement
 1285819,OMER,OMEROS CORP,2025,1,revenue
@@ -3355,12 +3321,10 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1637207,PLNT,"PLANET FITNESS, INC.",2025,1,acq_cf_bs_disagreement
 80035,PLPC,Preformed Line Products Company,2025,1,intangibles
 1893645,PLRZ,Polyrizon Ltd.,2025,1,revenue
-2064764,PLSM,Pulsenmore Ltd.,2025,1,operating_income
 1828016,PLTK,PLAYTIKA HOLDING CORP.,2025,1,acq_cf_bs_disagreement
 1321655,PLTR,Palantir Technologies Inc.,2025,1,goodwill
 1022408,PLUS,ePlus inc.,2026,1,acq_cf_bs_disagreement
 1413329,PM,Philip Morris International Inc.,2025,1,sbc
-2012096,PMAX,Powell Max Limited,2024,1,sbc
 1157075,PMCB,"PHARMACYTE BIOTECH, INC.",2026,1,capex
 1265521,PMHS,"Polomar Health Services, Inc.",2025,1,capex
 2030617,PMI,"Picard Medical, Inc.",2025,1,capex
@@ -3433,6 +3397,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1046102,RBA,"RB Global, Inc",2025,1,acq_cf_bs_disagreement
 1324948,RBC,RBC BEARINGS INCORPORATED,2026,1,acq_cf_bs_disagreement
 1315098,RBLX,Roblox Corporation,2025,1,acq_cf_bs_disagreement
+2039060,RBNE,Robin Energy Ltd.,2025,1,sbc
 1943896,RBRK,"RUBRIK, INC.",2026,1,intangibles
 733099,RCI,Rogers Communications Inc.,2025,1,acq_cf_bs_disagreement
 895456,RCKY,"ROCKY BRANDS, INC.",2025,1,acq_cf_bs_disagreement
@@ -3444,7 +3409,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 2056016,RDSC,RADIANT STRATEGIES CORPORATION,2026,1,sbc
 1819810,RDW,Redwire Corporation,2025,1,acq_cf_bs_disagreement
 1094366,RDWR,RADWARE LTD.,2025,1,acq_cf_bs_disagreement
-1135951,RDY,DR. REDDY’S LABORATORIES LIMITED,2025,1,acq_cf_bs_disagreement
 1995116,RECT,Rectitude Holdings Ltd,2026,1,sbc
 1419806,REEMF,Rare Element Resources Ltd,2025,1,operating_income
 872589,REGN,"REGENERON PHARMACEUTICALS, INC.",2025,1,goodwill
@@ -3516,7 +3480,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1583708,S,"SENTINELONE, INC",2026,1,acq_cf_bs_disagreement
 1597033,SABR,Sabre Corporation,2025,1,acq_cf_bs_disagreement
 2019793,SAFX,"XCF Global, Inc.",2025,1,capex
-2029138,SAGT,SAGTEC GLOBAL LIMITED,2024,1,operating_income
 1043509,SAH,"SONIC AUTOMOTIVE, INC.",2025,1,acq_cf_bs_disagreement
 1571123,SAIC,Science Applications International Corporation,2026,1,acq_cf_bs_disagreement
 2030781,SAIL,"SailPoint, Inc.",2026,1,acq_cf_bs_disagreement
@@ -3539,6 +3502,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 918965,SCSC,"ScanSource, Inc.",2026,1,acq_cf_bs_disagreement
 1703157,SCTH,"SecureTech Innovations, Inc.",2025,1,ocf
 1982518,SDHC,Smith Douglas Homes Corp.,2025,1,operating_income
+1701756,SDOT,Sadot Group Inc.,2025,1,capex
 1737706,SDRL,SEADRILL LIMITED,2025,1,intangibles
 1831979,SDST,Stardust Power Inc.,2025,1,revenue
 1163609,SDSYA,SOUTH DAKOTA SOYBEAN PROCESSORS LLC,2025,1,sbc
@@ -3563,6 +3527,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1638833,SGRY,"Surgery Partners, Inc.",2025,1,acq_cf_bs_disagreement
 354963,SHEN,Shenandoah Telecommunications Company,2025,1,acq_cf_bs_disagreement
 2032609,SHFH,Scientist Home Future Health Limited,2025,1,sbc
+1448397,SHIP,SEANERGY MARITIME HOLDINGS CORP.,2025,1,intangibles
 1831651,SHLS,"Shoals Technologies Group, Inc.",2025,1,acq_cf_bs_disagreement
 1295810,SHO,"Sunstone Hotel Investors, Inc.",2025,1,operating_income
 895447,SHOE,"Shoe Station Group, Inc.",2025,1,acq_cf_bs_disagreement
@@ -3570,7 +3535,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1594805,SHOP,Shopify Inc.,2025,1,acq_cf_bs_disagreement
 1757499,SHPH,"SHUTTLE PHARMACEUTICALS HOLDINGS, INC.",2025,1,revenue
 90168,SIF,"SIFCO Industries, Inc.",2025,1,sbc
-1094324,SIFY,SIFY TECHNOLOGIES LTD,2025,1,intangibles
 832988,SIG,SIGNET JEWELERS LIMITED,2026,1,acq_cf_bs_disagreement
 1514183,SILO,"SILO PHARMA, INC.",2025,1,capex
 1329394,SIMO,Silicon Motion Technology Corporation,2025,1,goodwill
@@ -3684,6 +3648,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 732717,T,AT&T INC.,2025,1,intangibles
 1499620,TAL,TAL Education Group,2026,1,acq_cf_bs_disagreement
 1588084,TANH,TANTECH HOLDINGS LTD,2025,1,sbc
+24545,TAP,Molson Coors Beverage Company,2025,1,acq_cf_bs_disagreement
 1829864,TASK,"TaskUs, Inc.",2025,1,acq_cf_bs_disagreement
 1493761,TBCH,TURTLE BEACH CORPORATION,2025,1,acq_cf_bs_disagreement
 1840502,TBLA,TABOOLA.COM LTD.,2025,1,acq_cf_bs_disagreement
@@ -3752,9 +3717,11 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 842633,TRS,TRIMAS CORPORATION,2025,1,acq_cf_bs_disagreement
 1943444,TRSG,TUNGRAY TECHNOLOGIES INC,2025,1,sbc
 1758699,TRSO,TRANSUITE.ORG INC.,2025,1,capex
+1660734,TRTN-PA,TRITON INTERNATIONAL LIMITED,2025,1,capex
 1563880,TRVI,"Trevi Therapeutics, Inc.",2025,1,revenue
 916365,TSCO,TRACTOR SUPPLY CO /DE/,2025,1,acq_cf_bs_disagreement
 1318605,TSLA,"Tesla, Inc.",2025,1,acq_cf_bs_disagreement
+1046179,TSM,Taiwan Semiconductor Manufacturing Company Limited,2024,1,net_income
 100493,TSN,"TYSON FOODS, INC.",2025,1,acq_cf_bs_disagreement
 1499832,TSQ,"Townsquare Media, Inc.",2025,1,acq_cf_bs_disagreement
 1466258,TT,TRANE TECHNOLOGIES PLC,2025,1,acq_cf_bs_disagreement
@@ -3793,6 +3760,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1308208,ULH,"UNIVERSAL LOGISTICS HOLDINGS, INC.",2025,1,acq_cf_bs_disagreement
 1901440,ULS,UL Solutions Inc.,2025,1,acq_cf_bs_disagreement
 1956955,UMAC,"Unusual Machines, Inc.",2025,1,acq_cf_bs_disagreement
+1033767,UMC,United Microelectronics Corporation,2024,1,net_income
 1766140,UNCY,"UNICYCIVE THERAPEUTICS, INC.",2025,1,revenue
 717954,UNF,UNIFIRST CORPORATION,2025,1,acq_cf_bs_disagreement
 2020795,UNIT,Uniti Group Inc.,2025,1,acq_cf_bs_disagreement
@@ -3888,6 +3856,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 70866,VYX,NCR VOYIX CORPORATION,2025,1,acq_cf_bs_disagreement
 943452,WAB,WESTINGHOUSE AIR BRAKE TECHNOLOGIES CORPORATION,2025,1,acq_cf_bs_disagreement
 1716770,WAFU,Wah Fu Education Group Ltd.,2026,1,sbc
+1000697,WAT,Waters Corporation,2025,1,acq_cf_bs_disagreement
 1846715,WAVE,ECO WAVE POWER GLOBAL AB (PUBL),2025,1,ocf
 1990354,WAY,Waystar Holding Corp.,2025,1,acq_cf_bs_disagreement
 1595761,WB,WEIBO CORPORATION,2025,1,acq_cf_bs_disagreement
@@ -3912,7 +3881,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 107687,WGO,"WINNEBAGO INDUSTRIES, INC.",2025,1,acq_cf_bs_disagreement
 106640,WHR,WHIRLPOOL CORP /DE/,2025,1,acq_cf_bs_disagreement
 1422142,WHWK,"WHITEHAWK THERAPEUTICS, INC.",2025,1,intangibles
-1123799,WIT,WIPRO LIMITED,2025,1,acq_cf_bs_disagreement
 1576789,WIX,Wix.com Ltd.,2024,1,acq_cf_bs_disagreement
 1445305,WK,WORKIVA INC,2025,1,acq_cf_bs_disagreement
 789460,WKC,WORLD KINECT CORPORATION,2025,1,acq_cf_bs_disagreement
@@ -3965,11 +3933,11 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 2034723,YDDL,One and one Green Technologies. INC,2025,1,sbc
 1345016,YELP,YELP INC,2025,1,acq_cf_bs_disagreement
 1614178,YEXT,"YEXT, INC.",2026,1,acq_cf_bs_disagreement
-1782037,YGMZF,MingZhu Logistics Holdings Limited,2024,1,sbc
 1838413,YMM,Full Truck Alliance Co. Ltd.,2025,1,acq_cf_bs_disagreement
 1856314,YOU,"CLEAR SECURE, INC.",2025,1,acq_cf_bs_disagreement
 2028177,YOUL,Youlife Group Inc.,2025,1,sbc
 2071489,YSGL,YELLOWSTONE GROUP LTD,2026,1,sbc
+1516899,YTRA,MAGNA HOLDINGS LTD.,2025,1,net_income
 877212,ZBRA,Zebra Technologies Corporation,2025,1,acq_cf_bs_disagreement
 1785566,ZCMD,Zhongchao Inc.,2025,1,goodwill
 1084048,ZD,"ZIFF DAVIS, INC.",2025,1,acq_cf_bs_disagreement
@@ -3990,8 +3958,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1855644,ZURA,Zura Bio Ltd,2025,1,revenue
 1434647,ZVRA,"Zevra Therapeutics, Inc.",2025,1,acq_cf_bs_disagreement
 1975641,ZYBT,Zhengye Biotechnology Holding Limited,2025,1,sbc
-947559,,"THE FIRST BANCSHARES, INC.",2024,1,operating_income
-1540013,,Quipt Home Medical Corp.,2025,1,acq_cf_bs_disagreement
 1703141,,"Despegar.com, Corp.",2024,1,acq_cf_bs_disagreement
 1616318,,Vista Outdoor Inc,2024,1,acq_cf_bs_disagreement
 1701732,,ALTAIR ENGINEERING INC.,2024,1,acq_cf_bs_disagreement
@@ -4010,6 +3976,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1393612,,DISCOVER FINANCIAL SERVICES,2024,1,operating_income
 1118004,,BANCPLUS CORPORATION,2025,1,operating_income
 1577916,,"Premier, Inc.",2025,1,acq_cf_bs_disagreement
+1487712,,SUMISHO AIR LEASE CORP,2025,1,operating_income
 716605,,PENNS WOODS BANCORP INC,2024,1,operating_income
 1066605,,"HEIDRICK & STRUGGLES INTERNATIONAL, INC.",2024,1,acq_cf_bs_disagreement
 1137547,,UNITED SECURITY BANCSHARES,2025,1,operating_income
@@ -4047,7 +4014,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 51644,,"INTERPUBLIC GROUP OF COMPANIES, INC.",2024,1,acq_cf_bs_disagreement
 877422,,SPARTANNASH COMPANY,2024,1,acq_cf_bs_disagreement
 1598110,,CYBERARK SOFTWARE LTD.,2024,1,acq_cf_bs_disagreement
-1166388,,Verint Systems Inc,2025,1,acq_cf_bs_disagreement
 39899,,TEGNA INC.,2025,1,acq_cf_bs_disagreement
 1692427,,"NCS Multistage Holdings, Inc.",2025,1,acq_cf_bs_disagreement
 794619,,American Woodmark Corp,2025,1,intangibles
@@ -4055,6 +4021,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 917491,,"FARO TECHNOLOGIES, INC",2024,1,acq_cf_bs_disagreement
 1527508,,PACTIV EVERGREEN INC.,2024,1,acq_cf_bs_disagreement
 743238,,"SHYFT GROUP, INC.",2024,1,acq_cf_bs_disagreement
+1166388,,Verint Systems Inc,2025,1,acq_cf_bs_disagreement
 1739942,,SolarWinds Corporation,2024,1,acq_cf_bs_disagreement
 1169445,,"TruBridge, Inc.",2025,1,acq_cf_bs_disagreement
 740663,,FIRST OF LONG ISLAND CORP,2024,1,operating_income
@@ -4064,7 +4031,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1320414,,SELECT MEDICAL HOLDINGS CORP,2025,1,acq_cf_bs_disagreement
 1853513,,"Mister Car Wash, Inc.",2025,1,acq_cf_bs_disagreement
 917470,,OLYMPIC STEEL INC,2024,1,acq_cf_bs_disagreement
-1593548,,"PLAYAGS, INC.",2024,1,acq_cf_bs_disagreement
 15357,,CHASE GENERAL CORP,2025,1,sbc
 27430,,THE DAYTON POWER AND LIGHT COMPANY,2025,1,sbc
 66756,,"ALLETE, Inc.",2024,1,intangibles
@@ -4101,6 +4067,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 923139,,FLUSHING FINANCIAL CORPORATION,2025,1,operating_income
 926660,,"APARTMENT INCOME REIT, L.P.",2025,1,operating_income
 946647,,PREMIER FINANCIAL CORP,2024,1,operating_income
+947559,,"THE FIRST BANCSHARES, INC.",2024,1,operating_income
 1001902,,"INTEVAC, INC.",2024,1,goodwill
 1039466,,NovAccess Global Inc.,2024,1,capex
 1050825,,STEELCASE INC,2025,1,acq_cf_bs_disagreement
@@ -4173,6 +4140,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1530746,,"KAYA HOLDINGS, INC.",2024,1,sbc
 1531978,,"Paragon 28, Inc.",2024,1,capex
 1533357,,DEFENSE TECHNOLOGIES INTERNATIONAL CORP.,2025,1,capex
+1540013,,Quipt Home Medical Corp.,2025,1,acq_cf_bs_disagreement
 1553404,,PACIFIC GREEN TECHNOLOGIES INC.,2024,1,goodwill
 1563922,,GREENBACKER RENEWABLE ENERGY COMPANY LLC,2025,1,equity
 1564824,,Allakos Inc.,2024,1,revenue
@@ -4182,6 +4150,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1579214,,"Emerald Holding, Inc.",2025,1,acq_cf_bs_disagreement
 1581552,,"Energy 11, L.P.",2025,1,sbc
 1590695,,"Twinlab Consolidated Holdings, Inc.",2024,1,sbc
+1593548,,"PLAYAGS, INC.",2024,1,acq_cf_bs_disagreement
 1596783,,"CATALENT, INC.",2024,1,acq_cf_bs_disagreement
 1597264,,BLUEPRINT MEDICINES CORPORATION,2024,1,operating_income
 1600626,,Peakstone Realty Trust,2025,1,acq_cf_bs_disagreement
@@ -4198,6 +4167,7 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1659323,,Iterum Therapeutics plc,2024,1,revenue
 1661458,,"Highlands REIT, Inc.",2025,1,capex
 1671284,,"NEUEHEALTH, INC.",2024,1,acq_cf_bs_disagreement
+1672886,,ZHONG YUAN BIO-TECHNOLOGY HOLDINGS LIMITED,2024,1,capex
 1673772,,"RAPT Therapeutics, Inc.",2024,1,revenue
 1680379,,"Sterling Bancorp, Inc.",2024,1,operating_income
 1687919,,FORGE INNOVATION DEVELOPMENT CORP.,2024,1,operating_income
@@ -4286,7 +4256,6 @@ cik,ticker,company_name,latest_fiscal_year,n_missing,missing_concepts
 1949543,,Sitio Royalties Corp.,2024,1,capex
 1954705,,Fuxing China Group Limited,2025,1,sbc
 1957146,,Almacenes Exito S.A.,2024,1,sbc
-1960208,,Carbon Revolution Public Limited Company,2024,1,operating_income
 1962918,,"ACELYRIN, INC.",2024,1,revenue
 1966394,,Fortress Net Lease REIT,2025,1,operating_income
 1966494,,"CARGO Therapeutics, Inc.",2024,1,revenue

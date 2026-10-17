@@ -6,9 +6,9 @@ The auditor's closure evidence, reproduced against the real run_lock.py:
   - a crashed owner is succeeded after TTL + GRACE (crash recovery)
   - an expired owner cannot write after its successor took over
 """
-import multiprocessing as mp
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -27,21 +27,28 @@ def clock(monkeypatch):
     return at
 
 
-def _contend(d, i, barrier, out):
-    barrier.wait()
-    code, msg = rl.acquire(Path(d), f"cse_{i}", "opus" if i % 2 else "sonnet")
-    out.put((code, msg))
+# Separate processes, all released at the same wall-clock instant. Not
+# multiprocessing: on Python 3.14 Linux its forkserver needs a socket, which the
+# frozen job blocks.
+CONTEND = """
+import sys, time
+sys.path.insert(0, sys.argv[1])
+import run_lock
+from pathlib import Path
+while time.time() < float(sys.argv[3]):
+    pass
+code, msg = run_lock.acquire(Path(sys.argv[2]), "cse_" + sys.argv[4], "opus")
+print(code, msg)
+"""
 
 
 def test_simultaneous_starts_yield_exactly_one_owner(tmp_path):
     n = 20
-    barrier, out = mp.Barrier(n), mp.Queue()
-    procs = [mp.Process(target=_contend, args=(str(tmp_path), i, barrier, out)) for i in range(n)]
-    for p in procs:
-        p.start()
-    results = [out.get(timeout=60) for _ in procs]
-    for p in procs:
-        p.join()
+    go = time.time() + 5
+    procs = [subprocess.Popen([sys.executable, "-c", CONTEND, str(Path(rl.__file__).parent), str(tmp_path),
+                               str(go), str(i)], stdout=subprocess.PIPE, text=True) for i in range(n)]
+    results = [tuple(p.communicate(timeout=60)[0].split(" ", 1)) for p in procs]
+    results = [(int(c), m.strip()) for c, m in results]
     winners = [m for c, m in results if c == 0]
     assert winners == ["1"]
     assert sum(c == rl.BUSY for c, _ in results) == n - 1

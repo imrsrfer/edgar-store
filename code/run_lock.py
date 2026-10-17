@@ -123,7 +123,8 @@ def status(d):
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["acquire", "guard", "release", "status"])
-    ap.add_argument("--dir", required=True)
+    ap.add_argument("--dir", default=str(Path(__file__).resolve().parent.parent / ".locks" / "screener"),
+                    help="default: <Portfolio>/.locks/screener next to this edgar/ folder")
     ap.add_argument("--token", type=int)
     ap.add_argument("--session", default="?")
     ap.add_argument("--model", default="?")

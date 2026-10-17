@@ -1398,6 +1398,14 @@ def test_enforce_company_currency_keeps_latest_year_currency_across_history():
     assert gate0._company_provenance(kept)["reporting_currency"].to_list() == ["CNY"]
 
 
+def test_lease_synonym_tags_are_alternatives_not_addends():
+    """Lease citations E1 (2026-10-16): ASC 842 and ASC 840 principal tags never sum."""
+    from concepts import CONCEPTS_BY_NAME
+    c = CONCEPTS_BY_NAME["lease_payments"]
+    assert c.components == ()
+    assert c.chain == ("FinanceLeasePrincipalPayments", "RepaymentsOfLongTermCapitalLeaseObligations")
+
+
 def test_lease_outflow_total_is_diagnostic_only():
     """Lease forensics 2026-10-16: the CashOutflowForLeases proxy must never score."""
     from concepts import CONCEPTS_BY_NAME, DIAGNOSTIC_ONLY_TAGS

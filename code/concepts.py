@@ -561,21 +561,23 @@ CONCEPTS = (
     Concept(
         "lease_payments",
         DURATION,
+        # 🔴 ALTERNATIVES, NOT ADDENDS (2026-10-16, lease citations E1, Fer).
+        # FinanceLeasePrincipalPayments (ASC 842) and
+        # RepaymentsOfLongTermCapitalLeaseObligations (ASC 840) are synonyms for
+        # the same financing-section principal repayment. They were summed as
+        # components, and filers tagging both doubled it: Nordson FY2024 $6.148M
+        # became $12.296M; 590 filer-years / 361 filers, mostly 2017-2021.
+        # Ordered chain: ASC 842 tag first, else the ASC 840 one. Principal only:
+        # interest is already in OCF under ASC 842; FinanceLeaseLiabilityPaymentsDue
+        # is a maturity schedule, not current-period cash.
+        # Removed as dead (0 occurrences in the 2026-10-09 archive):
+        # PaymentsForCapitalLeaseObligations, and the IFRS-style names
+        # PaymentsOfLeaseLiabilities / PaymentsOfFinanceLeaseLiabilities that
+        # never exist under us-gaap.
         [
-            "PaymentsOfLeaseLiabilities",
-            "PaymentsOfFinanceLeaseLiabilities",
-        ],
-        components=[
-            # US-GAAP financing section: lease principal payments only.
-            # Principal components only; interest is already in OCF under ASC 842
-            # and must not be summed into the deduction (would double-count).
-            # FinanceLeaseLiabilityPaymentsDue is a maturity schedule total
-            # (multi-year undiscounted future payments), not current-period cash.
             "FinanceLeasePrincipalPayments",
             "RepaymentsOfLongTermCapitalLeaseObligations",
-            "PaymentsForCapitalLeaseObligations",
         ],
-        partial_ok=True,
         # 🔴 IFRS 16 / ASC 842 LEASE PAYMENTS FIX (2026-09-13).
         # Under IFRS 16 and ASC 842, finance-lease principal payments
         # land in financing activities, not operating. A lessee that

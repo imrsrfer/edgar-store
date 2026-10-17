@@ -289,6 +289,33 @@ def test_missing_price_does_not_divide_by_zero():
         assert row["shares_identity_suspect"] is None
 
 
+def test_supplied_cap_is_rejected_unless_usd_and_freshly_fetched(tmp_path):
+    """Audit #3 (auditor 2026-10-16): the freshness rule is enforced, not warned."""
+    from datetime import date, timedelta
+    today, old = date.today().isoformat(), (date.today() - timedelta(days=30)).isoformat()
+    rows = [
+        # ticker, cap, fetched_at, currency  -> expected rejection
+        ("OK", 1e9, f"{today}T12:00:00Z", "USD"),     # used
+        ("GBP", 2e11, f"{today}T12:00:00Z", "GBp"),   # non_usd:GBp
+        ("OLD", 1e9, f"{old}T12:00:00Z", "USD"),      # stale_fetch
+        ("BARE", 1e9, "", ""),                        # no_provenance
+    ]
+    path = tmp_path / "prices.csv"
+    path.write_text(
+        "ticker,price,ma_200,market_cap,as_of,market_cap_fetched_at,market_cap_source,"
+        "market_cap_currency,market_cap_security,market_cap_effective_at\n"
+        + "".join(f"{t},10,,{c},{today},{f},yf,{ccy},{t}|X|EQUITY,unknown\n" for t, c, f, ccy in rows),
+        encoding="utf-8",
+    )
+    out = screen.load_prices(path, {"OK", "GBP", "OLD", "BARE"}, tmp_path / "unmatched.csv")
+    got = {r["ticker"]: (r["market_cap_supplied"], r["market_cap_rejected"]) for r in out.to_dicts()}
+    assert got["OK"] == (1e9, None)
+    assert got["GBP"] == (None, "non_usd:GBp")
+    assert got["OLD"] == (None, "stale_fetch")
+    assert got["BARE"] == (None, "no_provenance")
+    assert set(out["market_cap_effective_at"].to_list()) == {"unknown"}
+
+
 def test_partition_keeps_null_rows_as_unresolved():
     """Audit 2026-10-15 #4: a null predicate must not vanish from both sides."""
     import polars as pl

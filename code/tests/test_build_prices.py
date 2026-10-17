@@ -75,7 +75,7 @@ def test_output_has_exactly_one_row_per_ticker():
     rows = {"B": _row("B", TODAY), "A": _row("A", TODAY)}
     frame = build_prices.build_frame(rows)
     assert frame["ticker"].to_list() == ["A", "B"]
-    assert frame.columns == build_prices.PRICE_COLUMNS
+    assert frame.columns == build_prices.PRICE_COLUMNS + build_prices.CAP_PROVENANCE
     assert frame["ticker"].n_unique() == frame.height
 
 
@@ -327,3 +327,29 @@ def test_fetch_quotes_single_ticker_multiindex_stamps_bar_date(monkeypatch):
     out = build_prices.fetch_quotes(["ABC"], date(2026, 10, 15))
     assert out["ABC"]["price"] == 11.0
     assert out["ABC"]["as_of"] == date(2025, 7, 29)
+    assert out["ABC"]["market_cap_source"] is None   # no cap -> no provenance claimed
+
+
+def test_fetch_quotes_records_cap_provenance_with_unknown_effective_time(monkeypatch):
+    """Audit #3 (auditor 2026-10-16): fetch time, source, currency, identity;
+    the provider's own timestamp is explicitly unknown, never the fetch time."""
+    import types
+    from datetime import date
+    import pandas as pd
+
+    idx = pd.to_datetime(["2026-10-14", "2026-10-15"])
+    frame = pd.DataFrame([[1.0], [2.0]], index=idx, columns=pd.MultiIndex.from_tuples([("KLR.L", "Close")]))
+
+    class _T:
+        def __init__(self, t):
+            self.fast_info = types.SimpleNamespace(market_cap=205e9, currency="GBp",
+                                                   exchange="LSE", quote_type="EQUITY")
+
+    monkeypatch.setitem(sys.modules, "yfinance",
+                        types.SimpleNamespace(download=lambda *a, **k: frame, Ticker=_T))
+    row = build_prices.fetch_quotes(["KLR.L"], date(2026, 10, 16))["KLR.L"]
+    assert row["market_cap_source"] == "yfinance.fast_info.market_cap"
+    assert row["market_cap_currency"] == "GBp"
+    assert row["market_cap_security"] == "KLR.L|LSE|EQUITY"
+    assert row["market_cap_effective_at"] == "unknown"
+    assert row["market_cap_fetched_at"].endswith("Z")

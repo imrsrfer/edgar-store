@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import polars as pl
@@ -42,6 +42,15 @@ import polars as pl
 from edgar_lib import Paths, log_stage
 
 PRICE_COLUMNS = ["ticker", "price", "ma_200", "market_cap", "as_of"]
+# Market-cap provenance (audit 2026-10-15 #3, auditor 2026-10-16). A fetch time
+# is NOT the age of the value: the provider's own timestamp goes in
+# market_cap_effective_at, and is the literal "unknown" when it publishes none.
+CAP_PROVENANCE = [
+    "market_cap_fetched_at", "market_cap_source", "market_cap_currency",
+    "market_cap_security", "market_cap_effective_at",
+]
+CAP_SOURCE = "yfinance.fast_info.market_cap"
+UNKNOWN = "unknown"
 DEFAULT_MAX_AGE_DAYS = 7
 MA_WINDOW = 200
 # A year of trading days is ~252, comfortably more than the 200 the average
@@ -193,6 +202,7 @@ def read_existing(path):
             "ma_200": row.get(have.get("ma_200", "")),
             "market_cap": row.get(have.get("market_cap", "")),
             "as_of": as_of,
+            **{c: row.get(have.get(c, "")) for c in CAP_PROVENANCE},
         }
     return rows
 
@@ -276,9 +286,25 @@ def fetch_quotes(tickers, as_of):
         if not price > 0:
             continue
         ma_200 = float(closes.iloc[-MA_WINDOW:].mean()) if len(closes) >= MA_WINDOW else None
+        provenance = dict.fromkeys(CAP_PROVENANCE)
         try:
-            cap = yf.Ticker(ticker).fast_info.market_cap
+            info = yf.Ticker(ticker).fast_info
+            cap = info.market_cap
             market_cap = float(cap) if cap else None
+            if market_cap is not None:
+                provenance = {
+                    "market_cap_fetched_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "market_cap_source": CAP_SOURCE,
+                    "market_cap_currency": getattr(info, "currency", None) or UNKNOWN,
+                    # ticker|exchange|quote type: identifies instrument and class
+                    "market_cap_security": "|".join(
+                        [ticker] + [str(getattr(info, k, None) or UNKNOWN)
+                                    for k in ("exchange", "quote_type")]
+                    ),
+                    # fast_info computes cap from last price x shares and exposes
+                    # no timestamp for it, so its effective age is unknown.
+                    "market_cap_effective_at": UNKNOWN,
+                }
         except Exception:  # noqa: BLE001 - a missing cap is reported, never fatal
             market_cap = None
         # as_of is the date of the last bar, never the run date: a suspended
@@ -290,6 +316,7 @@ def fetch_quotes(tickers, as_of):
             "ma_200": ma_200,
             "market_cap": market_cap,
             "as_of": min(bar_date, as_of),
+            **provenance,
         }
     return out
 
@@ -307,6 +334,7 @@ def build_frame(rows):
         "ma_200": pl.Float64,
         "market_cap": pl.Float64,
         "as_of": pl.String,
+        **dict.fromkeys(CAP_PROVENANCE, pl.String),
     }
     records = [
         {
@@ -317,12 +345,13 @@ def build_frame(rows):
             "as_of": r["as_of"].isoformat()
             if isinstance(r["as_of"], date)
             else str(r["as_of"]),
+            **{c: None if r.get(c) is None else str(r[c]) for c in CAP_PROVENANCE},
         }
         for r in sorted(rows.values(), key=lambda x: x["ticker"])
     ]
     if not records:
         return pl.DataFrame(schema=schema)
-    return pl.DataFrame(records, schema=schema).select(PRICE_COLUMNS)
+    return pl.DataFrame(records, schema=schema).select(PRICE_COLUMNS + CAP_PROVENANCE)
 
 
 def report_coverage(

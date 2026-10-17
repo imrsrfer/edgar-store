@@ -632,7 +632,46 @@ def load_prices(path, known_tickers, unmatched_out):
             f"{PRICE_STALE_DAYS} days"
         )
 
+    prices = enforce_cap_freshness(prices, raw, columns, stale_cutoff)
     return prices.filter(pl.col("ticker").is_in(list(known_tickers)))
+
+
+CAP_PROVENANCE = ("market_cap_fetched_at", "market_cap_source", "market_cap_currency",
+                  "market_cap_security", "market_cap_effective_at")
+
+
+def enforce_cap_freshness(prices, raw, columns, stale_cutoff):
+    """Audit 2026-10-15 #3 (auditor 2026-10-16): a supplied market cap is used
+    only when its provenance says it is USD and was fetched within
+    PRICE_STALE_DAYS. Otherwise it is DROPPED (never converted, never kept) and
+    the row falls back to the flagged price x shares estimate, with the reason
+    in market_cap_rejected. A fetch time is not the value's age: the provider's
+    own timestamp rides along in market_cap_effective_at ("unknown" if none)."""
+    prov = [
+        (pl.col(columns[c]).cast(pl.String) if c in columns else pl.lit(None, dtype=pl.String)).alias(c)
+        for c in CAP_PROVENANCE
+    ]
+    prices = prices.with_columns(raw.select(prov))
+    fetched = pl.col("market_cap_fetched_at").str.slice(0, 10).str.to_date(strict=False)
+    reason = (
+        pl.when(pl.col("market_cap_supplied").is_null()).then(None)
+        .when(fetched.is_null()).then(pl.lit("no_provenance"))
+        .when(pl.col("market_cap_currency") != "USD")
+        .then(pl.lit("non_usd:") + pl.col("market_cap_currency"))
+        .when(fetched < stale_cutoff).then(pl.lit("stale_fetch"))
+        .otherwise(None)
+    )
+    prices = prices.with_columns(reason.alias("market_cap_rejected")).with_columns(
+        pl.when(pl.col("market_cap_rejected").is_null())
+        .then(pl.col("market_cap_supplied")).otherwise(None).alias("market_cap_supplied")
+    )
+    rejected = prices.filter(pl.col("market_cap_rejected").is_not_null())
+    if rejected.height:
+        counts = rejected.group_by(pl.col("market_cap_rejected").str.split(":").list.first()).len()
+        print(f"  market_cap REJECTED on {rejected.height} row(s): "
+              + ", ".join(f"{r[0]}={r[1]}" for r in counts.iter_rows())
+              + " -- those rows use the flagged price x shares estimate")
+    return prices
 
 
 def merge_price_frames(frames):

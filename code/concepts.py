@@ -50,6 +50,7 @@ class Concept:
         partial_ok=False,
         never_alone=None,
         never_sole=None,
+        zero_falls_through=False,
     ):
         self.name = name
         self.period_type = period_type
@@ -111,6 +112,11 @@ class Concept:
         # would label the ordinary case as degraded and make the marker
         # useless. See _resolve_components in build_facts.
         self.partial_ok = bool(partial_ok)
+        # Chain synonyms only (lease_payments, Fer 2026-10-16): a REPORTED 0 on
+        # an earlier chain tag yields to a non-zero value on a later one for the
+        # same period, so an ASC 842 placeholder 0 cannot hide an ASC 840 figure.
+        # The 0 is still used when no later tag is non-zero.
+        self.zero_falls_through = bool(zero_falls_through)
         # ifrs-full fallback, tried only after the whole us-gaap chain (and
         # components) come up empty for a company-period. Foreign private
         # issuers filing 20-F/40-F often report in a non-USD currency, so
@@ -578,6 +584,7 @@ CONCEPTS = (
             "FinanceLeasePrincipalPayments",
             "RepaymentsOfLongTermCapitalLeaseObligations",
         ],
+        zero_falls_through=True,
         # 🔴 IFRS 16 / ASC 842 LEASE PAYMENTS FIX (2026-09-13).
         # Under IFRS 16 and ASC 842, finance-lease principal payments
         # land in financing activities, not operating. A lessee that

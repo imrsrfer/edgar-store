@@ -424,10 +424,22 @@ def _resolve_one(concept, fiscal_year, period, index):
             if not sole_only:
                 held_back = row
 
+    zero_row = None
     for tag in concept.chain:
         candidates = _matching(index, tag, fiscal_year, period, concept)
         if candidates:
-            return _make_row(concept, _pick_latest(candidates), tag, candidates)
+            row = _make_row(concept, _pick_latest(candidates), tag, candidates)
+            if concept.zero_falls_through:
+                # A reported 0 yields to a later synonym's non-zero value for the
+                # SAME period only -- never to another period under the same label.
+                if row["value"] == 0:
+                    zero_row = zero_row or row
+                    continue
+                if zero_row is not None and row["period_end"] != zero_row["period_end"]:
+                    continue
+            return row
+    if zero_row is not None:
+        return zero_row
     for tag in concept.ifrs_chain:
         candidates = _matching(index, tag, fiscal_year, period, concept, any_currency=True)
         if candidates:

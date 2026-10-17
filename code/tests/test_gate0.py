@@ -1404,6 +1404,7 @@ def test_lease_synonym_tags_are_alternatives_not_addends():
     c = CONCEPTS_BY_NAME["lease_payments"]
     assert c.components == ()
     assert c.chain == ("FinanceLeasePrincipalPayments", "RepaymentsOfLongTermCapitalLeaseObligations")
+    assert c.zero_falls_through is True  # a reported 0 never hides the synonym's value
 
 
 def test_lease_outflow_total_is_diagnostic_only():

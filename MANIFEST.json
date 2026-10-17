@@ -1,11 +1,11 @@
 {
   "contains": "reference data only: code + SEC-derived store. NO queue, NO portfolio data.",
-  "synced_utc": "2026-10-17T02:46:30Z",
+  "synced_utc": "2026-10-17T03:07:41Z",
   "store_built_utc_oldest": "2026-10-17T02:14:24Z",
   "store_built_utc_newest": "2026-10-17T02:31:57Z",
   "store_build_spread_hours": 0.29,
   "store_vintage_ok": true,
-  "publication_gate": "passed: 294 passed in 18.12s (EDGAR_REQUIRE_STORE=1)",
+  "publication_gate": "passed: 302 passed in 22.77s (EDGAR_REQUIRE_STORE=1)",
   "pruned": {
     "store": [],
     "code": []
@@ -80,6 +80,11 @@
       "bytes": 9658,
       "mtime_utc": "2026-10-17T02:45:02Z",
       "sha256_16": "a4ee918208e7f485"
+    },
+    "run_lock.py": {
+      "bytes": 5254,
+      "mtime_utc": "2026-10-17T03:06:13Z",
+      "sha256_16": "b2af739c29883c04"
     }
   },
   "store": {

@@ -20,6 +20,22 @@ ticker,price,ma_200,market_cap,as_of
 | `market_cap` | no | number | Pre-computed market cap, USD. If a row omits it, `screen.py` derives `market_cap = price * shares_diluted` from the store's own share count and sets `market_cap_derived = True` on that row -- the store's share count lags real-time buybacks, so a supplied cap is always preferred when you have one. |
 | `as_of` | **yes** | ISO date (`YYYY-MM-DD`) | The date the price is from. Rows older than 7 days are kept but printed as a warning at load time -- old prices are not an error, but a screen run against them should say so. |
 
+## Market-cap provenance and the freshness rule (audit 2026-10-15 #3, auditor 2026-10-16)
+
+`build_prices.py` writes five more columns after `as_of`. A hand-built row that supplies `market_cap` must fill them too:
+
+| Column | Meaning |
+|---|---|
+| `market_cap_fetched_at` | UTC time the cap was fetched, `YYYY-MM-DDTHH:MM:SSZ`. **A fetch time is not proof of the value's age.** |
+| `market_cap_source` | Where it came from, e.g. `yfinance.fast_info.market_cap`, `IBKR`, `stockanalysis` |
+| `market_cap_currency` | Currency of the cap as the source states it, e.g. `USD` or `GBp` |
+| `market_cap_security` | `ticker|exchange|quote type`: the instrument, share class and ADR basis the cap belongs to |
+| `market_cap_effective_at` | The provider's own timestamp for the value, or the literal `unknown` when it publishes none. yfinance `fast_info` publishes none, so it is always `unknown` |
+
+**Enforced by `screen.py` on load.** A supplied cap is used only when `market_cap_currency` is `USD` and `market_cap_fetched_at` is within 7 days. Otherwise the cap is **dropped**, never converted and never kept. `market_cap_rejected` names the reason (`no_provenance`, `non_usd:<ccy>`, `stale_fetch`), and the row falls back to the price × `shares_diluted` estimate, flagged `market_cap_derived = True`. That estimate is a weighted-average-share approximation, not a synchronized market cap.
+
+Decision-time verification still follows the source hierarchy in the Screener: IBKR first, checking instrument, share class and ADR basis.
+
 ## Validation (on load, fails loudly)
 
 - **Missing required column** (`ticker`, `price`, or `as_of`): `screen.py` exits immediately with an error naming the missing column(s). Nothing is screened.

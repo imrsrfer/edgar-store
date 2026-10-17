@@ -1,11 +1,11 @@
 {
   "contains": "reference data only: code + SEC-derived store. NO queue, NO portfolio data.",
-  "synced_utc": "2026-10-17T02:33:02Z",
+  "synced_utc": "2026-10-17T02:35:04Z",
   "store_built_utc_oldest": "2026-10-17T02:14:24Z",
   "store_built_utc_newest": "2026-10-17T02:31:57Z",
   "store_build_spread_hours": 0.29,
   "store_vintage_ok": true,
-  "publication_gate": "passed: 285 passed in 19.12s (EDGAR_REQUIRE_STORE=1)",
+  "publication_gate": "passed: 285 passed in 17.71s (EDGAR_REQUIRE_STORE=1)",
   "pruned": {
     "store": [],
     "code": []
@@ -62,9 +62,9 @@
       "sha256_16": "e9df48bb3c44a223"
     },
     "PRICES_SCHEMA.md": {
-      "bytes": 3981,
-      "mtime_utc": "2026-08-08T05:01:14Z",
-      "sha256_16": "3d6accaa1c9222a3"
+      "bytes": 5504,
+      "mtime_utc": "2026-10-17T02:34:44Z",
+      "sha256_16": "3f746a3d8d5a2d8a"
     },
     "requirements.txt": {
       "bytes": 245,

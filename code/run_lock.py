@@ -1,8 +1,8 @@
 """Single-writer lease for the Opportunity Screener (audit 2026-10-15 D6).
 
-Every Screener run (Sonnet weekly task or Opus pass, however it was started:
-manual, Coverage board or hand-off) must hold this lease before its first Notion
-write. The two triggers share one lease, so Opus and Sonnet never write at once.
+Every Screener run (Sonnet weekly task or Opus pass, however it was started)
+must hold this lease before its first Notion write. The two triggers share one
+lease, so Opus and Sonnet do not write at once, within the timing limits below.
 
     python3 run_lock.py acquire --dir D --session S --model M   -> prints TOKEN, exit 0
                                                                    exit 3 = BUSY (do no writes)
@@ -17,11 +17,17 @@ caller. Nothing is ever deleted or overwritten (the Cowork mount refuses deletes
 beats are appended, a release is a new end.<n> file.
 
 Safety rule. `guard` refuses once the owner's last beat is TTL old; a successor
-may take over only once that beat is TTL + GRACE old. A successful guard appends
-a fresh beat, so an owner that guarded at time g cannot be succeeded before
-g + TTL + GRACE. The owner therefore must finish the single Notion write that
-follows a guard inside that window (minutes against 100 min), and the clocks of
-the runs that share the lease must agree to within GRACE.
+may take over only once that beat is TTL + GRACE old. A guard appends a fresh
+beat at b, then re-checks: no newer lease, not released, and (LAST) less than
+GRACE since b (2026-10-21, auditor W2/W3: stalls inside guard). An OK therefore
+means: at the last check, under GRACE had passed since a beat no successor can
+pass before b + TTL + GRACE. Residuals, none closable by this client alone:
+(1) a stall of more than TTL (90 min) between guard's last check and the write
+reaching Notion, wherever it happens (return, the agent, the request);
+(2) a successor that read an expired beat and stalled before creating its
+lease file can create it later, which needs the owner silent >= TTL + GRACE
+first. Notion cannot reject a stale token (D6 memo). Clocks of the runs that
+share the lease must agree to within GRACE.
 ponytail: one lease file per run accumulates in the lock dir (no deletes allowed); a few KB a year.
 """
 import argparse
@@ -97,9 +103,23 @@ def guard(d, n):
     age = now() - last_beat(d, n)
     if age >= TTL:
         return LOST, f"LOST last beat {int(age)}s ago (limit {TTL}s)"
-    with open(d / f"beat.{n}", "a") as f:
-        f.write(f"{now()}\n")
+    beat = _append_beat(d, n)
+    # Re-check AFTER the beat (auditor W2/W3, 2026-10-21). A stall anywhere above could let a successor in;
+    # the age check runs LAST, so a stall between any two of these checks is caught by the one after it.
+    if latest(d) > n:
+        return LOST, f"LOST token {latest(d)} took over during this guard"
+    if ended(d, n):
+        return LOST, f"LOST token {n} was released during this guard"
+    if now() - beat >= GRACE:
+        return LOST, f"LOST this guard stalled {int(now() - beat)}s after its beat (limit {GRACE}s)"
     return 0, f"OK token {n}"
+
+
+def _append_beat(d, n):
+    t = now()
+    with open(d / f"beat.{n}", "a") as f:
+        f.write(f"{t}\n")
+    return t
 
 
 def release(d, n):

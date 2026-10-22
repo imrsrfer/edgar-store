@@ -85,6 +85,57 @@ def test_expired_owner_cannot_write_after_successor(tmp_path, clock):
     assert rl.guard(tmp_path, 2)[0] == 0
 
 
+def test_a_stall_inside_guard_cannot_return_ok_after_a_successor(tmp_path, clock, monkeypatch):
+    # Auditor W2 (2026-10-21): A passes guard's checks at beat age just under TTL, stalls before appending
+    # its beat, B acquires once that old beat is TTL + GRACE old, then A resumes. A must get LOST, not OK.
+    rl.acquire(tmp_path, "cse_a", "opus")
+    real_append = rl._append_beat
+
+    def stalled_append(d, n):
+        clock(T0 + rl.TTL + rl.GRACE)                      # A is frozen here; B arrives
+        assert rl.acquire(tmp_path, "cse_b", "sonnet") == (0, "2")
+        real_append(d, n)                                  # A resumes and appends its beat
+
+    monkeypatch.setattr(rl, "_append_beat", stalled_append)
+    clock(T0 + rl.TTL - 1)
+    code, msg = rl.guard(tmp_path, 1)
+    assert code == rl.LOST and "token 2" in msg
+    monkeypatch.setattr(rl, "_append_beat", real_append)
+    assert rl.guard(tmp_path, 2)[0] == 0                   # B is the owner
+
+
+def test_a_stall_after_the_beat_cannot_return_ok(tmp_path, clock, monkeypatch):
+    # Auditor W3 (2026-10-21) pause 1: beat appended, then a 6,000 s stall before the final checks.
+    rl.acquire(tmp_path, "cse_a", "opus")
+    real_append = rl._append_beat
+
+    def append_then_stall(d, n):
+        t = real_append(d, n)
+        clock(T0 + 6_000)
+        return t
+
+    monkeypatch.setattr(rl, "_append_beat", append_then_stall)
+    code, msg = rl.guard(tmp_path, 1)
+    assert code == rl.LOST and "stalled" in msg
+
+
+def test_a_stall_between_the_final_checks_cannot_return_ok(tmp_path, clock, monkeypatch):
+    # Auditor W3 pause 2: latest-token check passes, stall, successor acquires, then the released check.
+    rl.acquire(tmp_path, "cse_a", "opus")
+    real_ended, calls = rl.ended, []
+
+    def ended_after_successor(d, n):
+        calls.append(n)
+        if len(calls) == 2:                                # the post-beat released check
+            clock(T0 + rl.TTL + rl.GRACE + 6_000)
+            assert rl.acquire(tmp_path, "cse_b", "sonnet") == (0, "2")
+        return real_ended(d, n)
+
+    monkeypatch.setattr(rl, "ended", ended_after_successor)
+    code, msg = rl.guard(tmp_path, 1)
+    assert code == rl.LOST
+
+
 def test_guard_keeps_a_long_run_alive(tmp_path, clock):
     rl.acquire(tmp_path, "cse_a", "opus")
     for k in range(1, 6):                    # 5 rows, 80 min apart: 400 min total

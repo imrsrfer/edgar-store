@@ -14,6 +14,16 @@ definition, runs its Sonnet pass, and hands off to the Opus pass.
 
 ## How it runs
 
+Unknown automated framework legs stay visible and ranked in the name's normal
+tier with obligations shown; only an actual FAIL goes to DX. Net diluted share
+growth above 2.5% cannot be blamed on SBC until acquisitions, cash equity and
+debt/preferred conversions are all measured for that filer and immaterial
+(at most 0.5% of prior-FY shares). Never-extracted or never-reported channels
+leave attribution `NOT_EVALUABLE · OWED` by the underwrite. Net growth at or
+below 2.5% passes this leg. A reported annual SBC zero can resolve missing TTM
+SBC, retaining measured lease deductions and `ttm_sbc_zero_reported`; annual
+absence instead leaves `ttm_sbc_owed` and null cash.
+
 - **Cowork (the normal path):** fire the Opus pass routine, or let the weekly
   task's hand-off fire it. Its prompt clones this repo, copies the agent files
   into the session's `./.claude/agents/`, and runs as the decider. If the

@@ -49,10 +49,16 @@ def row(frame, ticker):
 def test_screened_population_is_exactly_the_nonfinancial_survivors(fixture_gate0):
     # PNFP, CLBK (banks) and AIV (REIT, SIC 6798) are excluded as financials; the
     # XOM holdco 2115436 is merged away. Audit #5, and the 6073f42 SIC carry-over fix.
-    assert sorted(fixture_gate0["ticker"].to_list()) == sorted(
+    assert sorted(fixture_gate0["ticker"].drop_nulls().to_list()) == sorted(
         ["XOM", "CNXC", "WILCF", "SGHC", "DIDIY", "SELXF", "SHOP", "ZIM"]
     )
     assert 2115436 not in fixture_gate0["cik"].to_list()
+    # F-06: these name-collision registrants have no sourced CIK relationship.
+    # Keep them visible without borrowing the ticker or SIC of a namesake.
+    unlinked = fixture_gate0.filter(pl.col("ticker").is_null())
+    assert set(unlinked["cik"]) == {1115055, 1723596, 1820878}
+    assert unlinked["sic"].null_count() == 3
+    assert fixture_gate0.height == 11
 
 
 def test_xom_successor_merge(fixture_gate0):

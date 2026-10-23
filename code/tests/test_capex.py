@@ -657,22 +657,22 @@ def _resolve(row):
     return gate0.resolve_ttm_sbc(pl.DataFrame([row], schema=schema))
 
 
-def test_sbc_gap_with_no_fy_sbc_is_assumed_zero_and_says_so():
-    """The filer tags no SBC anywhere -- Exxon's shape on the annual path.
-    Nothing is being hidden by assuming zero, so the metric is computed and
-    the assumption is stated rather than left to be inferred from a blank."""
+def test_f05_sbc_gap_with_no_fy_sbc_is_owed():
+    """§G: annual absence cannot establish a zero TTM SBC expense."""
     out = _resolve(SBC_GAP)
-    assert out["ttm_sbc_assumed_zero"][0] is True
+    assert out["ttm_sbc_assumed_zero"][0] is False
+    assert out["ttm_sbc_owed"][0] is True
     assert out["ttm_sbc_window_lost"][0] is False
-    assert out["ttm_fcf_after_sbc"][0] == pytest.approx(80_000_000.0)
+    assert out["ttm_fcf_after_sbc"][0] is None
 
 
-def test_sbc_gap_with_a_zero_fy_sbc_is_assumed_zero():
-    """A reported zero corroborates the assumption at least as well as an
-    absent tag does."""
+def test_f05_sbc_gap_with_a_reported_zero_fy_sbc_recovers_cash():
+    """A measured annual zero resolves SBC without erasing measured leases."""
     out = _resolve({**SBC_GAP, "sbc": 0.0})
-    assert out["ttm_sbc_assumed_zero"][0] is True
-    assert out["ttm_fcf_after_sbc"][0] == pytest.approx(80_000_000.0)
+    assert out["ttm_sbc_assumed_zero"][0] is False
+    assert out["ttm_sbc_owed"][0] is False
+    assert out["ttm_sbc_zero_reported"][0] is True
+    assert out["ttm_fcf_after_sbc"][0] == 80_000_000.0
 
 
 def test_sbc_gap_with_a_real_fy_sbc_is_withheld_not_assumed():

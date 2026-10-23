@@ -61,7 +61,7 @@ def test_inorganic_flag_is_not_replaced_by_a_growth_override():
 
 def test_real_quality_legs_still_reject():
     assert _quality(income_quality=0.5) is False
-    assert _quality(sbc_pct_revenue=0.15) is False
+    assert _quality(sbc_pct_revenue=0.15001) is False
     assert _quality(tangible_book=-1.0) is False
 
 
@@ -187,7 +187,9 @@ def test_value_lane_requires_profitability_but_not_expansion():
 
 
 def _ranked(rows):
-    return screen.rank_by_cheapness(pl.DataFrame(rows))["ticker"].to_list()
+    return screen.rank_by_cheapness(pl.DataFrame([
+        {"reporting_currency": "USD", "gate0_framework_pass": True, **r} for r in rows
+    ]))["ticker"].to_list()
 
 
 def test_nulls_and_negatives_sort_LAST_not_first():
@@ -209,7 +211,8 @@ def test_nulls_and_negatives_sort_LAST_not_first():
 
 def test_multiple_is_recomputed_on_the_live_cap():
     out = screen.rank_by_cheapness(
-        pl.DataFrame([{"ticker": "X", "market_cap": 1_000.0, "fcf_after_sbc": 50.0}])
+        pl.DataFrame([{"ticker": "X", "market_cap": 1_000.0, "fcf_after_sbc": 50.0,
+                       "reporting_currency": "USD", "gate0_framework_pass": True}])
     )
     assert out["p_fcf_after_sbc_live"][0] == 20.0
     assert out["fcf_after_sbc_yield"][0] == 0.05
@@ -326,3 +329,73 @@ def test_partition_keeps_null_rows_as_unresolved():
     assert kept.height + rejected.height == frame.height
     assert kept["sic"].to_list() == ["3571"]
     assert sorted(rejected["rejected_because"].to_list()) == ["fin", "unresolved:fin", "unresolved:fin"]
+
+
+def test_sbc_review_band_boundaries_in_both_quality_paths():
+    for quality in (screen.apply_quality, screen.apply_quality_unevaluated):
+        frame = pl.DataFrame([{**QUALITY_CLEAN, "sbc_pct_revenue": n}
+                              for n in (0.10, 0.10001, 0.12, 0.15, 0.15001)])
+        kept, rejected = quality(frame)
+        assert kept["sbc_10_15"].to_list() == [False, True, True, True]
+        assert rejected["sbc_pct_revenue"].to_list() == [0.15001]
+
+
+def test_eps_guard_missing_input_is_not_a_pass():
+    frame = pl.DataFrame({"ticker": ["MISSING"]})
+    assert screen.apply_eps_guard(frame, False)["adjusted_eps_guard"][0] is None
+    frame = pl.DataFrame({"fwd_pe": [None, 5.0, 8.0, 2.0],
+                          "trail_pe": [10.0, 10.0, 10.0, 0.0]})
+    assert screen.apply_eps_guard(frame, True)["adjusted_eps_guard"].to_list() == [None, True, False, None]
+
+
+def test_screen_keeps_framework_failure_and_unresolved_rows_for_triage():
+    from types import SimpleNamespace
+
+    base = {**QUALITY_CLEAN, **VALUE_ROW, "cik": 1, "sic": "3500", "gate0_status": "pass",
+            "revenue": 1e8, "operating_margin_latest": 0.20, "market_cap": 1e9,
+            "fcf_after_sbc": 1e8, "reporting_currency": "USD"}
+    frame = pl.DataFrame([
+        {**base, "ticker": "FAIL", "gate0_framework_pass": False,
+         "test_tax_anomaly": "FAIL", "test_adjusted_vs_gaap": "NOT_EVALUABLE"},
+        {**base, "cik": 2, "ticker": "NE", "gate0_framework_pass": None,
+         "test_tax_anomaly": "PASS", "test_adjusted_vs_gaap": "NOT_EVALUABLE"},
+    ])
+    args = SimpleNamespace(lane="value", include_financials=False,
+                           exclude_sic="6000-6799", min_revenue=50e6,
+                           min_mktcap=None, max_mktcap=None)
+    result, _ = screen.run_screen(frame, args, set(), None, None)
+    assert result.height == 2
+    assert set(result["rejected_because"]) == {""}
+    rows = {r["ticker"]: r for r in result.to_dicts()}
+    assert rows["FAIL"]["review_bucket"] == "DX"
+    assert rows["FAIL"]["framework_leg_failed"] == "tax_anomaly"
+    assert rows["NE"]["review_bucket"] == "NE"
+    assert rows["NE"]["framework_leg_unresolved"] == "adjusted_vs_gaap"
+    assert rows["NE"]["framework_diagnosis"] is False
+    assert rows["NE"]["framework_not_evaluated"] is True
+    assert result["p_fcf_after_sbc_live"].null_count() == 2
+
+
+def test_screen_withholds_unknown_currency_and_applies_fresh_fx():
+    from datetime import date
+
+    frame = pl.DataFrame([
+        {"ticker": "EUR", "market_cap": 1000.0, "fcf_after_sbc": 100.0,
+         "gate0_framework_pass": True, "reporting_currency": "EUR"},
+        {"ticker": "UNKNOWN", "market_cap": 1000.0, "fcf_after_sbc": 100.0,
+         "gate0_framework_pass": True, "reporting_currency": None},
+    ])
+    assert screen.rank_by_cheapness(frame)["p_fcf_after_sbc_live"].null_count() == 2
+    rates = pl.DataFrame({"currency": ["EUR"], "usd_per_unit": [1.25], "as_of": [date(2026, 10, 20)]})
+    out = screen.rank_by_cheapness(frame, rates, today=date(2026, 10, 22))
+    assert out["p_fcf_after_sbc_live"].to_list() == [8.0, None]
+    assert out["fx_owed"].to_list() == [False, True]
+
+
+def test_missing_cash_inputs_cannot_reuse_an_existing_multiple():
+    frame = pl.DataFrame({"ticker": ["X"], "reporting_currency": ["USD"],
+                          "gate0_framework_pass": [False], "p_fcf_after_sbc_live": [2.0],
+                          "p_fcf_after_sbc": [2.0], "fcf_after_sbc_multiple": [2.0]})
+    out = screen.rank_by_cheapness(frame)
+    for column in ("p_fcf_after_sbc_live", "p_fcf_after_sbc", "fcf_after_sbc_multiple"):
+        assert out[column][0] is None

@@ -630,6 +630,41 @@ CONCEPTS = (
         ],
     ),
     Concept(
+        # §C net dilution (F-02): acquisition shares require a share bridge,
+        # never an automatic attribution of the whole increase to SBC.
+        "acquisition_shares",
+        DURATION,
+        [
+            "StockIssuedDuringPeriodSharesAcquisitions",
+            "BusinessAcquisitionEquityInterestsIssuedOrIssuableNumberOfSharesIssued",
+        ],
+        unit=UNIT_SHARES,
+    ),
+    Concept(
+        "equity_issuance_shares",
+        DURATION,
+        ["StockIssuedDuringPeriodSharesNewIssues"],
+        unit=UNIT_SHARES,
+    ),
+    Concept(
+        "equity_issuance_proceeds",
+        DURATION,
+        ["ProceedsFromIssuanceOfCommonStock", "ProceedsFromStockIssuance"],
+    ),
+    Concept(
+        "debt_conversion_shares",
+        DURATION,
+        ["DebtConversionConvertedInstrumentSharesIssued1",
+         "StockIssuedDuringPeriodSharesConversionOfConvertibleSecurities"],
+        unit=UNIT_SHARES,
+    ),
+    Concept(
+        "preferred_conversion_shares",
+        DURATION,
+        ["StockIssuedDuringPeriodSharesConversionOfPreferredStock"],
+        unit=UNIT_SHARES,
+    ),
+    Concept(
         "buybacks",
         DURATION,
         ["PaymentsForRepurchaseOfCommonStock"],
@@ -745,6 +780,11 @@ WANTED_TAGS = frozenset(tag for c in CONCEPTS for tag in c.all_tags)
 # both gate0 (which must not let them pick a company's latest period) and
 # build_facts (which must not let them label its periods) need the same list.
 DIAGNOSTIC_CONCEPT_NAMES = (
+    "acquisition_shares",
+    "equity_issuance_shares",
+    "equity_issuance_proceeds",
+    "debt_conversion_shares",
+    "preferred_conversion_shares",
     "investing_cf",
     "investing_outflows",
     "investing_inflows",

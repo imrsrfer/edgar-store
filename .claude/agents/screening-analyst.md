@@ -90,6 +90,8 @@ For each ticker:
    ticker** and report it. Stocklake substitutes silently about 1.6% of the
    time (AMPH→APH, GOOS→GSHD, OPRA→SOP.PA).
 3. **Live price, market cap and 200d MA: the source order (Fer, 2026-10-09).**
+   Pull these live this run for every decided row; the bulk triage cache below
+   never supplies a disposition's price, cap or valuation.
    Stocklake's free tier caps at 200 tickers a day and has swapped tickers
    silently, so it is the LAST source, never the bulk one.
    - **Price and 200d MA: IBKR first.** `search_contracts` (match exact ticker
@@ -122,7 +124,38 @@ For each ticker:
      not the "Capital Expenditures" line. Report the residual as a range and
      deduct it at the low end.
    - **Gate 0:** `framework_leg_failed` and every `test_*` leg, not only
-     `gate0_pass`. Name every leg that is `NOT_EVALUABLE`.
+     `gate0_pass`. Enumerate every `NOT_EVALUABLE` Gate 0 leg, including manual
+     inputs the store does not measure (organic/acquired growth, SBC dilution,
+     adjusted-vs-GAAP reconciliation). Missing or undisclosed inputs are
+     `NOT_EVALUABLE`, never a pass; each blocks advancement past WATCHLIST.
+     Report the missing input and the obligation that would close each leg.
+     **Dilution:** a dated share-count bridge separating SBC issuance,
+     acquisition issuance, other issuance and repurchases, with net annual
+     diluted-share growth attributable to SBC. If net growth is unknown or
+     above 2.5% and attribution is unavailable, report
+     `Dilution: NOT_EVALUABLE · OWED: share bridge` and withhold Gate 0 clearance.
+     Include store `dilution_yoy` (latest FY versus prior FY), `dilution_cagr_3y`
+     for context, `test_dilution` and `dilution_attribution_owed`. Net SBC-driven
+     dilution above 2.5%/yr fails Gate 0 only on evidence (Fer, 2026-10-22).
+     Net growth at or below 2.5% passes. Above it, each non-SBC channel must be
+     measured for this filer and immaterial (at most 0.5% of prior-FY diluted
+     shares): acquisitions, cash/new equity and debt/preferred conversions.
+     A concept never observed for the filer is UNMEASURED, even if a tag chain
+     exists; measured-and-absent for the FY can be imputed zero. Any unmeasured
+     or material channel, or split/scale break, leaves attribution
+     `NOT_EVALUABLE · OWED` by the underwrite. Retain unknown framework rows
+     in their normal queue tier; only actual FAIL legs belong in DX.
+     A reported annual SBC zero resolves missing TTM SBC with
+     `ttm_sbc_zero_reported`: deduct measured TTM leases from OCF minus capex.
+     Missing annual SBC leaves null TTM cash and `ttm_sbc_owed`. The rule binds
+     new names now and each holding at its first Gate 0 pass on or after
+     2026-10-01, including a delayed re-underwrite.
+     **Adjusted vs GAAP (§C-1):** reconcile same-period GAAP and adjusted
+     earnings, itemize every add-back and its nature, and report the gap.
+     §C-1 tests what is added back; a gap percentage alone cannot clear it.
+     Acceptance of the add-backs belongs to the decider. Until reconciliation
+     and explicit acceptance are logged, report `NOT_EVALUABLE · OWED` and
+     withhold Gate 0 clearance. A forward/trailing P/E proxy is insufficient.
 5. **Every flag in the row's `flags` group that is True, ABSENT or NOT
    MEASURED**, each with the residual or companion column that sizes it
    (`investing_residual`, `net_income_residual`, `capex_net`,
@@ -138,7 +171,11 @@ For each ticker:
 with each store rebuild (`build_prices.py --from-framework-pass`, using Yahoo,
 which the cloud cannot reach), and `sync_to_repo.py` commits it. Report its
 row count and the age of its `as_of` dates.
-- Rows **7 days old or less** are used as they are.
+- Rows **7 days old or less** may be reused for **bulk SWEEP triage only**
+  (band, momentum and queue comparisons). Label **each figure older than 24h**
+  `STALE >24h`, with its own as-of timestamp and source in the merged table;
+  a batch age or count alone is insufficient. This cache never supplies a
+  decided row: use a live pull this run under `ROWS` step 3 before disposition.
 - Rows older than that, and tickers it lacks, are re-priced by hand in the
   order from `ROWS` step 3: IBKR, then stockanalysis, then Stocklake. Price
   the small-cap end first.
@@ -198,7 +235,10 @@ were handed, and label which end flatters the company.
 FACT PACK · <TICKER> · <company name> (CIK <cik>) · resolved on <source> · store <build date>
 Live:   price <p> · cap <c> · 200dMA <m> (<pct>%) · source <url/tool> · as of <ts>
 Gate 0: pass <bool> · framework_leg_failed <legs or none> · NOT_EVALUABLE <legs or none>
+Blocking: <every NOT_EVALUABLE Gate 0 leg = missing input + OWED; blocks past WATCHLIST, or none>
 Checks: shares <gap %, both counts if >25%> · TTM <window end vs latest filed qtr> · investing <residual range> · gate0 <legs>
+Dilution: <share bridge: SBC / acquisition / other issuance / repurchases; annual SBC-driven net dilution; source + period, or NOT_EVALUABLE · OWED>
+adjusted-vs-GAAP §C-1 reconciliation: <same-period reconciliation, itemized add-backs + nature, gap, logged acceptance, or NOT_EVALUABLE · OWED>
 Flags:  <each True / ABSENT / NOT_MEASURED flag = sizing value>
 FCF:    FY fcf_after_sbc <v> · TTM <v or NOT MEASURED + why> · P/FCF live <FY x / TTM x> · ranges <low–high, flattering end named>
 Opus-only (mechanical): <each trigger = true/false/NOT_MEASURED>

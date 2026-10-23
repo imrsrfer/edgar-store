@@ -1024,6 +1024,17 @@ DILUTION_ISSUANCE_CONCEPTS = (
     "acquisition_shares", "equity_issuance_shares", "equity_issuance_proceeds",
     "debt_conversion_shares", "preferred_conversion_shares",
 )
+# Statement-of-equity rows for shares issued to employees (concepts.py). Their
+# net sum is a lower bound on SBC issuance: enough to prove a failure, never
+# enough to clear a filer.
+SBC_ISSUANCE_CONCEPTS = (
+    "sbc_plan_shares", "option_exercise_shares", "restricted_award_shares", "espp_shares",
+)
+SBC_WITHHELD_CONCEPT = "sbc_withheld_shares"
+# More shares issued to employees in one year than the whole prior diluted
+# count is a unit mismatch, not evidence (2026-10-23 archive: two filers at
+# 4.1x and 11.9x). Such a row proves nothing and stays owed.
+SBC_ISSUANCE_SCALE_CEILING = 1.0
 
 
 def build_dilution_measurement(facts):
@@ -1042,7 +1053,8 @@ def build_dilution_measurement(facts):
 
 def add_dilution_verdict(frame):
     """F-02: net growth alone cannot attribute non-SBC issuance to SBC."""
-    for column in ("dilution_yoy", "dilution_cagr_3y", "shares_diluted_prior_fy", "sbc", *DILUTION_ISSUANCE_CONCEPTS):
+    for column in ("dilution_yoy", "dilution_cagr_3y", "shares_diluted_prior_fy", "sbc",
+                   *DILUTION_ISSUANCE_CONCEPTS, *SBC_ISSUANCE_CONCEPTS, SBC_WITHHELD_CONCEPT):
         if column not in frame.columns:
             frame = frame.with_columns(pl.lit(None, dtype=pl.Float64).alias(column))
     for concept in DILUTION_ISSUANCE_CONCEPTS:
@@ -1079,13 +1091,36 @@ def add_dilution_verdict(frame):
         & immaterial("acquisition_shares") & equity_immaterial
         & immaterial("debt_conversion_shares") & immaterial("preferred_conversion_shares")
     ).fill_null(False)
+    # Direct evidence: SBC issuance alone exceeds the threshold, so net growth
+    # above it is SBC growth above it whatever the other channels did.
+    sbc_reported = pl.any_horizontal(pl.col(c).is_not_null() for c in SBC_ISSUANCE_CONCEPTS)
+    sbc_net_shares = (
+        pl.sum_horizontal(pl.col(c).fill_null(0) for c in SBC_ISSUANCE_CONCEPTS)
+        - pl.col(SBC_WITHHELD_CONCEPT).fill_null(0).abs()
+    )
+    frame = frame.with_columns(
+        pl.when(sbc_reported & (pl.col("shares_diluted_prior_fy") > 0))
+        .then(sbc_net_shares / pl.col("shares_diluted_prior_fy"))
+        .otherwise(None)
+        .alias("dilution_sbc_issuance")
+    )
+    sbc_direct = (
+        (pl.col("dilution_sbc_issuance") > DILUTION_FAIL)
+        & (pl.col("dilution_sbc_issuance") <= SBC_ISSUANCE_SCALE_CEILING)
+        & (pl.col("sbc") > 0)
+    ).fill_null(False)
     low_growth = (pl.col("dilution_yoy") <= DILUTION_FAIL).fill_null(False)
     owed = ~low_growth & (
         pl.col("dilution_yoy").is_null() | pl.col("sbc").is_null()
-        | assumed_sbc | ~bridge_clear
+        | assumed_sbc | ~(bridge_clear | sbc_direct)
     )
     frame = frame.with_columns(
         owed.alias("dilution_attribution_owed"),
+        pl.when(low_growth).then(pl.lit("net_growth"))
+        .when(owed).then(pl.lit(""))
+        .when(sbc_direct).then(pl.lit("sbc_issuance"))
+        .otherwise(pl.lit("share_bridge"))
+        .alias("dilution_evidence"),
         pl.when(owed).then(None)
         .otherwise((pl.col("dilution_yoy") > DILUTION_FAIL) & (pl.col("sbc") > 0))
         .alias("fail_dilution"),
@@ -2992,6 +3027,8 @@ OUTPUT_ORDER = (
     "dilution_cagr_3y",
     "shares_diluted_prior_fy",
     "acquisition_shares",
+    "dilution_sbc_issuance",
+    "dilution_evidence",
     "dilution_share_scale_break",
     "dilution_attribution_owed",
     "fail_dilution",

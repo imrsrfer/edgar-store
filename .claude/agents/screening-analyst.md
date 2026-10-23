@@ -137,8 +137,10 @@ For each ticker:
      Include store `dilution_yoy` (latest FY versus prior FY), `dilution_cagr_3y`
      for context, `test_dilution` and `dilution_attribution_owed`. Net SBC-driven
      dilution above 2.5%/yr fails Gate 0 only on evidence (Fer, 2026-10-22).
-     Net growth at or below 2.5% passes. Above it, each non-SBC channel must be
-     measured for this filer and immaterial (at most 0.5% of prior-FY diluted
+     Net growth at or below 2.5% passes. Above it, the leg fails when net
+     shares issued to employees alone exceed 2.5% of prior-FY diluted shares
+     (`dilution_sbc_issuance`, `dilution_evidence = sbc_issuance`). Otherwise
+     each non-SBC channel must be measured for this filer and immaterial (at most 0.5% of prior-FY diluted
      shares): acquisitions, cash/new equity and debt/preferred conversions.
      A concept never observed for the filer is UNMEASURED, even if a tag chain
      exists; measured-and-absent for the FY can be imputed zero. Any unmeasured

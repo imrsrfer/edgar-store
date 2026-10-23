@@ -664,6 +664,46 @@ CONCEPTS = (
         ["StockIssuedDuringPeriodSharesConversionOfPreferredStock"],
         unit=UNIT_SHARES,
     ),
+    # §C net dilution FROM SBC, measured directly (2026-10-23). The bridge
+    # above can only clear a filer when every non-SBC channel is tagged, and
+    # no filer in the 2026-10-23 archive tagged preferred conversions, so the
+    # leg could never fail. These are the statement-of-equity rows for shares
+    # issued to employees. Each is a separate row of that statement, so they
+    # are summed; untagged rows and treasury-method dilution from unexercised
+    # awards make the sum a LOWER bound, which can fail a filer but never
+    # clear one. Gross award counts (*VestedInPeriod, *ExercisesInPeriod) are
+    # excluded: they are pre-withholding and would overstate issuance.
+    Concept(
+        "sbc_plan_shares",
+        DURATION,
+        ["StockIssuedDuringPeriodSharesShareBasedCompensation"],
+        unit=UNIT_SHARES,
+    ),
+    Concept(
+        "option_exercise_shares",
+        DURATION,
+        ["StockIssuedDuringPeriodSharesStockOptionsExercised"],
+        unit=UNIT_SHARES,
+    ),
+    Concept(
+        "restricted_award_shares",
+        DURATION,
+        ["StockIssuedDuringPeriodSharesRestrictedStockAwardNetOfForfeitures"],
+        unit=UNIT_SHARES,
+    ),
+    Concept(
+        "espp_shares",
+        DURATION,
+        ["StockIssuedDuringPeriodSharesEmployeeStockPurchasePlans"],
+        unit=UNIT_SHARES,
+    ),
+    Concept(
+        # Shares withheld to cover employee tax; netted off the issuance rows.
+        "sbc_withheld_shares",
+        DURATION,
+        ["SharesPaidForTaxWithholdingForShareBasedCompensation"],
+        unit=UNIT_SHARES,
+    ),
     Concept(
         "buybacks",
         DURATION,
@@ -785,6 +825,11 @@ DIAGNOSTIC_CONCEPT_NAMES = (
     "equity_issuance_proceeds",
     "debt_conversion_shares",
     "preferred_conversion_shares",
+    "sbc_plan_shares",
+    "option_exercise_shares",
+    "restricted_award_shares",
+    "espp_shares",
+    "sbc_withheld_shares",
     "investing_cf",
     "investing_outflows",
     "investing_inflows",

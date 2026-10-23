@@ -16,10 +16,11 @@ definition, runs its Sonnet pass, and hands off to the Opus pass.
 
 Unknown automated framework legs stay visible and ranked in the name's normal
 tier with obligations shown; only an actual FAIL goes to DX. Net diluted share
-growth above 2.5% cannot be blamed on SBC until acquisitions, cash equity and
-debt/preferred conversions are all measured for that filer and immaterial
-(at most 0.5% of prior-FY shares). Never-extracted or never-reported channels
-leave attribution `NOT_EVALUABLE · OWED` by the underwrite. Net growth at or
+growth above 2.5% is blamed on SBC only on evidence: shares issued to
+employees alone above 2.5% of prior-FY shares (`dilution_sbc_issuance`), or
+acquisitions, cash equity and debt/preferred conversions all measured for that
+filer and immaterial (at most 0.5% of prior-FY shares). Anything short of that
+leaves attribution `NOT_EVALUABLE · OWED` by the underwrite. Net growth at or
 below 2.5% passes this leg. A reported annual SBC zero can resolve missing TTM
 SBC, retaining measured lease deductions and `ttm_sbc_zero_reported`; annual
 absence instead leaves `ttm_sbc_owed` and null cash.

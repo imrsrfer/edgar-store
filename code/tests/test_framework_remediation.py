@@ -71,6 +71,48 @@ def test_f02_attribution_missing_shares_and_assumed_sbc_are_owed(missing):
     assert "dilution" in row["gate0_not_evaluable"].split(",")
 
 
+_UNBRIDGED = {f"{c}_measured": False for c in gate0.DILUTION_ISSUANCE_CONCEPTS}
+
+
+@pytest.mark.parametrize("issued,withheld,status,evidence", [
+    ({"sbc_plan_shares": 3.}, None, "FAIL", "sbc_issuance"),
+    ({"option_exercise_shares": 1.5, "restricted_award_shares": 1.5}, None, "FAIL", "sbc_issuance"),
+    ({"espp_shares": 2.5}, None, "NOT_EVALUABLE", ""),
+    ({"sbc_plan_shares": 4.}, 2., "NOT_EVALUABLE", ""),
+    ({}, None, "NOT_EVALUABLE", ""),
+])
+def test_dilution_fails_on_directly_measured_sbc_issuance(issued, withheld, status, evidence):
+    # 3 of 100 prior shares issued to employees is 3% > 2.5%: SBC alone is
+    # above the threshold, so the unmeasured non-SBC channels cannot rescue it.
+    # A lower bound at or under 2.5% proves nothing and stays owed.
+    row = _bridge(**_UNBRIDGED, **issued, sbc_withheld_shares=withheld)
+    assert row["test_dilution"] == status
+    assert row["dilution_evidence"] == evidence
+    assert row["dilution_attribution_owed"] is (status == "NOT_EVALUABLE")
+
+
+def test_direct_sbc_issuance_never_fails_low_net_growth_or_zero_sbc():
+    assert _bridge(**_UNBRIDGED, dilution_yoy=.02, sbc_plan_shares=10.)["test_dilution"] == "PASS"
+    assert _bridge(**_UNBRIDGED, dilution_yoy=.02, sbc_plan_shares=10.)["dilution_evidence"] == "net_growth"
+    assert _bridge(**_UNBRIDGED, sbc=0., sbc_plan_shares=10.)["test_dilution"] == "NOT_EVALUABLE"
+
+
+def test_sbc_issuance_above_the_whole_share_count_is_a_unit_error_not_evidence():
+    row = _bridge(**_UNBRIDGED, sbc_plan_shares=150.)
+    assert row["test_dilution"] == "NOT_EVALUABLE"
+    assert row["dilution_attribution_owed"] is True
+
+
+def test_full_share_bridge_still_names_its_evidence():
+    assert _bridge()["dilution_evidence"] == "share_bridge"
+
+
+def test_sbc_issuance_rows_are_share_unit_diagnostics():
+    for name in (*gate0.SBC_ISSUANCE_CONCEPTS, gate0.SBC_WITHHELD_CONCEPT):
+        assert CONCEPTS_BY_NAME[name].unit == "shares"
+        assert name in DIAGNOSTIC_CONCEPT_NAMES
+
+
 def test_f02_dilution_binds_financials_too_and_failure_dominates_unknown():
     assert _bridge(sic="6300")["gate0_framework_pass"] is False
     row = _bridge(dilution_yoy=None, fail_tax_anomaly=True)

@@ -129,7 +129,8 @@ direction the store's do: in the company's favour.
 - **Preserve the opportunity set while evidence is owed.** A null automated
   framework verdict stays ranked in its normal queue tier with owed flags;
   only an actual FAIL belongs in DX. Net diluted share growth at or below
-  2.5% passes dilution; growth above it fails as SBC-driven only when each
+  2.5% passes dilution; growth above it fails as SBC-driven when shares
+  issued to employees alone exceed 2.5% of prior-FY diluted shares, or when each
   acquisition, cash equity and debt/preferred conversion channel is measured
   for that filer and immaterial (at most 0.5% of prior-FY diluted shares).
   Unmeasured or material channels leave attribution `NOT_EVALUABLE · OWED`

@@ -53,9 +53,9 @@ GROUPS = {
     ],
     "gate0": [
         "gate0_pass", "gate0_framework_pass", "framework_leg_failed", "gate0_status",
-        "gate0_not_evaluable", "imputed_fields", "test_tangible_book",
+        "gate0_not_evaluable", "gate0_provisional", "imputed_fields", "test_tangible_book",
         "test_income_quality", "test_fcf", "test_fcf_after_sbc", "test_sbc",
-        "test_ni_vs_oi", "test_tax_anomaly", "tangible_book_basis",
+        "test_ni_vs_oi", "test_tax_anomaly", "test_dilution", "test_adjusted_vs_gaap", "tangible_book_basis",
         "tangible_book_vintage_conflict",
     ],
     "flags": [
@@ -64,7 +64,8 @@ GROUPS = {
         "ttm_window_misaligned", "shares_scale_suspect", "income_quality_suspect",
         "net_income_suspect", "lease_unmeasured", "lease_heavy", "sbc_unverified",
         "sbc_window_lost", "sbc_assumed_zero", "ttm_capex_negative", "ttm_capex_missing",
-        "ttm_sbc_window_lost", "ttm_sbc_assumed_zero", "ttm_sbc_evidence_conflict",
+        "ttm_sbc_window_lost", "ttm_sbc_assumed_zero", "ttm_sbc_evidence_conflict", "ttm_sbc_owed", "ttm_sbc_zero_reported",
+        "dilution_attribution_owed", "dilution_share_scale_break", "warn_low_tax",
         "store_defect_flags", "total_debt_partial", "capex_gross_of_proceeds",
         "shares_history_scale_break", "fy_flows_stale", "ttm_behind_calendar",
         "ttm_side_flows_lagging",
@@ -86,7 +87,13 @@ GROUPS = {
         "cash", "total_debt", "net_cash", "latest_q_equity", "latest_q_cash",
         "latest_q_total_debt",
     ],
-    "shares": ["shares_diluted", "latest_q_shares_diluted", "fcf_per_share"],
+    "shares": [
+        "shares_diluted", "shares_diluted_prior_fy", "latest_q_shares_diluted", "fcf_per_share",
+        "dilution_yoy", "dilution_cagr_3y", "acquisition_shares",
+        "equity_issuance_shares", "equity_issuance_proceeds", "debt_conversion_shares", "preferred_conversion_shares",
+        "acquisition_shares_measured", "equity_issuance_shares_measured", "equity_issuance_proceeds_measured",
+        "debt_conversion_shares_measured", "preferred_conversion_shares_measured",
+    ],
     "ratios": [
         "income_quality", "income_quality_3y_avg", "income_quality_direction",
         "sbc_pct_revenue", "effective_tax", "ni_vs_oi", "net_margin",
@@ -225,6 +232,22 @@ def live_checks(values, price, market_cap, cap_currency="USD"):
 def row_pack(columns, row, quote):
     values = {c: (parse(row[c]) if c in columns else ABSENT) for g in GROUPS.values() for c in g}
     pack = {group: {c: values[c] for c in cols} for group, cols in GROUPS.items()}
+    pack["adjusted_vs_gaap_obligation"] = "adjusted-vs-GAAP §C-1 reconciliation: OWED"
+    pack["dilution_attribution_rule"] = (
+        "Net growth <=2.5% passes; above 2.5%, SBC attribution requires every non-SBC issuance "
+        "channel measured for this filer and <=0.5% of prior-FY shares. Unmeasured or material "
+        "channels remain NOT_EVALUABLE / OWED by the underwrite; retain the normal queue tier."
+    )
+    pack["ttm_sbc_rule"] = (
+        "Reported annual SBC zero resolves a missing TTM SBC term: deduct measured TTM leases "
+        "and set ttm_sbc_zero_reported. Missing annual SBC remains ttm_sbc_owed with null cash."
+    )
+    # §C / F-22: enumerate the obligations even when an older store omitted
+    # the summary column; no missing leg may be read as a clearance.
+    pack["gate0"]["blocking_not_evaluable"] = [
+        c.removeprefix("test_") for c, value in pack["gate0"].items()
+        if c.startswith("test_") and value in ("NOT_EVALUABLE", ABSENT, None)
+    ]
     pack["opus_only_mechanical"] = opus_only_triggers(values)
     if quote:
         pack["live"] = live_checks(values, *quote)
@@ -269,7 +292,7 @@ def main(argv=None):
             continue
         packs = [row_pack(columns, r, quotes.get(ticker)) for r in matches]
         result[ticker] = packs[0] if len(packs) == 1 else {"multiple_rows": packs}
-    print(json.dumps(result, indent=1))
+    print(json.dumps(result, indent=1, ensure_ascii=False))
     return 0
 
 

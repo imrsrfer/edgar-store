@@ -114,6 +114,39 @@ direction the store's do: in the company's favour.
 - **ABSENT, NOT_MEASURED, a null or `ttm_unavailable` is an obligation, not a
   clearance.** Two or more unscored management sub-scores caps a name below
   pipeline (Fork D).
+- **Management floor (F-18, ruled 2026-10-22): a fully scored total below
+  12/25, or any sub-score of 0, blocks advancement past WATCHLIST.** Apply it
+  only at the six-screen stage, after Gate 0. It is a veto, never a qualifier:
+  a high management score never ranks, promotes, offsets a failed screen or
+  raises a tier. New buys only, not holdings.
+- **Every NOT_EVALUABLE Gate 0 leg blocks advancement past WATCHLIST.**
+  Enumerate each missing or undisclosed input and its closing obligation,
+  including organic/acquired growth, SBC dilution and the same-period
+  adjusted-vs-GAAP reconciliation under §C-1. Withhold Gate 0 clearance until
+  each is measured and resolved; a clean automated flag cannot close a manual
+  obligation. Judge add-backs by their nature under §C-1 and log explicit
+  acceptance of the itemized reconciliation before treating that leg as clear.
+- **Preserve the opportunity set while evidence is owed.** A null automated
+  framework verdict stays ranked in its normal queue tier with owed flags;
+  only an actual FAIL belongs in DX. Net diluted share growth at or below
+  2.5% passes dilution; growth above it fails as SBC-driven only when each
+  acquisition, cash equity and debt/preferred conversion channel is measured
+  for that filer and immaterial (at most 0.5% of prior-FY diluted shares).
+  Unmeasured or material channels leave attribution `NOT_EVALUABLE · OWED`
+  by the underwrite. A reported annual SBC zero resolves a missing TTM SBC
+  term with measured leases deducted and `ttm_sbc_zero_reported`; missing
+  annual SBC leaves null cash and `ttm_sbc_owed`.
+- **Set the MOS tier before invoking an exception.** Tier 1 normally needs
+  at least 20% base-case MOS. The compounder exception may lower **Tier 1 only
+  from 20% to 15%**, with base-case FCF/share CAGR above 15% and the durable
+  growth case logged. **Tier 2 always needs at least 30% MOS**, including any
+  compounder; the exception never lowers its floor.
+- **Unlisted business types default to Tier 2.** Tier 1 is allowed only if
+  FCF is positive in **every one of the last 5 FY** and revenue declines in
+  **at most 1 of those 5 FY**. Show all five FCF figures and annual revenue
+  changes, including the prior-year comparatives needed to measure them.
+  Otherwise, or with incomplete history, use Tier 2; an analogy alone does
+  not qualify. The named Tier 2 categories remain Tier 2.
 - **A pack with no `SOURCES` list, an undated figure, or a cap derived from
   shares is incomplete.** Send it back. Do not patch it from memory.
 - If the analyst answered a judgement it was not asked for, ignore the answer
@@ -127,6 +160,14 @@ direction the store's do: in the company's favour.
 - The analyst's work happens inside this Opus run. It is **not** a
   `[model: sonnet]` block, it is never AUDITed as one, and it does not count
   toward the HANDOFF guards. Only rows **you** dispositioned count in G2/G3.
+- **Every buy recommendation logs both §F-2 liquidity numbers.** Use the full
+  resulting position value (including an add), and dated, sourced **30-day
+  average dollar volume (ADV)** from the last 30 trading days. Log the position
+  value, ADV, **position percent of ADV = 100 × position value / 30-day ADV**,
+  and **liquidation days at 10% of ADV = position value / (0.10 × 30-day ADV)**.
+  Entry requires position percent at most 5% and liquidation within 5 trading
+  days. Missing inputs leave liquidity OWED and block the buy. Recheck both at
+  each re-underwrite; a later breach caps adds and never forces a sale.
 - The Run Log block ends with one **EFFICIENCY** line, so the split can be
   judged from the log alone:
   `EFFICIENCY · rows dispositioned N · sweep yes/no (names priced P) · analysts spawned A (by phase) · analyst messages M · deciding metrics re-verified V · disagreements D · console fetched by Opus yes/no · analyst type native/fallback`

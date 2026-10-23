@@ -95,7 +95,13 @@ INVESTING_RESIDUAL_ABS = 1_000
 INCOME_QUALITY_FLOOR = 0.80
 SBC_FAIL = 0.15
 SBC_WARN = 0.10
-EFFECTIVE_TAX_FLOOR = 0.05
+# §C tax anomaly (F-31): only zero/negative tax fails; a low positive rate
+# remains visible for normalisation review without excluding the business.
+EFFECTIVE_TAX_FLOOR = 0.0
+EFFECTIVE_TAX_WARN = 0.05
+# §C net dilution, Fer 2026-10-22 (F-02). New names bind immediately;
+# holdings bind at their first Gate 0 pass on/after 2026-10-01.
+DILUTION_FAIL = 0.025
 
 # 🔴 NET INCOME IDENTITY CHECK (2026-09-21). pretax_income - tax_expense should
 # equal net_income. Where it does not, the store cannot say WHICH of the three
@@ -946,6 +952,8 @@ def add_flags(frame):
             pl.col("net_income") > pl.col("operating_income")
         ).alias("fail_ni_over_oi"),
         (pl.col("effective_tax") <= EFFECTIVE_TAX_FLOOR).alias("fail_tax_anomaly"),
+        ((pl.col("effective_tax") > 0) & (pl.col("effective_tax") <= EFFECTIVE_TAX_WARN))
+        .alias("warn_low_tax"),
     )
 
 
@@ -983,6 +991,120 @@ def _per_share_cagr(column, offset):
         .then(None)
         .otherwise(_cagr(column.last(), _nth_back(column, offset), offset))
     )
+
+
+def build_dilution_history(annual):
+    """§C net share growth uses exact FY endpoints, never a row-count proxy.
+
+    Reuse the per-share split threshold; a split/scale break is an unresolved
+    share series, not evidence of either dilution or a clean share bridge.
+    Acquisition shares are diagnostic facts joined by widen onto these FYs.
+    """
+    annual = annual.sort(["cik", "fiscal_year"])
+    shares = pl.col("shares_diluted")
+    year = pl.col("fiscal_year")
+    ratio = shares / shares.shift(1)
+    split_like = ((ratio > SPLIT_SHARE_RATIO) | (ratio < 1 / SPLIT_SHARE_RATIO))
+    out = annual.group_by("cik").agg(
+        year.last().alias("latest_fiscal_year"),
+        _nth_back(shares, 1).alias("shares_diluted_prior_fy"),
+        _cagr(shares.last(), _nth_back(shares, 1), 1).alias("dilution_yoy"),
+        _cagr(shares.last(), _nth_back(shares, 3), 3).alias("dilution_cagr_3y"),
+        split_like.filter(year > year.last() - 3).fill_null(False).any()
+        .alias("dilution_share_scale_break"),
+    )
+    return out.with_columns(
+        pl.when(pl.col("dilution_share_scale_break")).then(None)
+        .otherwise(pl.col(c)).alias(c)
+        for c in ("dilution_yoy", "dilution_cagr_3y")
+    )
+
+
+DILUTION_ISSUANCE_CONCEPTS = (
+    "acquisition_shares", "equity_issuance_shares", "equity_issuance_proceeds",
+    "debt_conversion_shares", "preferred_conversion_shares",
+)
+
+
+def build_dilution_measurement(facts):
+    """Only a concept observed for this filer proves store measurement.
+
+    A registered extraction chain is insufficient: older builds and filers
+    that never report the concept remain unmeasured. Any stored year/period
+    establishes coverage; a missing current FY can then be imputed as zero.
+    """
+    return facts.group_by("cik").agg(
+        ((pl.col("concept") == concept) & pl.col("value").is_not_null()).any()
+        .alias(f"{concept}_measured")
+        for concept in DILUTION_ISSUANCE_CONCEPTS
+    )
+
+
+def add_dilution_verdict(frame):
+    """F-02: net growth alone cannot attribute non-SBC issuance to SBC."""
+    for column in ("dilution_yoy", "dilution_cagr_3y", "shares_diluted_prior_fy", "sbc", *DILUTION_ISSUANCE_CONCEPTS):
+        if column not in frame.columns:
+            frame = frame.with_columns(pl.lit(None, dtype=pl.Float64).alias(column))
+    for concept in DILUTION_ISSUANCE_CONCEPTS:
+        if f"{concept}_measured" not in frame.columns:
+            frame = frame.with_columns(pl.lit(False).alias(f"{concept}_measured"))
+    scale_break = pl.lit(False)
+    for column in ("dilution_share_scale_break", "shares_history_scale_break", "shares_scale_suspect"):
+        if column in frame.columns:
+            scale_break = scale_break | pl.col(column).fill_null(False)
+    assumed_sbc = pl.col("sbc_assumed_zero").fill_null(False) if "sbc_assumed_zero" in frame.columns else pl.lit(False)
+    frame = frame.with_columns(
+        pl.when(scale_break).then(None).otherwise(pl.col(c)).alias(c)
+        for c in ("dilution_yoy", "dilution_cagr_3y")
+    )
+    def measured(concept):
+        return pl.col(f"{concept}_measured").fill_null(False)
+
+    limit = pl.col("shares_diluted_prior_fy") * 0.005
+    def immaterial(concept):
+        # Zero imputation is allowed ONLY after filer-level measurement.
+        return measured(concept) & (pl.col(concept).fill_null(0).abs() <= limit)
+
+    equity_measured = measured("equity_issuance_shares") | measured("equity_issuance_proceeds")
+    proceeds = pl.col("equity_issuance_proceeds").fill_null(0).abs()
+    # Money cannot be divided by a share count. Positive cash proceeds need
+    # a same-FY share count to size the issuance; otherwise attribution is owed.
+    equity_immaterial = equity_measured & (
+        (measured("equity_issuance_shares") & (pl.col("equity_issuance_shares").fill_null(0).abs() <= limit)
+         & ((proceeds == 0) | pl.col("equity_issuance_shares").is_not_null()))
+        | (~measured("equity_issuance_shares") & (proceeds == 0))
+    )
+    bridge_clear = (
+        (pl.col("shares_diluted_prior_fy") > 0)
+        & immaterial("acquisition_shares") & equity_immaterial
+        & immaterial("debt_conversion_shares") & immaterial("preferred_conversion_shares")
+    ).fill_null(False)
+    low_growth = (pl.col("dilution_yoy") <= DILUTION_FAIL).fill_null(False)
+    owed = ~low_growth & (
+        pl.col("dilution_yoy").is_null() | pl.col("sbc").is_null()
+        | assumed_sbc | ~bridge_clear
+    )
+    frame = frame.with_columns(
+        owed.alias("dilution_attribution_owed"),
+        pl.when(owed).then(None)
+        .otherwise((pl.col("dilution_yoy") > DILUTION_FAIL) & (pl.col("sbc") > 0))
+        .alias("fail_dilution"),
+    ).with_columns(_three_state(pl.col("fail_dilution")).alias("test_dilution"))
+    # This underwrite-owned reconciliation cannot be inferred from the store.
+    frame = frame.with_columns(pl.lit("NOT_EVALUABLE").alias("test_adjusted_vs_gaap"))
+    existing = pl.col("gate0_not_evaluable").fill_null("") if "gate0_not_evaluable" in frame.columns else pl.lit("")
+    # Rebuild rather than append so rerunning the resolver cannot duplicate legs.
+    frame = frame.with_columns(
+        pl.concat_str([
+            existing.str.split(",").list.eval(
+                pl.element().filter(~pl.element().is_in(["", "dilution", "adjusted_vs_gaap"]))
+            ).list.join(","),
+            pl.when(owed).then(pl.lit("dilution")).otherwise(pl.lit("")),
+            pl.lit("adjusted_vs_gaap"),
+        ], separator=",").str.strip_chars(",").str.replace_all(",,", ",")
+        .alias("gate0_not_evaluable")
+    )
+    return add_framework_verdict(frame)
 
 
 def build_trends(frame):
@@ -1557,7 +1679,7 @@ def add_verdict(frame, allow_imputed=False):
         [
             _three_state(pl.col(flag_col)).alias(f"test_{name}")
             for flag_col, name in TEST_LABELS.items()
-        ]
+        ] + [pl.lit("NOT_EVALUABLE").alias("test_adjusted_vs_gaap")]
     )
     has_fcf_after_sbc_test = "fail_fcf_after_sbc" in frame.columns
     if has_fcf_after_sbc_test:
@@ -1579,12 +1701,15 @@ def add_verdict(frame, allow_imputed=False):
         # exempted, via sbc_unverified rather than silently passing.
         any_fail = any_fail | (pl.col("test_fcf_after_sbc") == "FAIL")
 
-    all_test_cols = [f"test_{name}" for name in TEST_LABELS.values()]
+    test_names = list(TEST_LABELS.values()) + ["adjusted_vs_gaap"]
+    if has_fcf_after_sbc_test:
+        test_names.append("fcf_after_sbc")
+    all_test_cols = [f"test_{name}" for name in test_names]
     not_evaluable_list = (
         pl.concat_list(
             [
                 pl.when(pl.col(c) == "NOT_EVALUABLE").then(pl.lit(name)).otherwise(None)
-                for c, name in zip(all_test_cols, TEST_LABELS.values())
+                for c, name in zip(all_test_cols, test_names)
             ]
         )
         .list.drop_nulls()
@@ -1695,13 +1820,43 @@ def add_framework_verdict(frame):
         .list.drop_nulls()
         .list.join(",")
     )
+    # §C net dilution applies across sectors; the old financial-sector
+    # exemption does not excuse SBC dilution (F-02). An unresolved bridge
+    # yields a null automatic verdict, never a pass. §C-1 remains explicitly
+    # owed by the underwrite on every row, including automatic passes.
+    dilution_failed = (pl.col("test_dilution") == "FAIL") if "test_dilution" in frame.columns else pl.lit(False)
+    dilution_unknown = (pl.col("test_dilution") == "NOT_EVALUABLE") if "test_dilution" in frame.columns else pl.lit(False)
+    other_failed = ~exempt & any_leg_failed
+    other_unknown = ~exempt & pl.any_horizontal([pl.col(c).is_null() for c, _ in present])
+    core_legs = [name for name in (*LOAD_BEARING_TESTS, "fcf_after_sbc")
+                 if f"test_{name}" in frame.columns]
+    core_failed = pl.any_horizontal([
+        (pl.col(f"test_{name}") == "FAIL").fill_null(False) for name in core_legs
+    ]) if core_legs else pl.lit(False)
+    core_failed_names = pl.concat_list([
+        pl.when(pl.col(f"test_{name}") == "FAIL").then(pl.lit(name)).otherwise(None)
+        for name in core_legs
+    ]).list.drop_nulls().list.join(",") if core_legs else pl.lit("")
+    # gate0_pass=False also covers missing inputs and imputation holds.
+    # Only a failed test is evidence of failure; those holds remain unknown.
+    core_unknown = ~pl.col("gate0_pass").fill_null(False)
+    if core_legs:
+        core_unknown = core_unknown | pl.any_horizontal([
+            (pl.col(f"test_{name}").is_null()
+             | (pl.col(f"test_{name}") == "NOT_EVALUABLE")) for name in core_legs
+        ])
+    framework_pass = (
+        pl.when(core_failed | other_failed | dilution_failed).then(False)
+        .when(core_unknown | dilution_unknown | other_unknown).then(None)
+        .otherwise(True)
+    )
     return frame.with_columns(
-        pl.when(exempt).then(pl.lit("")).otherwise(failed_list).alias(
-            "framework_leg_failed"
-        ),
-        (pl.col("gate0_pass") & (exempt | ~any_leg_failed)).alias(
-            "gate0_framework_pass"
-        ),
+        pl.concat_str([
+            core_failed_names,
+            pl.when(exempt).then(pl.lit("")).otherwise(failed_list),
+            pl.when(dilution_failed).then(pl.lit("dilution")).otherwise(pl.lit("")),
+        ], separator=",").str.strip_chars(",").str.replace_all(",,", ",").alias("framework_leg_failed"),
+        framework_pass.alias("gate0_framework_pass"),
     )
 
 
@@ -2204,58 +2359,33 @@ def build_ttm(facts):
 
 
 def resolve_ttm_sbc(frame):
-    """Resolve the TTM SBC gap three ways, and state which one was taken.
+    """§G/F-05: reported annual zero resolves SBC; missing annual data cannot.
 
-    Runs on the JOINED frame, not inside build_ttm, because the deciding
-    input is the FISCAL-YEAR ``sbc`` column and that only exists once the
-    annual rows and the TTM rows are on the same row. Deriving a second
-    "latest FY sbc" inside build_ttm would mean two builders each picking
-    their own latest period -- the exact divergence DIAGNOSTIC_CONCEPTS was
-    introduced to stop.
-
-    Where a TTM window exists and the SBC term is absent:
-
-      fy sbc > 0        -> WITHHOLD. ``ttm_sbc_window_lost``. The company
-          demonstrably pays share-based compensation and the four-quarter
-          window lost the line; an SBC term of zero would overstate
-          FCF-after-SBC by the whole figure, in the company's favour. That is
-          the capex sign-convention trap relocated one column over, and the
-          answer is the same one: state it and route it to a human.
-
-      fy sbc null or 0  -> COMPUTE with an SBC term of zero, and SAY SO via
-          ``ttm_sbc_assumed_zero``. Nothing is being hidden: the annual row
-          agrees there is no SBC to lose. A number of large old-economy
-          filers never tag SBC at all, and withholding the master growth
-          metric from all of them buys no safety.
-
-    🔴 The assumption is NAMED, never silent -- the posture ``sbc_unverified``
-    already set on the annual path. Note the deliberate difference from that
-    column: the annual path withholds ``fcf_after_sbc`` whenever FY sbc is
-    null, while this recovers the TTM figure in that same case. The
-    justification is that only a POSITIVE fy sbc is evidence that an SBC line
-    exists to be lost; an absent one is no more informative here than it is
-    there, and the flag carries the caveat onto the row either way.
-
-    🔴 An absent or negative ttm_capex is NOT recovered. Only the SBC term is
-    ever assumed, and only with the fiscal year's corroboration.
+    A measured SBC term, including a reported zero, uses the normal formula
+    with every measured lease-principal deduction retained (§D#2). Existing
+    invalid-capex nulls stay null. The retired assumed-zero flag is retained
+    as False for consumers of older stores; ttm_sbc_owed names the obligation.
     """
     has_window = pl.col("ttm_ocf").is_not_null()
     capex_usable = pl.col("ttm_capex").is_not_null() & (pl.col("ttm_capex") >= 0)
     sbc_gap = has_window & pl.col("ttm_sbc").is_null()
+    assumed_sbc = pl.col("sbc_assumed_zero").fill_null(False) if "sbc_assumed_zero" in frame.columns else pl.lit(False)
+    zero_reported = (pl.col("ttm_sbc").is_null() & (pl.col("sbc") == 0)
+                     & ~assumed_sbc).fill_null(False)
     fy_sbc_real = pl.col("sbc").is_not_null() & (pl.col("sbc") > 0)
     window_lost = (sbc_gap & fy_sbc_real).fill_null(False)
-    # is_null() on the metric is belt and braces: a null ttm_sbc already
-    # implies a null ttm_fcf_after_sbc. It is here because this function may
-    # only ever turn a NULL into a number -- it must never move one.
-    assumed = (
-        sbc_gap & ~fy_sbc_real & capex_usable & pl.col("ttm_fcf_after_sbc").is_null()
-    ).fill_null(False)
+    leases = pl.col("ttm_lease_payments").fill_null(0) if "ttm_lease_payments" in frame.columns else pl.lit(0.0)
     return frame.with_columns(
-        pl.when(assumed)
-        .then(pl.col("ttm_ocf") - pl.col("ttm_capex"))
+        pl.when(zero_reported & has_window & capex_usable)
+        .then(pl.col("ttm_ocf") - pl.col("ttm_capex") - leases)
+        .when(pl.col("ttm_sbc").is_null()).then(None)
+        .when(pl.col("ttm_fcf_after_sbc").is_not_null() & capex_usable)
+        .then(pl.col("ttm_ocf") - pl.col("ttm_capex") - pl.col("ttm_sbc") - leases)
         .otherwise(pl.col("ttm_fcf_after_sbc"))
         .alias("ttm_fcf_after_sbc"),
-        assumed.alias("ttm_sbc_assumed_zero"),
+        (pl.col("ttm_sbc").is_null() & ~zero_reported).alias("ttm_sbc_owed"),
+        zero_reported.alias("ttm_sbc_zero_reported"),
+        pl.lit(False).alias("ttm_sbc_assumed_zero"),
         window_lost.alias("ttm_sbc_window_lost"),
     )
 
@@ -2364,6 +2494,27 @@ def add_ttm_divergence(frame):
         .alias("ttm_fcf_divergence"),
         (fy_ocf_positive & ttm_ocf_negative).fill_null(False).alias("ttm_suspect"),
         pl.col("ttm_ocf").is_null().alias("ttm_unavailable"),
+    )
+
+
+def add_gate0_provisional(frame):
+    # §F most-recent-quarter Gate 0 (F-32): a verified nonpositive TTM
+    # leaves an annual pass provisional. Extraction conflicts require repair
+    # instead and cannot certify a deterioration in the underlying business.
+    conflict = pl.col("ttm_suspect")
+    for column in ("ttm_window_misaligned", "ttm_sbc_evidence_conflict", "ttm_capex_negative", "ttm_capex_missing"):
+        if column in frame.columns:
+            conflict = conflict | pl.col(column).fill_null(False)
+    if "gate0_status" in frame.columns:
+        annual_pass = pl.col("gate0_status").is_in(["pass", "pass_stale"])
+    elif "gate0_pass" in frame.columns:
+        annual_pass = pl.col("gate0_pass")
+    else:
+        # load_universe runs the final verdict after all vintages are joined.
+        annual_pass = pl.lit(False)
+    return frame.with_columns(
+        (annual_pass & pl.col("ttm_fcf_divergence") & ~conflict)
+        .fill_null(False).alias("gate0_provisional")
     )
 
 
@@ -2491,16 +2642,14 @@ def build_quarterly_acceleration(facts):
     return pl.DataFrame(rows, schema=schema)
 
 
-# Concepts counted when picking which of several same-named CIKs is the real
-# filer: the ones the load-bearing tests actually consume.
+# Concepts counted when picking the filer within an explicit CIK relationship:
+# the ones the load-bearing tests actually consume.
 DEDUP_FALLBACK_COLUMNS = ("ticker", "exchange", "sic", "sic_description")
 DEDUP_CONCEPTS = ("equity", "goodwill", "intangibles", "ocf", "net_income", "capex", "sbc")
 
 
 def _normalize_company_name(name_col):
-    """Uppercase, drop periods/commas, collapse whitespace -- enough to match
-    'Exxon Mobil Corporation' filed twice under two CIKs without over-matching
-    unrelated companies."""
+    """Normalize names for review candidates only, never issuer identity."""
     return (
         name_col.str.to_uppercase()
         .str.replace_all(r"[.,]", "")
@@ -2518,32 +2667,42 @@ ISSUER_SUCCESSORS = {2115436: 34088}
 
 
 def _dedup_key():
-    """Group key: the mapped predecessor CIK when known, else the normalized name."""
+    """Group only an exact CIK or an explicitly mapped successor relationship."""
     canonical = pl.col("cik").replace(ISSUER_SUCCESSORS)
-    linked = pl.col("cik").is_in(list(ISSUER_SUCCESSORS) + list(ISSUER_SUCCESSORS.values()))
-    return (
-        pl.when(linked)
-        .then(pl.lit("CIK:") + canonical.cast(pl.Utf8))
-        .otherwise(_normalize_company_name(pl.col("company_name")))
+    return pl.lit("CIK:") + canonical.cast(pl.Utf8)
+
+
+def _name_collision_candidates(frame):
+    """Report every name collision across unrelated CIK groups without merging."""
+    named = frame.with_columns(
+        _normalize_company_name(pl.col("company_name")).alias("_review_name"),
+        _dedup_key().alias("_issuer_key"),
+    ).filter(pl.col("_review_name").is_not_null() & (pl.col("_review_name") != ""))
+    collisions = named.group_by("_review_name").agg(
+        pl.col("_issuer_key").n_unique().alias("_issuer_count"),
+        pl.col("cik").unique().sort().cast(pl.Utf8).str.join(",").alias(
+            "review_candidate_ciks"
+        ),
+    ).filter(pl.col("_issuer_count") > 1)
+    return named.join(collisions, on="_review_name", how="inner").drop(
+        "_review_name", "_issuer_key", "_issuer_count"
+    ).with_columns(
+        pl.lit("review_candidate").alias("report_type"),
+        pl.lit("normalized_name_collision_without_explicit_cik_relationship").alias("reason"),
+        pl.lit(None, dtype=frame.schema["cik"]).alias("merged_into_cik"),
     )
 
 
-def deduplicate_by_company_name(frame):
-    """Collapse CIKs that share a company name onto the one with real filing data.
+def dedupe_cross_cik(frame):
+    """Merge only ISSUER_SUCCESSORS; names produce review candidates, not identity.
 
-    Re-registration under a new holding company, and parent / operating-
-    partnership pairs, leave SEC's ticker map pointing at a CIK with little or
-    no filing history while a sibling CIK carries the actual facts. Left
-    uncorrected this silently double-counts a company in every screen total,
-    and can attach its ticker to the empty registrant instead of the one with
-    real numbers.
-
-    The CIK with the most non-null DEDUP_CONCEPTS in the group survives
-    (ties broken by whichever already carries a ticker, then by lowest CIK,
-    for a deterministic choice); any ticker held by a dropped sibling is
-    reattached to the survivor. Returns (kept, dropped) -- dropped is the
-    duplicate_filers.csv report, never written into gate0.csv.
+    Within an explicit relationship, keep the CIK with most non-null
+    DEDUP_CONCEPTS (ties: ticker present, then lowest CIK), and fill missing
+    metadata only from that relationship. Return (kept, report), where the
+    duplicate_filers.csv report distinguishes explicit merges from retained
+    name-collision candidates. No candidate causes a drop or metadata transfer.
     """
+    candidates = _name_collision_candidates(frame)
     scored = frame.with_columns(
         _dedup_key().alias("_norm_name"),
         sum(pl.col(c).is_not_null().cast(pl.Int32) for c in DEDUP_CONCEPTS).alias(
@@ -2561,7 +2720,7 @@ def deduplicate_by_company_name(frame):
     if grouped.is_empty():
         return solo.drop(drop_cols).with_columns(
             pl.lit("").alias("merged_from_ciks")
-        ), frame.filter(pl.lit(False))
+        ), candidates
 
     grouped = grouped.sort(
         ["_norm_name", "_dedup_score", "_has_ticker", "cik"],
@@ -2592,24 +2751,34 @@ def deduplicate_by_company_name(frame):
         )
         .drop([f"_fallback_{c}" for c in meta_cols])
     )
-    non_primary = non_primary.rename({"_primary_cik": "merged_into_cik"})
+    non_primary = non_primary.rename({"_primary_cik": "merged_into_cik"}).with_columns(
+        pl.lit("explicit_merge").alias("report_type"),
+        pl.lit("explicit_issuer_successor_relationship").alias("reason"),
+    )
 
     solo = solo.with_columns(pl.lit("").alias("merged_from_ciks"))
     kept = pl.concat([solo.drop(drop_cols), primary.drop(drop_cols)], how="diagonal_relaxed")
-    return kept, non_primary.drop(drop_cols)
+    return kept, pl.concat([non_primary.drop(drop_cols), candidates], how="diagonal_relaxed")
+
+
+# Existing callers use the historical name; it no longer merges by name.
+deduplicate_by_company_name = dedupe_cross_cik
 
 
 DUPLICATE_FILER_COLUMNS = (
     "ticker",
     "cik",
     "company_name",
+    "report_type",
+    "reason",
     "merged_into_cik",
+    "review_candidate_ciks",
     "latest_fiscal_year",
 )
 
 
 def write_duplicate_filers(frame, path):
-    """The dropped siblings, with the CIK that absorbed each one."""
+    """Explicitly merged siblings and retained name-collision review candidates."""
     present = [c for c in DUPLICATE_FILER_COLUMNS if c in frame.columns]
     report = frame.select(present).sort("company_name")
     report.write_csv(path)
@@ -2788,6 +2957,7 @@ OUTPUT_ORDER = (
     "gate0_framework_pass",
     "framework_leg_failed",
     "gate0_status",
+    "gate0_provisional",
     "gate0_not_evaluable",
     "imputed_fields",
     "resolution_basis",
@@ -2817,6 +2987,17 @@ OUTPUT_ORDER = (
     "sbc_pct_revenue",
     "net_cash",
     "effective_tax",
+    "warn_low_tax",
+    "dilution_yoy",
+    "dilution_cagr_3y",
+    "shares_diluted_prior_fy",
+    "acquisition_shares",
+    "dilution_share_scale_break",
+    "dilution_attribution_owed",
+    "fail_dilution",
+    "test_dilution",
+    "test_adjusted_vs_gaap",
+    "ttm_sbc_owed",
     "ni_vs_oi",
     "acq_intensity",
     "bs_acq_intensity",
@@ -2982,6 +3163,8 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False,
     acceleration = build_quarterly_acceleration(scoring_facts)
 
     frame = latest.join(trends, on=["cik", "latest_fiscal_year"], how="left")
+    frame = frame.join(build_dilution_history(annual), on=["cik", "latest_fiscal_year"], how="left")
+    frame = frame.join(build_dilution_measurement(facts), on="cik", how="left")
     frame = frame.join(fcf_inflection, on="cik", how="left")
     if ttm.width > 1:
         frame = frame.join(ttm, on="cik", how="left")
@@ -3023,6 +3206,8 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False,
             pl.lit(False).alias("ttm_capex_negative"),
             pl.lit(False).alias("ttm_capex_missing"),
             pl.lit(False).alias("ttm_sbc_assumed_zero"),
+            pl.lit(True).alias("ttm_sbc_owed"),
+            pl.lit(False).alias("ttm_sbc_zero_reported"),
             pl.lit(False).alias("ttm_sbc_window_lost"),
             pl.lit(False).alias("ttm_sbc_evidence_conflict"),
         )
@@ -3044,7 +3229,9 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False,
     # pass or a fail. Reads the FULL facts table -- the proceeds detector needs
     # investing_inflows, which is a diagnostic concept stripped from
     # scoring_facts above. See store_defects.py.
-    return add_store_defect_flags(frame, facts)
+    frame = add_store_defect_flags(frame, facts)
+    frame = add_dilution_verdict(frame)
+    return add_gate0_provisional(frame)
 
 
 def _status_counts(frame):
@@ -3130,6 +3317,8 @@ def _ttm_window_counts(frame):
         ("ttm_capex_missing", "capex_missing"),
         ("ttm_sbc_window_lost", "sbc_window_lost"),
         ("ttm_sbc_assumed_zero", "sbc_assumed_zero"),
+        ("ttm_sbc_owed", "sbc_owed"),
+        ("ttm_sbc_zero_reported", "sbc_zero_reported"),
     ):
         if column in frame.columns:
             counts[label] = "{:,}".format(
@@ -3162,8 +3351,8 @@ def main(argv=None):
         "--resolve-annual-sbc-zero",
         action="store_true",
         help="PHASE B, MEASUREMENT ONLY, DEFAULT OFF. Compute fcf_after_sbc "
-        "with an SBC term of zero on sbc_assumed_zero rows, aligning the "
-        "annual convention with the TTM one. fcf_after_sbc feeds "
+        "with an SBC term of zero on sbc_assumed_zero rows. This experimental "
+        "annual override does not fill missing TTM SBC. fcf_after_sbc feeds "
         "fail_fcf_after_sbc, a GATE 0 LEG: this moves verdicts, shortlists "
         "and the review queue, including names already dispositioned on a "
         "not-evaluable leg. Run it into a scratch --out/--root to see what "

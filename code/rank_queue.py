@@ -15,7 +15,9 @@ Added 2026-10-01. Three jobs the sweep was doing by hand.
    ``gate0_framework_pass`` row, subtracted the tracked names, applied four
    cuts and priced the remainder one by one through Stocklake and
    stockanalysis (🆕 SMID refill page, R1-R106). That funnel is reproduced here
-   as the ``direct`` source, step for step, and PRINTED every run -- the
+   as the ``direct`` source, and PRINTED every run -- unknown framework
+   verdicts now remain eligible with their owed flags; only actual failures
+   are excluded from refill. This preserves the opportunity set. The
    2026-09-27 corrected call: "exhausted" is never written without a funnel
    table beside it, and a lane outcome is not a universe count.
 
@@ -48,11 +50,13 @@ it cannot fire a trade, carries no date, and caps nothing.
     tier D  cap above $20B
     tier E  no market cap -- PRICE IT FIRST, it cannot be tiered
 
-    within a tier:
-      1. rows with no fail-open store defect before rows with one
-      2. more lanes first -- a direct (refill) name has zero and sorts after
+    Framework failures follow all tiers in DX and have no cheapness multiple.
+    Within a tier:
+      1. clean rows before provisional or unresolved rows
+      2. rows with no fail-open store defect before rows with one
+      3. more lanes first -- a direct (refill) name has zero and sorts after
          every lane survivor in its tier, which is what 56.1% vs 9.9% says
-      3. cheaper first on live P/FCF-after-SBC, NULLS LAST (BELFB, 2026-08-06)
+      4. cheaper first on live P/FCF-after-SBC, NULLS LAST (BELFB, 2026-08-06)
 
 🔴 NO CAP. §G-1 says never cap the queue (Fork J, 2026-09-25). The 2026-08-26
 residual asking for a top-N cap predates that ruling and is superseded by it;
@@ -77,6 +81,8 @@ from build_prices import LANE_FILES
 from edgar_lib import Paths, log_stage
 from gate0 import DEFAULT_EXCLUDE_SIC, parse_sic_ranges
 from store_defects import FAIL_OPEN_DEFECTS
+from screen import add_framework_triage, rank_by_cheapness
+from fx import load_fx
 
 BAND_LOW, BAND_HIGH, LARGE_HIGH = 500e6, 5e9, 20e9
 US_FILER_FORMS = ("10-K", "10-Q", "10-K/A", "10-Q/A")
@@ -87,6 +93,7 @@ TIER_LABELS = {
     "C": "$5-20B",
     "D": ">$20B",
     "E": "NO MARKET CAP -- price first",
+    "DX": "FRAMEWORK FAILED -- diagnosis or logged exception owed",
 }
 
 # Columns carried into the queue, when present.
@@ -95,7 +102,19 @@ CARRY = (
     "fcf_after_sbc", "p_fcf_after_sbc_live", "revenue", "gate0_status",
     "gate0_framework_pass", "drawdown_undiagnosed", "warn_inorganic",
     "gate0_unevaluated", "tier2_commodity", "store_defect_flags",
+    "framework_leg_failed", "framework_leg_unresolved", "review_bucket",
+    "framework_diagnosis", "framework_not_evaluated", "gate0_provisional",
+    "ttm_fcf_divergence", "ttm_fcf_after_sbc", "ttm_sbc_owed", "ttm_sbc_zero_reported",
+    "ttm_suspect", "ttm_window_misaligned", "ttm_sbc_evidence_conflict",
+    "ttm_capex_negative", "ttm_capex_missing",
+    "reporting_currency", "currency_unresolved", "fx_owed", "fx_as_of", "fx_usd_per_unit",
+    "sbc_10_15", "sbc_pct_revenue", "dilution_yoy", "dilution_cagr_3y",
+    "dilution_attribution_owed", "warn_low_tax", "adjusted_eps_guard",
 )
+
+
+def _carry(columns):
+    return [c for c in columns if c in CARRY or c.startswith("test_")]
 
 
 def _num(name):
@@ -119,7 +138,7 @@ def load_survivors(root, lane_files=LANE_FILES):
             missing.append(f"{name} (no rejected_because)")
             continue
         lane = name.removeprefix("shortlist_").removesuffix(".csv")
-        keep = [c for c in CARRY if c in frame.columns]
+        keep = _carry(frame.columns)
         frames.append(
             frame.filter(pl.col("rejected_because").fill_null("") == "")
             .select(keep)
@@ -128,11 +147,35 @@ def load_survivors(root, lane_files=LANE_FILES):
     if not frames:
         return pl.DataFrame(), missing
     stacked = pl.concat(frames, how="diagonal_relaxed")
-    key = pl.coalesce(pl.col("ticker").str.to_uppercase(), pl.col("cik").cast(pl.Utf8))
+    key = pl.col("ticker").str.to_uppercase()
+    if "cik" in stacked.columns:
+        key = pl.coalesce(key, pl.col("cik").cast(pl.Utf8))
     stacked = stacked.with_columns(key.alias("_key"))
     others = [c for c in stacked.columns if c not in ("lane", "_key", "ticker")]
+    def merge_column(c):
+        if c == "gate0_framework_pass":
+            # Mixed-age lane files may disagree: a failure must survive the
+            # union and an unresolved leg must never become a passed test.
+            truth = pl.col(c).cast(pl.String).str.to_lowercase()
+            return (pl.when(truth.is_in(["false", "0"]).any()).then(False)
+                    .when((truth.is_null() | ~truth.is_in(["true", "1"])).any()).then(None)
+                    .otherwise(True).alias(c))
+        if c in ("framework_leg_failed", "framework_leg_unresolved"):
+            return pl.col(c).drop_nulls().filter(pl.col(c) != "").unique().sort().str.join(",").alias(c)
+        if c.startswith("test_"):
+            status = pl.col(c).str.to_uppercase()
+            return (pl.when((status == "FAIL").any()).then(pl.lit("FAIL"))
+                    .when((status.is_null() | (status == "NOT_EVALUABLE")).any()).then(pl.lit("NOT_EVALUABLE"))
+                    .otherwise(status.first()).alias(c))
+        if c == "gate0_provisional":
+            return pl.col(c).cast(pl.String).str.to_lowercase().is_in(["true", "1"]).any().alias(c)
+        if c == "reporting_currency":
+            return (pl.when(pl.col(c).drop_nulls().n_unique() > 1).then(None)
+                    .otherwise(pl.col(c).drop_nulls().first()).alias(c))
+        return pl.col(c).drop_nulls().first().alias(c)
+
     merged = stacked.group_by("_key").agg(
-        *[pl.col(c).drop_nulls().first().alias(c) for c in others],
+        *[merge_column(c) for c in others],
         pl.col("lane").unique().sort().str.join("+").alias("lanes"),
         pl.col("lane").n_unique().alias("lane_count"),
     )
@@ -164,7 +207,8 @@ def direct_pass(gate0, prices, lane_tickers, exclude_sic=DEFAULT_EXCLUDE_SIC):
         ),
         "US 10-K/10-Q filers, non-financial",
     )
-    frame = step(frame.filter(_truthy("gate0_framework_pass")), "gate0_framework_pass")
+    frame = add_framework_triage(frame)
+    frame = step(frame.filter(~pl.col("framework_diagnosis")), "no actual framework FAIL (unknowns kept)")
     frame = frame.with_columns(pl.col("ticker").str.to_uppercase())
     frame = step(
         frame.filter(~pl.col("ticker").is_in(list(lane_tickers))),
@@ -213,19 +257,22 @@ def direct_pass(gate0, prices, lane_tickers, exclude_sic=DEFAULT_EXCLUDE_SIC):
     elif "market_cap" not in frame.columns:
         frame = frame.with_columns(pl.lit(None, dtype=pl.Float64).alias("market_cap"))
     funnel.append(("priced (market cap known)", int(frame["market_cap"].is_not_null().sum())))
-    keep = [c for c in CARRY if c in frame.columns] + ["growth_not_measured"]
+    keep = _carry(frame.columns) + ["growth_not_measured"]
     rows = frame.select(keep).with_columns(
         pl.lit("direct").alias("lanes"), pl.lit(0).alias("lane_count")
     )
     return rows, funnel
 
 
-def rank(frame, tracked=(), exclude_sic=DEFAULT_EXCLUDE_SIC):
+def rank(frame, tracked=(), exclude_sic=DEFAULT_EXCLUDE_SIC, fx_rates=None, *, today=None):
     """Tier and order the merged survivors. Pure; the tests pin it."""
     tracked = {t.strip().upper() for t in tracked if t and t.strip()}
     for column in ("store_defect_flags", "filing_form", "sic", "ticker"):
         if column not in frame.columns:
             frame = frame.with_columns(pl.lit(None, dtype=pl.Utf8).alias(column))
+    if "fcf_after_sbc" not in frame.columns:
+        frame = frame.with_columns(pl.lit(None, dtype=pl.Float64).alias("fcf_after_sbc"))
+    frame = rank_by_cheapness(frame, fx_rates, today=today, sort=False)
     cap = _num("market_cap")
     sic = pl.col("sic").cast(pl.Int32, strict=False)
     financial = pl.lit(False)
@@ -234,7 +281,8 @@ def rank(frame, tracked=(), exclude_sic=DEFAULT_EXCLUDE_SIC):
     us = pl.col("filing_form").is_in(list(US_FILER_FORMS)).fill_null(False)
     in_band = (cap >= BAND_LOW) & (cap <= BAND_HIGH)
     tier = (
-        pl.when(cap.is_null()).then(pl.lit("E"))
+        pl.when(pl.col("framework_diagnosis")).then(pl.lit("DX"))
+        .when(cap.is_null()).then(pl.lit("E"))
         .when(in_band & us & ~financial.fill_null(False)).then(pl.lit("A"))
         .when((cap < BAND_LOW) | in_band).then(pl.lit("B"))
         .when(cap <= LARGE_HIGH).then(pl.lit("C"))
@@ -244,18 +292,20 @@ def rank(frame, tracked=(), exclude_sic=DEFAULT_EXCLUDE_SIC):
     fail_open = pl.lit(False)
     for name in FAIL_OPEN_DEFECTS:
         fail_open = fail_open | flags.str.contains(name, literal=True)
-    live = _num("p_fcf_after_sbc_live") if "p_fcf_after_sbc_live" in frame.columns else pl.lit(None, dtype=pl.Float64)
-    fcf = _num("fcf_after_sbc") if "fcf_after_sbc" in frame.columns else pl.lit(None, dtype=pl.Float64)
-    multiple = pl.coalesce(live, pl.when(fcf > 0).then(cap / fcf).otherwise(None))
+    multiple = _num("p_fcf_after_sbc_live")
     out = frame.with_columns(
         tier.alias("tier"),
         fail_open.alias("fail_open_defect"),
         multiple.alias("p_fcf_after_sbc_rank"),
         pl.col("ticker").str.to_uppercase().is_in(list(tracked)).fill_null(False).alias("tracked"),
         pl.col("lane_count").cast(pl.Int32),
+    ).with_columns(
+        pl.col("tier").replace_strict({"A": 0, "B": 1, "C": 2, "D": 3, "E": 4, "DX": 5})
+        .alias("_tier_order")
     ).sort(
-        ["tracked", "tier", "fail_open_defect", "lane_count", "p_fcf_after_sbc_rank", "ticker"],
-        descending=[False, False, False, True, False, False],
+        ["tracked", "_tier_order", "gate0_provisional", "framework_not_evaluated",
+         "fail_open_defect", "lane_count", "p_fcf_after_sbc_rank", "ticker"],
+        descending=[False, False, False, False, False, True, False, False],
         nulls_last=True,
     )
     untracked = ~pl.col("tracked")
@@ -277,13 +327,25 @@ def rank(frame, tracked=(), exclude_sic=DEFAULT_EXCLUDE_SIC):
                 pl.when(pl.col("fail_open_defect"))
                 .then(pl.lit(" | STORE DEFECT: ") + flags)
                 .otherwise(pl.lit("")),
+                pl.when(pl.col("framework_diagnosis"))
+                .then(pl.lit(" | failed legs: ") + pl.col("framework_leg_failed"))
+                .otherwise(pl.lit("")),
+                pl.when(pl.col("framework_not_evaluated"))
+                .then(pl.lit(" | FRAMEWORK NOT EVALUATED"))
+                .otherwise(pl.lit("")),
+                pl.when(pl.col("gate0_provisional"))
+                .then(pl.lit(" | PROVISIONAL: latest cash diagnosis owed"))
+                .otherwise(pl.lit("")),
+                pl.when(pl.col("fx_owed"))
+                .then(pl.lit(" | FX OWED"))
+                .otherwise(pl.lit("")),
             ]
         ).alias("rank_reason"),
     )
     lead = ["rank", "tracked", "tier", "ticker", "lanes", "lane_count", "market_cap",
             "p_fcf_after_sbc_rank", "fail_open_defect", "store_defect_flags", "rank_reason"]
     lead = [c for c in lead if c in out.columns]
-    return out.select(lead + [c for c in out.columns if c not in lead])
+    return out.select(lead + [c for c in out.columns if c not in lead and c != "_tier_order"])
 
 
 def load_tracked(path):
@@ -301,7 +363,7 @@ def summarise(ranked, funnel, tracked_supplied, head=10):
     print("=" * 68)
     print(f"REVIEW QUEUE  ({live.height} untracked, uncapped -- §G-1)")
     print("=" * 68)
-    for key in "ABCDE":
+    for key in ("A", "B", "C", "D", "E", "DX"):
         print(f"  tier {key}  {counts.get(key, 0):4d}  {TIER_LABELS[key]}")
     print(f"  tracked (labelled, not ranked): {ranked.height - live.height}")
     if not tracked_supplied:
@@ -369,7 +431,7 @@ def main(argv=None):
         raise SystemExit("no lane survivors and no direct-source rows; run screen.py first")
     combined = pl.concat(frames, how="diagonal_relaxed")
     tracked = load_tracked(args.exclude_tickers)
-    ranked = rank(combined, tracked, args.exclude_sic)
+    ranked = rank(combined, tracked, args.exclude_sic, load_fx(paths.root / "fx.csv"))
     ranked.write_csv(out_path)
     counts = summarise(ranked, funnel, bool(tracked))
     log_stage("rank_queue", rows=ranked.height, out=out_path,

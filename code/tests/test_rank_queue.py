@@ -15,9 +15,12 @@ def _survivors(rows):
         "store_defect_flags": pl.Utf8,
         "lane_count": pl.Int64,
         "lanes": pl.Utf8,
+        "reporting_currency": pl.Utf8,
+        "gate0_framework_pass": pl.Boolean,
     }
     base = {"sic": "3500", "filing_form": "10-K", "fcf_after_sbc": 1e8,
-            "store_defect_flags": "", "lane_count": 1, "lanes": "value"}
+            "store_defect_flags": "", "lane_count": 1, "lanes": "value",
+            "reporting_currency": "USD", "gate0_framework_pass": True}
     return pl.DataFrame([{**base, **r} for r in rows], schema=schema)
 
 
@@ -180,3 +183,103 @@ def test_load_survivors_merges_lanes(tmp_path):
     assert merged.height == 1
     row = merged.row(0, named=True)
     assert row["lanes"] == "accel+value" and row["lane_count"] == 2
+
+
+def test_framework_failures_sort_in_dx_after_all_clean_tiers_without_multiple():
+    frame = _survivors([
+        {"ticker": "FAILED", "market_cap": 1e9, "lane_count": 4, "gate0_framework_pass": False},
+        {"ticker": "E", "market_cap": None},
+        {"ticker": "D", "market_cap": 30e9},
+        {"ticker": "A", "market_cap": 1e9},
+    ]).with_columns(
+        pl.when(pl.col("ticker") == "FAILED").then(pl.lit("tax_anomaly"))
+        .otherwise(pl.lit("")).alias("framework_leg_failed"),
+        pl.lit(0.01).alias("p_fcf_after_sbc_live"),
+    )
+    out = rq.rank(frame)
+    assert _order(out) == ["A", "D", "E", "FAILED"]
+    failed = out.filter(pl.col("ticker") == "FAILED").row(0, named=True)
+    assert failed["tier"] == "DX"
+    assert failed["p_fcf_after_sbc_rank"] is None
+    assert failed["p_fcf_after_sbc_live"] is None
+    assert "tax_anomaly" in failed["rank_reason"]
+
+
+def test_provisional_follows_clean_in_its_tier_even_with_more_lanes():
+    frame = _survivors([
+        {"ticker": "PROV", "market_cap": 1e9, "lane_count": 5},
+        {"ticker": "CLEAN", "market_cap": 2e9},
+        {"ticker": "LARGE", "market_cap": 10e9},
+    ]).with_columns((pl.col("ticker") == "PROV").alias("gate0_provisional"))
+    out = rq.rank(frame)
+    assert _order(out) == ["CLEAN", "PROV", "LARGE"]
+    assert "PROVISIONAL" in out.filter(pl.col("ticker") == "PROV")["rank_reason"][0]
+
+
+def test_rank_never_falls_back_to_a_mixed_currency_or_stale_live_multiple():
+    from datetime import date
+
+    frame = _survivors([
+        {"ticker": "USD", "market_cap": 1e9},
+        {"ticker": "EUR", "market_cap": 1e9, "reporting_currency": "EUR"},
+        {"ticker": "UNKNOWN", "market_cap": 1e9, "reporting_currency": None},
+    ]).with_columns(pl.lit(0.01).alias("p_fcf_after_sbc_live"))
+    out = rq.rank(frame)
+    assert out["p_fcf_after_sbc_rank"].to_list() == [10.0, None, None]
+    rates = pl.DataFrame({"currency": ["EUR"], "usd_per_unit": [1.25], "as_of": [date(2026, 10, 20)]})
+    out = rq.rank(frame, fx_rates=rates, today=date(2026, 10, 22))
+    assert _order(out) == ["EUR", "USD", "UNKNOWN"]
+    assert out["p_fcf_after_sbc_rank"].to_list() == [8.0, 10.0, None]
+
+
+def test_lane_loader_carries_diagnosis_currency_and_outstanding_legs(tmp_path):
+    pl.DataFrame([{"ticker": "FAIL", "rejected_because": "", "reporting_currency": "EUR",
+                   "gate0_framework_pass": False, "framework_leg_failed": "sbc",
+                   "gate0_provisional": True, "test_adjusted_vs_gaap": "NOT_EVALUABLE",
+                   "sbc_10_15": True, "ttm_sbc_owed": True}]).write_csv(tmp_path / "shortlist_value.csv")
+    out, _ = rq.load_survivors(tmp_path, ("shortlist_value.csv",))
+    assert out.height == 1
+    for field in ("reporting_currency", "framework_leg_failed", "gate0_provisional",
+                  "test_adjusted_vs_gaap", "sbc_10_15", "ttm_sbc_owed"):
+        assert field in out.columns
+
+
+def test_direct_keeps_unresolved_framework_ranked_in_normal_tier_with_owed_flags():
+    rows, _ = rq.direct_pass(_gate0([{"ticker": "NE", "gate0_framework_pass": ""}]), None, set())
+    assert rows.height == 1
+    rows = rows.with_columns(pl.lit(1e9).alias("market_cap"),
+                             pl.lit(True).alias("dilution_attribution_owed"))
+    ranked = rq.rank(rows)
+    assert ranked["rank"][0] == 1
+    assert ranked["tier"][0] == "A"
+    assert ranked["gate0_framework_pass"][0] is None
+    assert ranked["framework_not_evaluated"][0] is True
+    assert ranked["dilution_attribution_owed"][0] is True
+    assert ranked["framework_diagnosis"][0] is False
+
+
+def test_null_framework_lane_survivor_ranks_in_normal_tier():
+    frame = _survivors([{"ticker": "NE", "market_cap": 1e9, "gate0_framework_pass": None}]).with_columns(
+        pl.lit("NOT_EVALUABLE").alias("test_dilution"), pl.lit(True).alias("dilution_attribution_owed"))
+    ranked = rq.rank(frame)
+    assert ranked["tier"][0] == "A"
+    assert ranked["rank"][0] == 1
+    assert ranked["framework_leg_unresolved"][0] == "dilution"
+    assert ranked["dilution_attribution_owed"][0] is True
+
+
+def test_authoritative_provisional_flag_is_not_overridden_by_extraction_conflict():
+    frame = _survivors([{"ticker": "CONFLICT", "market_cap": 1e9}]).with_columns(
+        pl.lit(False).alias("gate0_provisional"), pl.lit(True).alias("ttm_fcf_divergence"),
+        pl.lit(-100.0).alias("ttm_fcf_after_sbc"), pl.lit(True).alias("ttm_suspect"))
+    assert rq.rank(frame)["gate0_provisional"][0] is False
+
+
+def test_lane_union_preserves_failure_and_ne_over_another_lanes_pass(tmp_path):
+    for lane, verdict, status in (("value", True, "PASS"), ("accel", False, "FAIL")):
+        pl.DataFrame([{"ticker": "X", "rejected_because": "", "gate0_framework_pass": verdict,
+                       "test_tax_anomaly": status, "reporting_currency": "USD"}]).write_csv(
+                           tmp_path / f"shortlist_{lane}.csv")
+    out, _ = rq.load_survivors(tmp_path, ("shortlist_value.csv", "shortlist_accel.csv"))
+    assert out["gate0_framework_pass"][0] is False
+    assert out["test_tax_anomaly"][0] == "FAIL"

@@ -38,7 +38,8 @@ population -- so `rank_queue.py` can tier it instead of leaving it in tier E.
 `rank_queue.py` (added 2026-10-01) merges every lane's survivors with the §G-1
 refill funnel, labels the tracked names it is given rather than dropping them,
 and orders the rest: tier (in-band US non-financial first, then sub-band, then
-$5-20B, then above $20B, then unpriced), then rows with no fail-open store
+$5-20B, then above $20B, then unpriced, then framework diagnosis `DX`), then
+clean before provisional rows within a tier, then rows with no fail-open store
 defect, then lane overlap, then live P/FCF-after-SBC, nulls last. It never caps
 the queue (§G-1). The rule and the yields it was fitted to are in its docstring.
 
@@ -47,7 +48,34 @@ the queue (§G-1). The rule and the yields it was fitted to are in its docstring
 `ppe_sale_proceeds` and `capex_net` beside gross capex), `shares_history_scale_break`,
 `fy_flows_stale` (with `fy_flows_period_end`), `ttm_behind_calendar` (against
 `store_as_of`, the newest filing in the store) and `ttm_side_flows_lagging`.
-They run after `add_verdict` and change no verdict and no existing column.
+They run after `add_verdict`; a share-scale break also withholds the dilution
+leg and the automatic framework clearance (F-02).
+
+`screen.py` and `rank_queue.py` read optional `<root>/fx.csv` with columns
+`currency,usd_per_unit,as_of` (`YYYY-MM-DD`). For example, `EUR,1.10,2026-10-22`
+converts EUR cash flows into USD before comparing with a USD market cap. Rates
+must be finite, positive, dated today or within the previous 7 days; future,
+older or missing rates withhold the multiple and set `fx_owed`. Unknown or
+unresolved reporting currency also withholds it; USD requires no FX file.
+The pipeline fetches no FX automatically. `reporting_currency`, `fx_usd_per_unit`,
+`fx_as_of`, `fcf_after_sbc_usd` and `fx_owed` make each conversion auditable.
+
+Lane survivors with `gate0_framework_pass=False` stay visible in `review_bucket=DX`
+and queue tier `DX`, after all clean tiers, with `framework_diagnosis=True`,
+the failing `framework_leg_failed` names and null cheapness multiples. Missing
+automatic clearance yields `review_bucket=NE`, `framework_not_evaluated=True`
+and `framework_leg_unresolved`, also with null multiples. Other lane filters
+still apply. Null framework verdicts remain ranked in their normal A–E tier,
+including in direct refill; only actual failures enter DX. Direct refill still
+requires strictly positive measured TTM cash and its other numeric filters.
+None of these triage labels advances a
+name past WATCHLIST while a `NOT_EVALUABLE` Gate 0 leg remains.
+
+`duplicate_filers.csv` distinguishes `report_type=explicit_merge` (only a sourced
+`ISSUER_SUCCESSORS` link permits merging and metadata transfer) from
+`report_type=review_candidate` (unrelated normalized-name collisions, retained
+unchanged). It carries `reason`, `merged_into_cik` for merges, and
+`review_candidate_ciks` for collision groups. No name match establishes identity.
 
 Outputs land in `C:\Users\Fer\Documents\CLAUDE\Portfolio\edgar\` (override with
 `--root` on any stage):
@@ -252,7 +280,11 @@ Identity and verdict:
 |---|---|
 | `gate0_pass` | True only when `tangible_book`, `income_quality`, `fcf` are all `PASS`, and `imputed_fields` is empty (or `--allow-imputed`) |
 | `gate0_status` | `pass` / `fail` / `unknown`, from the load-bearing tests only |
-| `gate0_not_evaluable` | Comma-separated list of tests (from all six) that were `NOT_EVALUABLE`, not just the load-bearing ones |
+| `gate0_framework_pass` | Automatic computed-leg clearance: legacy load-bearing legs plus sector-applicable SBC, tax and NI/OI legs, and net dilution. False on a failure, null on an unresolved applicable automated leg. This does **not** settle manual §C-1 or organic/acquired-growth obligations |
+| `framework_leg_failed` | Names of actual failed core and additional framework legs; the `test_*` columns retain every individual result. Missing inputs and imputation holds cannot create failures |
+| `gate0_not_evaluable` | All stored `NOT_EVALUABLE` leg names, including dilution, FCF-after-SBC and adjusted-vs-GAAP; every unresolved leg blocks advancement past WATCHLIST |
+| `gate0_provisional` | Annual `pass`/`pass_stale` with measured nonpositive TTM FCF-after-SBC, excluding extraction/window conflicts; diagnosis owed and ordered after clean rows in its queue tier |
+| `test_adjusted_vs_gaap` | Always `NOT_EVALUABLE`: same-period §C-1 reconciliation and explicit acceptance of itemized add-backs are owed by the underwrite; the fact pack prints `adjusted-vs-GAAP §C-1 reconciliation: OWED` |
 | `imputed_fields` | Comma-separated list of concepts assumed rather than reported (only non-empty under `--assume-absent-zero`) |
 | `market_cap` | From `--mktcap-csv`; null when not supplied (prices are never invented) |
 | `fcf_after_sbc_multiple` | `market_cap / fcf_after_sbc`; the sort key when caps are supplied |
@@ -267,7 +299,7 @@ Computed metrics, all for the latest reported fiscal year:
 | `tangible_book_vintage_conflict` | Both vintages exist and **disagree in sign**, either direction. A flag for the analyst, not an automatic fail: some hits are the fiscal-year row being the artefact |
 | `income_quality` | `ocf / net_income` |
 | `fcf` | `ocf - capex` |
-| `fcf_after_sbc` | `ocf - capex - sbc` |
+| `fcf_after_sbc` | `ocf - capex - sbc - lease_payments` (deduct measured lease principal; missing lease disclosure remains flagged) |
 | `sbc_pct_revenue` | `sbc / revenue` |
 | `net_cash` | `cash - total_debt` |
 | `effective_tax` | `tax_expense / pretax_income` |
@@ -288,11 +320,20 @@ forward, `fail_*` is kept for backward compatibility:
 |---|---|
 | `fail_tangible_book` / `test_tangible_book` | Tangible book `< 0` on the **later of the two balance-sheet vintages** — see `tangible_book_basis` for which one that was on a given row (load-bearing) |
 | `fail_income_quality` / `test_income_quality` | `income_quality < 0.80` (load-bearing) |
-| `fail_fcf` / `test_fcf` | `fcf_after_sbc <= 0` (load-bearing) |
+| `fail_fcf` / `test_fcf` | Plain `fcf <= 0` (load-bearing) |
+| `fail_fcf_after_sbc` / `test_fcf_after_sbc` | Measured `fcf_after_sbc <= 0`; missing SBC is `NOT_EVALUABLE`, not a clearance |
 | `fail_sbc` / `test_sbc` | `sbc_pct_revenue > 0.15` |
 | `warn_sbc` | `sbc_pct_revenue > 0.10` (warning only, not part of the verdict) |
 | `fail_ni_over_oi` / `test_ni_vs_oi` | `net_income > operating_income` |
-| `fail_tax_anomaly` / `test_tax_anomaly` | `effective_tax <= 0.05` |
+| `fail_tax_anomaly` / `test_tax_anomaly` | `effective_tax <= 0`, pending normalisation (§C / F-31) |
+| `warn_low_tax` | `0 < effective_tax <= 0.05`: review warning, not a framework failure |
+| `fail_dilution` / `test_dilution` | Net `dilution_yoy <= 0.025` passes. Above 2.5%, FAIL requires measured positive SBC and every non-SBC issuance channel measured and immaterial (at most 0.5% of prior-FY diluted shares); otherwise attribution remains `NOT_EVALUABLE` (§C / F-02, Fer 2026-10-22). New names bind immediately; holdings at the first Gate 0 pass on/after 2026-10-01 |
+| `dilution_yoy`, `dilution_cagr_3y` | Share-count growth against the exact prior FY, plus exact three-year CAGR for context. Missing endpoints or split/scale breaks withhold the relevant numbers |
+| `shares_diluted_prior_fy`, `acquisition_shares`, `equity_issuance_shares`, `equity_issuance_proceeds`, `debt_conversion_shares`, `preferred_conversion_shares` | Prior-FY denominator and latest-FY acquisition, cash equity, debt conversion and preferred conversion facts. All are diagnostic; proceeds are money, the others shares. Positive proceeds without same-year share sizing remain owed |
+| Issuance `*_measured` | True only if that concept has a nonnull fact for this filer in some stored year/period. A registered tag chain alone proves nothing. Measured-and-absent in the current FY is imputed zero; never-observed concepts stay UNMEASURED. Cash equity can be measured by shares or proceeds |
+| `dilution_attribution_owed`, `dilution_share_scale_break` | Above-threshold growth with any unmeasured or material non-SBC channel, missing SBC or assumed SBC zero remains `NOT_EVALUABLE`, owed by the underwrite. Missing share endpoints and split/scale breaks also withhold the leg. Below-threshold net growth passes even without attribution inputs |
+| `sbc_10_15` (lane/queue) | `0.10 < sbc_pct_revenue <= 0.15`: retain and flag; only above 15% rejects at lane quality. Valuation always deducts measured SBC |
+| `adjusted_eps_guard` (lane/queue) | Forward/trailing P/E proxy only; null with missing inputs, never a substitute for §C-1 reconciliation |
 | `warn_inorganic` | `bs_acq_intensity > 0.05` in any of the last 3 years (warning only) |
 | `acq_cf_bs_disagreement` | `acq_intensity` and `bs_acq_intensity` disagree by >20% in any of the last 3 years (warning only) |
 
@@ -322,7 +363,9 @@ still stop short of the fiscal year sitting on the same row:
 | `ttm_capex_negative` | `ttm_capex` summed to a **negative** figure, so `ttm_fcf_after_sbc` was refused and left null rather than computed through it — a negative capex would ADD to free cash flow. The flag states the sign; it does not correct it, because a negative TTM capex is as likely to be an extraction defect as a real disposal and only the cash-flow statement settles which. Distinct from `ttm_unavailable`: a window WAS built here and `ttm_ocf` / `ttm_revenue` on the row remain usable. 114 rows on the 2026-09-10 store, 86 of which carried an empty `ttm_stale_concepts` and so read as clean |
 | `ttm_capex_missing` | A TTM window exists and **capex is not in it**, so `ttm_fcf_after_sbc` is withheld. Never zero-filled: an absent capex read as zero is a company with no capital expenditure, which overstates FCF by the whole line — the same fail-open direction `capex_broken` exists to catch. Mutually exclusive with `ttm_capex_negative`; a null is not a negative |
 | `ttm_sbc_window_lost` | A TTM window exists, capex is usable, the **SBC term is absent, and the fiscal year shows real SBC** (`sbc > 0`). The company demonstrably pays it and the four-quarter window lost the line, so the metric is withheld rather than computed with a zero that would overstate FCF-after-SBC by the entire SBC figure |
-| `ttm_sbc_assumed_zero` | The same SBC gap where the **fiscal year also shows none** (`sbc` null or `0`). Nothing is hidden by assuming zero, so `ttm_fcf_after_sbc` is computed as `ttm_ocf - ttm_capex` and the assumption travels on the row — the posture `sbc_unverified` set on the annual path. Note the deliberate difference: the annual path withholds `fcf_after_sbc` whenever FY `sbc` is null, while this recovers the TTM figure there, on the argument that only a POSITIVE FY `sbc` is evidence an SBC line exists to be lost |
+| `ttm_sbc_owed` | TTM SBC is missing and the annual SBC is missing or nonzero: withhold `ttm_fcf_after_sbc`. An imputed annual zero cannot resolve the obligation. A null cannot satisfy positive-TTM refill |
+| `ttm_sbc_zero_reported` | Missing TTM SBC resolved by a measured, reported annual SBC zero. Compute TTM OCF minus usable TTM capex minus every measured TTM lease payment; this is not owed. Missing/negative capex and missing OCF still withhold cash |
+| `ttm_sbc_assumed_zero` | Retired by F-05; always False in rebuilt rows, retained for older consumers |
 
 
 This is the shape Kimball Electronics (`KE`) has: FY ending 30-Jun-26 with its
@@ -330,24 +373,25 @@ last interim at 31-Mar-26, so the rollforward identity reaches back to FY2025 an
 `ttm_ocf` reads 107.9M against an FY2026 OCF of 72.3M. `TTM_RECENCY_MAX_DAYS`
 does not catch it — that guard allows 400 days and the lag here is 91.
 
-The three TTM columns above and `ttm_capex_negative` are one decision, and the
+The TTM SBC and capex flags above describe one decision, and the
 table below is the whole of it. It applies only where a TTM window exists
-(`ttm_ocf` non-null); with no window the row is `ttm_unavailable` and nothing here
-is evaluated. `fy_sbc` is the fiscal-year `sbc` column on the same row.
+(`ttm_ocf` non-null); without a window the row is `ttm_unavailable`, and missing
+TTM SBC is also named `ttm_sbc_owed`. `fy_sbc` is the annual `sbc` on the same row.
 
 | `ttm_capex` | `ttm_sbc` | `fy_sbc` | `ttm_fcf_after_sbc` | flag set |
 |---|---|---|---|---|
 | present, ≥ 0 | present | any | computed | none |
-| present, ≥ 0 | null | null or 0 | computed, SBC term 0 | `ttm_sbc_assumed_zero` |
-| present, ≥ 0 | null | > 0 | **NULL** | `ttm_sbc_window_lost` |
+| present, ≥ 0 | null | null or imputed 0 | **NULL** | `ttm_sbc_owed` |
+| present, ≥ 0 | null | reported 0 | OCF − capex − measured leases | `ttm_sbc_zero_reported` |
+| present, ≥ 0 | null | > 0 | **NULL** | `ttm_sbc_owed`, `ttm_sbc_window_lost` |
 | present, < 0 | any | any | **NULL** | `ttm_capex_negative` |
 | **null** | any | any | **NULL** | `ttm_capex_missing` |
 
 The invariant the table buys: **a null `ttm_fcf_after_sbc` on a row that has a TTM
 window is always explained on that row** — by one of those four booleans, by
 `ttm_unavailable`, or by the missing input being named in `ttm_stale_concepts`.
-Measured on the 2026-09-11 store, 3,098 frame-level rows failed that test before
-this landed and 0 after, of which 601 were recovered outright.
+All measured lease-principal payments remain deducted when the TTM figure is
+computable. Only a reported annual zero resolves a missing TTM SBC term (F-05).
 
 **🔴 The flags are set INDEPENDENTLY of one another. Do not "simplify" this into
 one row, one flag.** `ttm_sbc_window_lost` tests the SBC term and nothing else, so
@@ -363,9 +407,8 @@ not a negative.
 
 ### The annual SBC convention
 
-The annual path withholds `fcf_after_sbc` whenever `sbc` is null; the TTM path
-computes with an SBC term of zero in the same case. Same filer, two columns,
-opposite conventions. Two annual columns now say which case each null is, and
+The default annual and TTM paths both withhold `fcf_after_sbc` when their SBC
+input is null. Two annual columns say which case each annual null is, and
 they partition `sbc_unverified` exactly — that column still means "sbc was not
 reported"; these say which kind:
 

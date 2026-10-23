@@ -30,6 +30,7 @@ import polars as pl
 
 from edgar_lib import Paths, log_stage
 from gate0 import DEFAULT_EXCLUDE_SIC, parse_sic_ranges
+from fx import add_usd_fcf, load_fx
 
 LANES = ("main", "shorthist", "ifrs", "inflection", "value", "accel", "margin2y", "unevaluated")
 
@@ -62,7 +63,7 @@ QUALITY_MIN_INCOME_QUALITY = 0.90
 # recency, so this is a proxy for that standard, not an expression of it --
 # stated because the difference matters if the column ever changes meaning.
 TANGIBLE_BOOK_MAX_YRS_NEGATIVE = 1
-QUALITY_MAX_SBC_PCT_REVENUE = 0.10
+QUALITY_MAX_SBC_PCT_REVENUE = 0.15
 EPS_GUARD_RATIO = 0.60
 PRICE_STALE_DAYS = 7
 # 🔴 THE ONLY PLACE A SHARE COUNT AND A MARKET CAP MEET. (Added 2026-09-09,
@@ -355,6 +356,7 @@ def apply_quality_unevaluated(frame):
     A metric that IS present and IS bad still rejects -- being unevaluated on
     one leg is not a licence to ignore a leg that did compute and did fail.
     """
+    frame = add_sbc_band(frame)
     iq = pl.col("income_quality")
     sbc = pl.col("sbc_pct_revenue")
     tb = pl.col("tangible_book")
@@ -370,7 +372,7 @@ def apply_quality_unevaluated(frame):
 
 
 def apply_quality(frame):
-    """income_quality >= 0.9, sbc_pct_revenue <= 0.10, tangible_book > 0,
+    """income_quality >= 0.9, sbc_pct_revenue <= 0.15, tangible_book > 0,
     tangible_book_yrs_negative <= TANGIBLE_BOOK_MAX_YRS_NEGATIVE.
 
     🔴 warn_inorganic NO LONGER REJECTS (changed 2026-08-26). It is a WARNING
@@ -398,6 +400,7 @@ def apply_quality(frame):
     what a warning was always for. The underwrite owes the split; the screen
     does not get to guess it.
     """
+    frame = add_sbc_band(frame)
     ok = (
         pl.col("income_quality").is_not_null()
         & (pl.col("income_quality") >= QUALITY_MIN_INCOME_QUALITY)
@@ -411,6 +414,60 @@ def apply_quality(frame):
         )
     )
     return _partition(frame, ok, "quality")
+
+
+def add_sbc_band(frame):
+    """Above 10% through 15% requires full deduction and a review flag."""
+    sbc = pl.col("sbc_pct_revenue")
+    return frame.with_columns(((sbc > 0.10) & (sbc <= 0.15)).alias("sbc_10_15"))
+
+
+def _nullable_bool(name):
+    return pl.col(name).cast(pl.String).str.to_lowercase().replace_strict(
+        {"true": True, "1": True, "false": False, "0": False},
+        default=None, return_dtype=pl.Boolean)
+
+
+def add_framework_triage(frame):
+    """Only a failed verdict enters DX; nulls stay eligible in normal tiers."""
+    verdict = (_nullable_bool("gate0_framework_pass")
+               if "gate0_framework_pass" in frame.columns else pl.lit(None, dtype=pl.Boolean))
+    failed = []
+    unresolved = []
+    for name in frame.columns:
+        if name.startswith("test_"):
+            status = pl.col(name).cast(pl.String).str.to_uppercase()
+            failed.append(pl.when(status == "FAIL").then(pl.lit(name[5:])).otherwise(None))
+            unresolved.append(pl.when(status.is_null() | (status == "NOT_EVALUABLE"))
+                              .then(pl.lit(name[5:])).otherwise(None))
+    failed_names = pl.concat_list(failed).list.drop_nulls().list.join(",") if failed else pl.lit("")
+    unresolved_names = pl.concat_list(unresolved).list.drop_nulls().list.join(",") if unresolved else pl.lit("")
+    if "framework_leg_failed" in frame.columns:
+        failed_names = pl.when(pl.col("framework_leg_failed").fill_null("") != "").then(
+            pl.col("framework_leg_failed")).otherwise(failed_names)
+    if "gate0_provisional" in frame.columns:
+        provisional = _nullable_bool("gate0_provisional").fill_null(False)
+    else:
+        provisional = pl.lit(False)
+        if "ttm_fcf_divergence" in frame.columns:
+            provisional = _nullable_bool("ttm_fcf_divergence").fill_null(False)
+        elif "ttm_fcf_after_sbc" in frame.columns and "fcf_after_sbc" in frame.columns:
+            provisional = ((pl.col("fcf_after_sbc").cast(pl.Float64, strict=False) > 0)
+                & (pl.col("ttm_fcf_after_sbc").cast(pl.Float64, strict=False) < 0)).fill_null(False)
+        for name in ("ttm_suspect", "ttm_window_misaligned", "ttm_sbc_evidence_conflict",
+                     "ttm_capex_negative", "ttm_capex_missing"):
+            if name in frame.columns:
+                provisional = provisional & ~_nullable_bool(name).fill_null(False)
+    return frame.with_columns(
+        (verdict == False).fill_null(False).alias("framework_diagnosis"),  # noqa: E712
+        verdict.is_null().alias("framework_not_evaluated"),
+        failed_names.alias("framework_leg_failed"),
+        unresolved_names.alias("framework_leg_unresolved"),
+        provisional.alias("gate0_provisional"),
+        pl.when(verdict == False).then(pl.lit("DX"))  # noqa: E712
+        .when(verdict.is_null()).then(pl.lit("NE"))
+        .otherwise(pl.lit("review")).alias("review_bucket"),
+    )
 
 
 # --------------------------------------------------------------------------
@@ -538,12 +595,12 @@ def apply_eps_guard(frame, eps_supplied):
     if not eps_supplied:
         return frame.with_columns(
             pl.lit(None, dtype=pl.Float64).alias("fwd_trail_ratio"),
-            pl.lit(False).alias("adjusted_eps_guard"),
+            pl.lit(None, dtype=pl.Boolean).alias("adjusted_eps_guard"),
         )
     ratio = _safe_ratio(pl.col("fwd_pe"), pl.col("trail_pe"))
     return frame.with_columns(
         ratio.alias("fwd_trail_ratio"),
-        (ratio.is_not_null() & (ratio < EPS_GUARD_RATIO)).alias("adjusted_eps_guard"),
+        (ratio < EPS_GUARD_RATIO).alias("adjusted_eps_guard"),
     )
 
 
@@ -807,7 +864,7 @@ def _is_extractive():
     return expr.fill_null(False)
 
 
-def rank_by_cheapness(frame):
+def rank_by_cheapness(frame, fx_rates=None, *, today=None, sort=True):
     """Recompute P/FCF-after-SBC on the live cap and sort the value lane
     ascending -- cheapest first, NULLS LAST.
 
@@ -829,21 +886,36 @@ def rank_by_cheapness(frame):
     A NEGATIVE multiple is not cheap, it is a loss, and it would sort ahead
     of every genuine bargain. Those are pushed to the bottom with the nulls.
     """
-    if "market_cap" not in frame.columns or "fcf_after_sbc" not in frame.columns:
-        return frame
+    for name in ("market_cap", "fcf_after_sbc"):
+        if name not in frame.columns:
+            frame = frame.with_columns(pl.lit(None, dtype=pl.Float64).alias(name))
+    frame = add_framework_triage(add_usd_fcf(frame, fx_rates, today))
+    # Legacy inputs without a framework verdict remain visibly NE and cannot
+    # certify quality by omission.
     multiple = (
         pl.when(
             pl.col("market_cap").is_null()
-            | pl.col("fcf_after_sbc").is_null()
-            | (pl.col("fcf_after_sbc") <= 0)
+            | ~pl.col("market_cap").cast(pl.Float64, strict=False).is_finite()
+            | (pl.col("market_cap").cast(pl.Float64, strict=False) <= 0)
+            | pl.col("fcf_after_sbc_usd").is_null()
+            | ~pl.col("fcf_after_sbc_usd").is_finite()
+            | (pl.col("fcf_after_sbc_usd") <= 0)
+            | pl.col("framework_diagnosis")
+            | pl.col("framework_not_evaluated")
         )
         .then(None)
-        .otherwise(pl.col("market_cap") / pl.col("fcf_after_sbc"))
+        .otherwise(pl.col("market_cap").cast(pl.Float64, strict=False) / pl.col("fcf_after_sbc_usd"))
     )
-    return frame.with_columns(
+    out = frame.with_columns(
         multiple.alias("p_fcf_after_sbc_live"),
         (1.0 / multiple).alias("fcf_after_sbc_yield"),
-    ).sort("p_fcf_after_sbc_live", descending=False, nulls_last=True)
+        # Older Gate 0 files can already carry a stored multiple. Refresh those
+        # aliases too, so no unsafe pre-conversion value survives beside live.
+        *[multiple.alias(c) for c in ("p_fcf_after_sbc", "fcf_after_sbc_multiple")
+          if c in frame.columns],
+    )
+    return out.sort(["framework_diagnosis", "gate0_provisional", "p_fcf_after_sbc_live"],
+                    nulls_last=True) if sort else out
 
 
 def apply_lane_filter(frame, lane):
@@ -877,8 +949,8 @@ def apply_lane_filter(frame, lane):
 STAGE_ORDER = ("eligible", "growth", "margin_expansion", "quality", "band", "momentum")
 
 
-def run_screen(frame, args, exclude_tickers, prices, eps):
-    frame = apply_lane_filter(frame, args.lane)
+def run_screen(frame, args, exclude_tickers, prices, eps, fx_rates=None):
+    frame = add_framework_triage(apply_lane_filter(frame, args.lane))
 
     eligible, elig_rejects = apply_eligibility(frame, args, exclude_tickers)
     funnel = {"lane_universe": frame.height, "eligible": eligible.height}
@@ -924,8 +996,7 @@ def run_screen(frame, args, exclude_tickers, prices, eps):
         survivors = survivors.join(eps, on="ticker", how="left")
     survivors = apply_eps_guard(survivors, eps is not None)
 
-    if args.lane == "value":
-        survivors = rank_by_cheapness(survivors)
+    survivors = rank_by_cheapness(survivors, fx_rates, sort=args.lane == "value")
 
     if args.lane == "margin2y":
         delta2y = pl.col("operating_margin_latest") - pl.col("operating_margin_2y_ago")
@@ -1118,7 +1189,8 @@ def main(argv=None):
             )
     eps = load_eps(args.eps_csv) if args.eps_csv else None
 
-    result, funnel = run_screen(frame, args, exclude_tickers, prices, eps)
+    result, funnel = run_screen(frame, args, exclude_tickers, prices, eps,
+                               load_fx(paths.root / "fx.csv"))
     result = add_sbc_unmeasured(result)
     result.write_csv(out_path)
 

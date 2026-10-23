@@ -8,6 +8,10 @@ import pytest
 
 AGENTS = Path(__file__).resolve().parents[2] / ".claude" / "agents"
 
+# The publication gate runs this suite from the local code root, which has no
+# .claude/ tree; the agent contracts are enforced where the agents live.
+pytestmark = pytest.mark.skipif(not AGENTS.is_dir(), reason="no .claude/agents beside this code tree")
+
 
 def text(agent):
     content = (AGENTS / f"screening-{agent}.md").read_text(encoding="utf-8")

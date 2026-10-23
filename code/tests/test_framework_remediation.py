@@ -249,6 +249,8 @@ def test_f32_verified_nonpositive_ttm_makes_annual_pass_provisional(ttm, ttm_ocf
 
 def test_f02_f03_f22_f32_fact_pack_exposes_numbers_and_obligations():
     path = Path(__file__).resolve().parents[2] / ".claude/screening/fact_pack.py"
+    if not path.is_file():
+        pytest.skip("no .claude/screening beside this code tree")
     spec = importlib.util.spec_from_file_location("audit_fact_pack", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

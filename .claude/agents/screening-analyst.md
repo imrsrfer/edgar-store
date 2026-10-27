@@ -211,6 +211,13 @@ Do exactly the arithmetic asked (DCF, MOS against a tier bar, EV, multiples)
 on the inputs given. Show every step. Run it at both ends of every range you
 were handed, and label which end flatters the company.
 
+DCF method (one definition, 2026-10-27). Discount rate r and terminal growth tg
+come from the decider (default r 9%, tg 3%, 10 years). Stage-1 growth **fades
+linearly from g1 in year 1 to tg in year 10**, then a Gordon terminal value at
+tg. This is the base method. Also run **constant g1 for 10 years, then tg**, and
+label it the flattering bound: it is never the base. If a name fails at the
+flattering bound it fails at the base. State which method each MOS used.
+
 ## Data discipline (from the job definition; Notion wins where they differ)
 - **Missing is never zero, and a null is not False.** `investing_unreconciled`
   null means nobody did the reconciliation. `ttm_unavailable` True means NOT

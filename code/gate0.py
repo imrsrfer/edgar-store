@@ -3042,6 +3042,8 @@ OUTPUT_ORDER = (
     "buyback_pct_fcf",
     "fcf_per_share",
     "revenue",
+    "revenue_subset_suspect",
+    "revenue_subset_candidate",
     "net_income",
     "operating_income",
     "ocf",

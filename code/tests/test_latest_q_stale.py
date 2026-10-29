@@ -405,3 +405,19 @@ def universe():
     if not paths.facts.exists() or not paths.meta.exists():
         pytest.skip("facts.parquet/meta.parquet not built; run build_facts.py first")
     return gate0.load_universe(paths)
+
+
+@pytest.mark.integration
+def test_mmsi_live_tangible_book_is_not_built_on_a_2019_intangibles(universe):
+    """MMSI read tangible_book_latest_q 1,065.6M (true ~528M): a 2019-06-30
+    latest_q_intangibles (74.4M) sat beside 2026 equity. The stale component
+    must be dropped and the leg must not PASS on it."""
+    row = universe.filter(pl.col("ticker") == "MMSI")
+    if row.is_empty():
+        pytest.skip("MMSI not in this store")
+    row = row.to_dicts()[0]
+    assert "intangibles" in (row["latest_q_stale_components"] or "")
+    assert row["latest_q_intangibles"] is None
+    tb = row["tangible_book_latest_q"]
+    assert tb is None or tb < 1_000e6
+    assert row["fail_tangible_book"] is not False or tb is not None

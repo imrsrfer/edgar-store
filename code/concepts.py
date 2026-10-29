@@ -724,6 +724,8 @@ CONCEPTS = (
         [
             "DepreciationDepletionAndAmortization",
             "DepreciationAmortizationAndAccretionNet",
+            "DepreciationAndAmortization",
+            "Depreciation",
         ],
         # DepreciationExpense verified against TSMC, which reports
         # depreciation and amortisation as two separate tags rather than a

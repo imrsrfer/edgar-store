@@ -274,6 +274,34 @@ TANGIBLE_BOOK_BASIS_LATEST_Q = "latest_q"
 TANGIBLE_BOOK_BASIS_FISCAL_YEAR = "fiscal_year"
 TANGIBLE_BOOK_BASIS_NONE = "none"
 
+# 🔴 A DROPPED QUARTERLY COMPONENT IS NOT A MISSING TAG (added 2026-10-29).
+#
+# build_latest_quarter now nulls a latest_q goodwill/intangibles that is not on
+# the balance-sheet date (MMSI: 2019 intangibles beside 2026 equity). The
+# coalesce below then reaches for the fiscal-year figure -- and on the
+# 2026-10-23 store that turned 16 tangible-book FAILs into non-fails and two
+# rows (LVS, OSW) into gate0_pass, because the fiscal-year figure was mostly an
+# INFERRED zero (structured_absence_asc350 / never_acquired) standing against
+# a quarterly tag that had shown a real balance. OSW: stale goodwill 185.6M vs
+# an inferred FY zero, tangible book -106M -> +79M. Two pieces of evidence that
+# disagree are not a pass. So the fallback decides alone only when the
+# fiscal-year figure is REPORTED and dated at or after the dropped one (LVS:
+# intangibles 489M@2025-09 superseded by a reported 470M@2025-12). Otherwise
+# the leg is computed BOTH ways -- on the dropped quarterly value and on the
+# fallback -- and where the two disagree in sign it is NOT_EVALUABLE, with no
+# retreat to the older fiscal year. Where they agree the answer does not depend
+# on which is right: blocking those too was measured at 284 rows NOT_EVALUABLE
+# and 27 passes lost, 271 and all 27 of them on two figures that agreed.
+TANGIBLE_BOOK_DROPPED_COMPONENTS = ("goodwill", "intangibles")
+
+
+def _dropped_end_column(concept):
+    return f"_latest_q_{concept}_dropped_end"
+
+
+def _dropped_value_column(concept):
+    return f"_latest_q_{concept}_dropped_value"
+
 # Balance-sheet concepts whose latest quarterly period_end defines the quarterly
 # vintage date. equity anchors it -- it is the term the leg cannot do without --
 # and the others only stand in when equity itself was not tagged that quarter.
@@ -1643,25 +1671,116 @@ def add_tangible_book_vintage(frame):
         & pl.col("tangible_book_latest_q").is_not_null()
         & pl.col("tangible_book").is_not_null()
     )
+    # See TANGIBLE_BOOK_DROPPED_COMPONENTS (OSW). A quarter newer than the
+    # fiscal year whose component fallback is not newer reported evidence, and
+    # whose dropped value tells a different sign, is NOT_EVALUABLE: neither
+    # figure nor the older fiscal-year one decides.
+    blocked = quarter_is_newer & _dropped_fallback_unsupported(frame) & ~(
+        (_tangible_book_on_dropped(frame) < 0) == (pl.col("tangible_book_latest_q") < 0)
+    ).fill_null(False)
     tested = (
         pl.when(use_quarter)
         .then(pl.col("tangible_book_latest_q"))
         .otherwise(pl.col("tangible_book"))
     )
+    private = [name(c) for c in TANGIBLE_BOOK_DROPPED_COMPONENTS
+               for name in (_dropped_end_column, _dropped_value_column)]
     return frame.with_columns(
+        pl.when(blocked).then(None)
+        .otherwise(pl.col("tangible_book_latest_q")).alias("tangible_book_latest_q"),
         # A null on the chosen vintage stays null: NOT_EVALUABLE, never a pass.
-        (tested < 0).alias("fail_tangible_book"),
-        pl.when(use_quarter)
+        pl.when(blocked).then(None).otherwise(tested < 0).alias("fail_tangible_book"),
+        pl.when(use_quarter & ~blocked)
         .then(pl.lit(TANGIBLE_BOOK_BASIS_LATEST_Q))
+        .when(blocked)
+        .then(pl.lit(TANGIBLE_BOOK_BASIS_NONE))
         .when(pl.col("tangible_book").is_not_null())
         .then(pl.lit(TANGIBLE_BOOK_BASIS_FISCAL_YEAR))
         .otherwise(pl.lit(TANGIBLE_BOOK_BASIS_NONE))
         .alias("tangible_book_basis"),
         (
-            pl.col("tangible_book").is_not_null()
+            ~blocked
+            & pl.col("tangible_book").is_not_null()
             & pl.col("tangible_book_latest_q").is_not_null()
             & ((pl.col("tangible_book") < 0) != (pl.col("tangible_book_latest_q") < 0))
         ).alias("tangible_book_vintage_conflict"),
+    ).drop(private, strict=False)
+
+
+def _tangible_book_on_dropped(frame):
+    """The quarterly tangible book as it read BEFORE the off-vintage drop."""
+    def term(concept):
+        dropped = _dropped_value_column(concept)
+        parts = [pl.col(dropped)] if dropped in frame.columns else []
+        return pl.coalesce(*parts, f"latest_q_{concept}", concept)
+
+    return pl.col("latest_q_equity") - term("goodwill") - term("intangibles")
+
+
+def _dropped_fallback_unsupported(frame):
+    """True where a dropped quarterly component may not fall back to the FY one.
+
+    Supported only when the fiscal-year figure is REPORTED and dated at or
+    after the dropped quarterly value. Absent private columns (a frame that
+    never went through build_latest_quarter) mean nothing was dropped.
+    """
+    unsupported = pl.lit(False)
+    for concept in TANGIBLE_BOOK_DROPPED_COMPONENTS:
+        dropped = _dropped_end_column(concept)
+        if dropped not in frame.columns:
+            continue
+        basis = (
+            pl.col(f"resolution_basis_{concept}")
+            if f"resolution_basis_{concept}" in frame.columns
+            else pl.lit(None, dtype=pl.Utf8)
+        )
+        supported = (basis == BASIS_REPORTED) & (pl.col("period_end") >= pl.col(dropped))
+        unsupported = unsupported | (
+            pl.col(dropped).is_not_null() & ~supported.fill_null(False)
+        )
+    return unsupported
+
+
+# 🔴 A "LATEST QUARTER" OLDER THAN THE FLOWS BESIDE IT (added 2026-10-29, SBLK).
+#
+# Star Bulk files interims on 6-K and the only quarterly balance-sheet instants
+# in the store are from its 2021-06-30 6-K, so latest_q_equity / latest_q_cash
+# published 2021 balances (and a null latest_q_total_debt) on a row whose TTM
+# window ends 2026-06-30. 31 rows on the 2026-10-23 store are that shape. Two
+# quarters plus a filing deadline is ~200 days; anything older than that behind
+# ttm_window_end is not the latest quarter of anything.
+LATEST_Q_STALE_MAX_DAYS = 200
+
+
+def add_latest_q_staleness(frame):
+    """Null the latest_q_* balances when they are a stale balance sheet.
+
+    Publishes ``latest_q_stale``: True when latest_q_period_end is more than
+    LATEST_Q_STALE_MAX_DAYS behind ttm_window_end, NULL when either date is
+    missing (not evaluable -- values left as they are). latest_q_period_end is
+    kept so the flag can be checked from the row; the weighted-average share
+    count is a duration with its own date and is left to
+    _drop_off_vintage_components.
+
+    🔴 A stale quarter that is still NEWER than the fiscal year is flagged and
+    KEPT. It is the newest balance sheet the row has; nulling it would hand
+    add_tangible_book_vintage the OLDER fiscal-year vintage, which can turn a
+    tangible-book FAIL on the quarter into a PASS. 0 rows on the 2026-10-23
+    store, so this guards the rule rather than changing a figure.
+    """
+    for column in ("ttm_window_end", "latest_q_period_end", "period_end"):
+        if column not in frame.columns:
+            frame = frame.with_columns(pl.lit(None, dtype=pl.Date).alias(column))
+    lag = (pl.col("ttm_window_end") - pl.col("latest_q_period_end")).dt.total_days()
+    stale = pl.when(lag.is_null()).then(None).otherwise(lag > LATEST_Q_STALE_MAX_DAYS)
+    frame = frame.with_columns(stale.alias("latest_q_stale"))
+    superseded = pl.col("latest_q_stale").fill_null(False) & ~(
+        pl.col("latest_q_period_end") > pl.col("period_end")
+    ).fill_null(False)
+    balances = [f"latest_q_{c}" for c in QUARTERLY_BALANCE_CONCEPTS
+                if f"latest_q_{c}" in frame.columns]
+    return frame.with_columns(
+        pl.when(superseded).then(None).otherwise(pl.col(c)).alias(c) for c in balances
     )
 
 
@@ -2058,16 +2177,70 @@ def build_latest_quarter(facts):
         .last()
         .select(["cik", "concept", "period_end", "value"])
     )
-    wide = latest.select(["cik", "concept", "value"]).pivot(
-        on="concept", index="cik", values="value", aggregate_function="first"
-    )
-    wide = wide.rename({c: f"latest_q_{c}" for c in wide.columns if c != "cik"})
     # 🔴 The DATE these balances belong to travels WITH them. Without it nothing
     # downstream can tell whether the quarterly vintage is newer than the
     # fiscal-year one, and "newer" is the entire basis on which
     # add_tangible_book_vintage chooses between the two. A balance published
     # without its date is a number that cannot be compared to anything.
-    return wide.join(_quarterly_vintage(latest), on="cik", how="left")
+    vintage = _quarterly_vintage(latest)
+    latest, stale_components = _drop_off_vintage_components(latest, vintage)
+    wide = latest.select(["cik", "concept", "value"]).pivot(
+        on="concept", index="cik", values="value", aggregate_function="first"
+    )
+    wide = wide.rename({c: f"latest_q_{c}" for c in wide.columns if c != "cik"})
+    return wide.join(vintage, on="cik", how="left").join(
+        stale_components, on="cik", how="left"
+    )
+
+
+def _drop_off_vintage_components(latest, vintage):
+    """Null every latest_q component that is not on the row's balance-sheet date.
+
+    MMSI, 2026-10-29: the last value of each concept was taken with no date
+    check, so a latest_q_intangibles of 74.4M from a 2019-06-30 10-Q sat beside
+    2026-06-30 equity and tangible_book_latest_q read 1,065.6M against a true
+    528.0M. TREX carried 2019 goodwill the same way. One row, one balance sheet:
+    an instant on any other date than latest_q_period_end is nulled (a NEWER
+    one too -- it belongs to a balance sheet whose equity the row does not
+    have). A weighted-average share count is a duration, never the vintage
+    date, so it is nulled only when OLDER than that date: SBLK's 2026 diluted
+    count beside a 2021 balance sheet is current, not stale.
+
+    Returns the cleaned long frame and ``latest_q_stale_components`` -- the
+    concepts nulled per company, comma-joined, "" when none were.
+    """
+    dated = latest.join(vintage, on="cik", how="left")
+    is_duration = pl.col("concept").is_in(list(TTM_AVERAGED_CONCEPTS))
+    off = pl.col("latest_q_period_end").is_not_null() & (
+        pl.when(is_duration)
+        .then(pl.col("period_end") < pl.col("latest_q_period_end"))
+        .otherwise(pl.col("period_end") != pl.col("latest_q_period_end"))
+    )
+    dated = dated.with_columns(off.fill_null(False).alias("_off"))
+
+    def dropped(concept, field, name):
+        hit = pl.col("_off") & (pl.col("concept") == concept)
+        return pl.col(field).filter(hit).max().alias(name(concept))
+
+    # The dropped DATES and VALUES of the tangible-book components travel too, under
+    # private names: add_tangible_book_vintage needs them to decide whether
+    # the fiscal-year figure it falls back to is newer evidence or an older
+    # guess, and drops them once it has (see TANGIBLE_BOOK_DROPPED_COMPONENTS).
+    names = (
+        dated.group_by("cik")
+        .agg(
+            pl.col("concept").filter(pl.col("_off")).sort().str.join(",")
+            .alias("latest_q_stale_components"),
+            *[dropped(c, "period_end", _dropped_end_column)
+              for c in TANGIBLE_BOOK_DROPPED_COMPONENTS],
+            *[dropped(c, "value", _dropped_value_column)
+              for c in TANGIBLE_BOOK_DROPPED_COMPONENTS],
+        )
+    )
+    cleaned = dated.with_columns(
+        pl.when(pl.col("_off")).then(None).otherwise(pl.col("value")).alias("value")
+    ).select(latest.columns)
+    return cleaned, names
 
 
 def _quarterly_vintage(latest):
@@ -2129,6 +2302,128 @@ def _ttm_binding_window(recent):
         [primary, fallback.join(primary.select("cik"), on="cik", how="anti")],
         how="vertical_relaxed",
     )
+
+
+def _ttm_flows_window(recent):
+    """The window the headline flows cover, and which FCF legs end before it.
+
+    BKTI and TXT, 2026-10-29: ttm_window_end read a quarter behind ttm_ocf and
+    ttm_capex, and the screener's window check called both rows "behind". The
+    label was right -- it is the BINDING window and the SBC leg really does end
+    a quarter earlier -- but nothing on the row said WHICH leg binds or how far
+    the flows themselves reach. Both are published BESIDE ttm_window_end, which
+    keeps its meaning: moving it to the latest end is the AVPT failure.
+
+    ttm_flows_window_end is the OCF window's end. ttm_window_binding_concepts
+    names every FCF-chain leg ending before it ("" = none). Both are NULL where
+    no OCF window survived: there is nothing to compare the legs against, and
+    an empty list there would read as "every leg is current".
+    """
+    ocf = recent.filter(pl.col("concept") == "ocf").select(
+        "cik", pl.col("ttm_window_end").alias("ttm_flows_window_end")
+    )
+    behind = (
+        recent.filter(pl.col("concept").is_in(list(TTM_WINDOW_CONCEPTS)))
+        .join(ocf, on="cik", how="inner")
+        .filter(pl.col("ttm_window_end") < pl.col("ttm_flows_window_end"))
+        .sort(["cik", "concept"])
+        .group_by("cik")
+        .agg(pl.col("concept").str.join(",").alias("ttm_window_binding_concepts"))
+    )
+    return ocf.join(behind, on="cik", how="left").with_columns(
+        pl.col("ttm_window_binding_concepts").fill_null("")
+    )
+
+
+# 🔴 ONE DISCRETE QUARTER AT A TIME (added 2026-10-29, BKTI).
+#
+# The rollforward reads only Q1/YTD2/YTD3, so a filer that tags its later
+# quarters as DISCRETE three-month figures leaves that leg's window at Q1 while
+# OCF and capex reach Q2. BKTI tags SBC Q2'25 (299K) and Q2'26 (107K) and the
+# store published ttm_sbc 678K for Apr-25..Mar-26, binding the whole FCF window
+# a quarter back. The step is the same identity one quarter later: add the
+# discrete quarter that starts the day after the window ends, drop the
+# same-length quarter a year earlier that starts the window. 486K for
+# Jul-25..Jun-26 -- Q3'25 + Q4'25 + Q1'26 + Q2'26 exactly.
+#
+# Narrow on purpose: FCF-chain legs only, three-month facts only, both quarters
+# required, both ends checked for contiguity. A quarter that cannot be dropped
+# is a quarter that would be double-counted, so a missing prior-year quarter
+# means no step, never a step on the new quarter alone.
+TTM_DISCRETE_QUARTER_DAYS = (80, 100)
+TTM_STEP_CONTIGUITY_DAYS = 3  # window edge vs the quarter's start
+TTM_DISCRETE_MAX_STEPS = 3  # a window can lag the flows by at most three quarters
+
+
+def _discrete_quarters(facts):
+    """Three-month flow facts of the FCF-chain legs, one per period."""
+    quarters = facts.filter(
+        pl.col("fiscal_period").is_in(["Q1", "Q2", "Q3", "Q4"])
+        & pl.col("period_start").is_not_null()
+        & pl.col("concept").is_in(list(TTM_WINDOW_CONCEPTS))
+    ).with_columns(
+        (pl.col("period_end") - pl.col("period_start")).dt.total_days().alias("_q_days")
+    )
+    order = ["cik", "concept", "period_start", "period_end"]
+    if "filed" in quarters.columns:
+        order.append("filed")
+    return (
+        quarters.filter(pl.col("_q_days").is_between(*TTM_DISCRETE_QUARTER_DAYS))
+        .sort(order)
+        .unique(subset=order[:4], keep="last", maintain_order=True)
+        .select("cik", "concept", "period_start", "period_end", "_q_days", "value")
+    )
+
+
+def _ttm_step_once(legs, quarters):
+    """Advance every leg that can move one discrete quarter; the rest as-is."""
+    def side(prefix):
+        return quarters.rename({c: f"{prefix}{c}" for c in
+                                ("period_start", "period_end", "_q_days", "value")})
+
+    gap = TTM_STEP_CONTIGUITY_DAYS
+    steps = (
+        legs.join(side("new_"), on=["cik", "concept"], how="inner")
+        .filter(
+            ((pl.col("new_period_start") - pl.col("ttm_window_end")).dt.total_days() - 1)
+            .abs() <= gap
+        )
+        .join(side("old_"), on=["cik", "concept"], how="inner")
+        .filter(
+            ((pl.col("old_period_start") - pl.col("ttm_window_start")).dt.total_days())
+            .abs() <= gap
+        )
+        .filter(
+            ((pl.col("new_period_end") - pl.col("old_period_end")).dt.total_days())
+            .is_between(*TTM_YEAR_APART_DAYS)
+            & ((pl.col("new__q_days") - pl.col("old__q_days")).abs() <= TTM_SPAN_MATCH_DAYS)
+        )
+        .sort(["cik", "concept", "new_period_end"])
+        .group_by(["cik", "concept"])
+        .last()
+        .select(
+            "cik", "concept",
+            (pl.col("ttm_value") - pl.col("old_value") + pl.col("new_value")).alias("ttm_value"),
+            pl.col("old_period_end").dt.offset_by("1d").alias("ttm_window_start"),
+            pl.col("new_period_end").alias("ttm_window_end"),
+        )
+    )
+    kept = legs.join(steps.select("cik", "concept"), on=["cik", "concept"], how="anti")
+    return pl.concat([steps, kept], how="vertical_relaxed"), steps.height
+
+
+def _ttm_discrete_step(recent, facts):
+    """Step FCF-chain windows forward over tagged discrete quarters (BKTI)."""
+    quarters = _discrete_quarters(facts)
+    if quarters.is_empty() or recent.is_empty():
+        return recent
+    is_leg = pl.col("concept").is_in(list(TTM_WINDOW_CONCEPTS))
+    legs = recent.filter(is_leg)
+    for _ in range(TTM_DISCRETE_MAX_STEPS):
+        legs, moved = _ttm_step_once(legs, quarters)
+        if not moved:
+            break
+    return pl.concat([legs, recent.filter(~is_leg)], how="vertical_relaxed")
 
 
 TTM_SIDE_FLOW_CONCEPTS = ("acquisitions", "buybacks", "dividends")
@@ -2256,6 +2551,8 @@ def build_ttm(facts):
         )
     if recent.is_empty():
         return pl.DataFrame(schema={"cik": pl.Int64})
+    # BEFORE the recency guard, so a stepped window is judged on its new end.
+    recent = _ttm_discrete_step(recent, facts)
 
     # 🔴 RECENCY GUARD -- see TTM_RECENCY_MAX_DAYS. The reference is the filer's
     # own latest reported period across ALL concepts, so a company that simply
@@ -2294,6 +2591,7 @@ def build_ttm(facts):
     # this function AND still stop short of the fiscal year on the same row, and
     # until the dates are ON the row nothing can tell that case from a clean one.
     wide = wide.join(_ttm_binding_window(recent), on="cik", how="left")
+    wide = wide.join(_ttm_flows_window(recent), on="cik", how="left")
     # 🔴 SIDE-FLOW LAG (added 2026-10-01, OKE). The recency guard above measures
     # each window against the filer's latest period across ALL concepts with a
     # 400-day allowance. A filer that simply stops tagging a zero acquisitions or
@@ -3065,6 +3363,8 @@ OUTPUT_ORDER = (
     "ttm_stale_concepts",
     "ttm_window_start",
     "ttm_window_end",
+    "ttm_flows_window_end",
+    "ttm_window_binding_concepts",
     "ttm_window_misaligned",
     "ttm_lease_payments",
     "net_margin",
@@ -3132,6 +3432,8 @@ OUTPUT_ORDER = (
     "latest_q_total_debt",
     "latest_q_shares_diluted",
     "latest_q_period_end",
+    "latest_q_stale",
+    "latest_q_stale_components",
     "revenue_growth_yoy_q1",
     "revenue_growth_yoy_q2",
     "revenue_growth_yoy_q3",
@@ -3207,6 +3509,10 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False,
         frame = frame.join(ttm, on="cik", how="left")
     if latest_q.width > 1:
         frame = frame.join(latest_q, on="cik", how="left")
+    # After BOTH the ttm and latest_q joins (it reads ttm_window_end against
+    # latest_q_period_end) and BEFORE add_tangible_book_vintage, which must
+    # see the nulled balances rather than a stale balance sheet.
+    frame = add_latest_q_staleness(frame)
     # 🔴 MUST run after the latest_q join and BEFORE add_verdict. It re-tests
     # the tangible-book leg on the later of the two balance-sheet vintages by
     # overwriting fail_tangible_book, and add_verdict is what turns that into

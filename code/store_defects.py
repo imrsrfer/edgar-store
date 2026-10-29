@@ -51,6 +51,11 @@ Detectors, each with the case that proved it:
                              from the filing itself", not "rebuild the store".
   ttm_side_flows_lagging     OKE. Built in gate0.build_ttm (it needs the per-concept
                              windows); summarised here.
+  latest_q_stale             SBLK. The latest quarterly balance sheet is more than
+                             200 days behind ttm_window_end (a 2021 6-K beside a
+                             2026 TTM). Built in gate0.add_latest_q_staleness,
+                             which also nulls those balances; registered here so
+                             the row says why latest_q_* is blank.
 
 ``store_defect_flags`` lists every detector that fired, comma-joined, so the
 queue ranker and a human reader see one column rather than six.
@@ -115,6 +120,7 @@ DEFECT_COLUMNS = (
     "shares_history_scale_break",
     "fy_flows_stale",
     "ttm_behind_calendar",
+    "latest_q_stale",
 )
 
 # The subset that can make a Gate 0 or growth figure read BETTER than the truth
@@ -283,6 +289,8 @@ def add_store_defect_flags(frame, facts):
         if needed not in frame.columns:
             dtype = pl.Date if needed == "ttm_window_end" else pl.Float64
             frame = frame.with_columns(pl.lit(None, dtype=dtype).alias(needed))
+    if "latest_q_stale" not in frame.columns:
+        frame = frame.with_columns(pl.lit(None, dtype=pl.Boolean).alias("latest_q_stale"))
     if "ttm_side_flows_lagging" not in frame.columns:
         frame = frame.with_columns(pl.lit("").alias("ttm_side_flows_lagging"))
 

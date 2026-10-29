@@ -781,7 +781,9 @@ def apply_prices(frame, prices):
         .otherwise(None)
         .alias("pct_vs_200ma"),
     )
-    return _add_shares_identity(frame).drop("market_cap_supplied")
+    from store_defects import add_share_count_live_check
+
+    return add_share_count_live_check(_add_shares_identity(frame)).drop("market_cap_supplied")
 
 
 def _add_shares_identity(frame):
@@ -1250,6 +1252,15 @@ def main(argv=None):
             "cap covers both classes and whose shares_diluted covers one. Read "
             "implied_shares_ratio on the row and settle which source is right "
             "before quoting FCF/share, P/FCF or EV/FCF.",
+        ),
+        (
+            "share_count_stale_vs_live",
+            "FY SHARE COUNT DISAGREES WITH FRESH USD MARKET CAP",
+            "RUSHA/IESC: a supplied USD market cap divided by its paired price "
+            "differs from FY weighted-average diluted shares by more than 25%. "
+            "Read share_count_live_gap and verify the instrument, share class, "
+            "split history and filing before quoting per-share figures. The "
+            "store count and multiples have not been corrected.",
         ),
         (
             "gate0_unevaluated",

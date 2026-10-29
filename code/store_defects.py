@@ -31,6 +31,10 @@ Detectors, each with the case that proved it:
                              fcf_per_share_* figure. shares_scale_suspect tests the
                              latest period only and reads False on all four.
                              Notes 2026-09-27, 2026-09-29.
+  shares_split_basis_break  DECK. A restated FY count jumps at a split while
+                             older FY counts remain on the pre-split basis.
+  share_count_stale_vs_live RUSHA, IESC. A fresh USD cap and matching price
+                             imply materially more shares than FY diluted.
   fy_flows_stale             KR, OLLI, IESC (a whole fiscal year), FERG (153 days,
                              FYE change). period_end comes from balances while the
                              flows on the row are from an older fiscal year, so the
@@ -89,6 +93,11 @@ PPE_SALE_TAGS = frozenset(
 # enough that every per-share series has to be re-read either way.
 SHARES_SCALE_BREAK_RATIO = 100.0
 SHARES_LOOKBACK_YEARS = 6  # the 5-year CAGR needs six fiscal years of counts
+# A 1.5x threshold caught RBA/CLVT merger issuance and recent IPOs. DECK's
+# 6-for-1 discontinuity is 5.76x after buybacks; require a larger break.
+SHARES_SPLIT_MIN_RATIO = 3.75
+SHARE_COUNT_LIVE_GAP = 0.25
+CAP_PRICE_PAIR_MAX_DAYS = 4
 
 # FERG's FYE change opened a 153-day gap; the earlier 300-day proposal missed it.
 FY_FLOWS_STALE_DAYS = 90
@@ -113,6 +122,7 @@ DEFECT_COLUMNS = (
     "total_debt_partial",
     "capex_gross_of_proceeds",
     "shares_history_scale_break",
+    "shares_split_basis_break",
     "fy_flows_stale",
     "ttm_behind_calendar",
 )
@@ -122,6 +132,8 @@ DEFECT_COLUMNS = (
 # valuation floor) and capex_gross_of_proceeds (fails closed) are informational.
 FAIL_OPEN_DEFECTS = (
     "shares_history_scale_break",
+    "shares_split_basis_break",
+    "share_count_stale_vs_live",
     "fy_flows_stale",
     "ttm_behind_calendar",
     "ttm_side_flows_lagging",
@@ -273,6 +285,86 @@ def _shares_scale_break(facts, frame):
     )
 
 
+def _shares_split_basis_break(facts, frame):
+    """DECK: an adjacent FY count jumps after restatement, below the 100x scale test."""
+    shares = _annual(facts, "shares_diluted")
+    if "restated" not in shares.columns:
+        shares = shares.with_columns(pl.lit(None, dtype=pl.Boolean).alias("restated"))
+    anchor = frame.select("cik", pl.col("period_end").alias("_anchor"))
+    hist = (
+        shares.select("cik", "period_end", "value", "restated")
+        .join(anchor, on="cik", how="inner")
+        .filter(
+            (pl.col("period_end") <= pl.col("_anchor"))
+            & (pl.col("period_end") > pl.col("_anchor").dt.offset_by(f"-{SHARES_LOOKBACK_YEARS}y"))
+            & (pl.col("value") > 0)
+        )
+        .sort(["cik", "period_end"])
+        .with_columns(
+            (pl.col("value") / pl.col("value").shift(1).over("cik")).alias("_ratio"),
+            (pl.col("period_end") - pl.col("period_end").shift(1).over("cik"))
+            .dt.total_days().alias("_year_gap"),
+        )
+    )
+    ratio = pl.col("_ratio")
+    split = (
+        pl.col("restated").fill_null(False)
+        & pl.col("_year_gap").is_between(*FY_DAYS)
+        & (((ratio >= SHARES_SPLIT_MIN_RATIO) & (ratio < SHARES_SCALE_BREAK_RATIO))
+           | ((ratio <= 1 / SHARES_SPLIT_MIN_RATIO) & (ratio > 1 / SHARES_SCALE_BREAK_RATIO)))
+    )
+    breaks = hist.group_by("cik").agg(
+        split.any().alias("shares_split_basis_break"),
+        pl.when(split).then(ratio).otherwise(None).drop_nulls().first()
+        .alias("shares_split_basis_ratio"),
+    )
+    return frame.select("cik").join(breaks, on="cik", how="left")
+
+
+def add_share_count_live_check(frame):
+    """RUSHA/IESC: compare FY diluted shares with fresh USD cap / price.
+
+    screen.load_prices has already dropped stale or non-USD caps. Re-check pair
+    provenance here so direct callers cannot silently treat missing as a pass.
+    """
+    optional = {"market_cap_supplied": pl.Float64, "price": pl.Float64,
+                "as_of": pl.Date, "market_cap_fetched_at": pl.String,
+                "market_cap_currency": pl.String, "filing_form": pl.String,
+                "shares_diluted": pl.Float64, "store_defect_flags": pl.String}
+    for name, dtype in optional.items():
+        if name not in frame.columns:
+            frame = frame.with_columns(pl.lit(None, dtype=dtype).alias(name))
+    fetched = (
+        pl.col("market_cap_fetched_at").cast(pl.String)
+        .str.slice(0, 10).str.to_date(strict=False)
+    )
+    as_of = pl.col("as_of").cast(pl.String).str.to_date(strict=False)
+    cap = pl.col("market_cap_supplied").cast(pl.Float64, strict=False)
+    price = pl.col("price").cast(pl.Float64, strict=False)
+    shares = pl.col("shares_diluted").cast(pl.Float64, strict=False)
+    valid = (
+        (cap > 0) & (price > 0) & (shares > 0)
+        & (pl.col("market_cap_currency") == "USD")
+        & pl.col("filing_form").is_in(QUARTERLY_FILER_FORMS)
+        & ((fetched - as_of).dt.total_days().abs() <= CAP_PRICE_PAIR_MAX_DAYS)
+    ).fill_null(False)
+    frame = frame.with_columns(
+        pl.when(valid).then(cap / price).otherwise(None).alias("live_share_count")
+    ).with_columns(
+        (pl.col("live_share_count") / shares - 1).alias("share_count_live_gap")
+    ).with_columns(
+        (pl.col("share_count_live_gap").abs() > SHARE_COUNT_LIVE_GAP)
+        .alias("share_count_stale_vs_live")
+    )
+    flags = pl.col("store_defect_flags").fill_null("")
+    token = "share_count_stale_vs_live"
+    return frame.with_columns(
+        pl.when(pl.col(token).fill_null(False) & ~flags.str.contains(token, literal=True))
+        .then(pl.when(flags == "").then(pl.lit(token)).otherwise(flags + "," + token))
+        .otherwise(flags).alias("store_defect_flags")
+    )
+
+
 def add_store_defect_flags(frame, facts):
     """Attach the detectors above to the one-row-per-company frame.
 
@@ -304,6 +396,7 @@ def add_store_defect_flags(frame, facts):
         .join(_total_debt_partial(facts, frame), on="cik", how="left")
         .join(_ppe_proceeds(facts, flows_end), on="cik", how="left")
         .join(_shares_scale_break(facts, frame), on="cik", how="left")
+        .join(_shares_split_basis_break(facts, frame), on="cik", how="left")
         .join(newest, on="cik", how="left")
     )
     gap = (pl.col("period_end") - pl.col("fy_flows_period_end")).dt.total_days()

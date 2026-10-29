@@ -861,7 +861,9 @@ def _add_investing_reconciliation(frame):
     🔴 THIS IS A FLAG, NOT A CORRECTION -- the same posture as capex_suspect,
     shares_scale_suspect and shares_identity_suspect. The residual is a signed
     dollar amount and an obligation to read the filing. It is NOT added to
-    capex, and nothing downstream consumes it as a number. A measurement of
+    capex or FCF. BORR's separate capex_floor_from_investing and
+    fcf_after_sbc_capex_floor show what treating an unexplained OUTFLOW as
+    omitted capex would imply; neither enters a verdict. A measurement of
     this residual across the universe found it contaminated in BOTH directions
     by parent/component double-counting, and establishing which side is wrong
     needs each filing's calculation linkbase, which is not in the store. So the
@@ -925,6 +927,31 @@ def _add_investing_reconciliation(frame):
         )
         .otherwise(None)
         .alias("investing_unreconciled"),
+    )
+
+
+def _add_capex_investing_floor(frame):
+    """BORR: expose unexplained investing outflow as a capex/FCF bound.
+
+    A negative residual may contain acquisitions, so this is a review floor
+    beside the reported values, never a replacement for either one.
+    """
+    residual = pl.col("investing_residual").cast(pl.Float64, strict=False)
+    capex = pl.col("capex").cast(pl.Float64, strict=False)
+    fires = (
+        (pl.col("investing_cf") < 0)
+        & pl.col("investing_unreconciled").fill_null(False)
+        & (residual < 0)
+        & (capex >= 0)
+        & ~pl.col("capex_broken").fill_null(False)
+        & (capex < 0.25 * residual.abs())
+    ).fill_null(False)
+    return frame.with_columns(
+        (pl.col("capex_suspect").fill_null(False) | fires).alias("capex_suspect"),
+        pl.when(fires).then(capex + residual.abs()).otherwise(None)
+        .alias("capex_floor_from_investing"),
+        pl.when(fires).then(pl.col("fcf_after_sbc") - residual.abs()).otherwise(None)
+        .alias("fcf_after_sbc_capex_floor"),
     )
 
 
@@ -2158,6 +2185,15 @@ def _ttm_side_flow_lag(recent, wide):
     )
 
 
+def _ttm_capex_is_usable():
+    """Annual capex_broken semantics shared by TTM build and SBC resolution."""
+    return (
+        pl.col("ttm_capex").is_not_null()
+        & (pl.col("ttm_capex") >= 0)
+        & ~(((pl.col("ttm_capex") == 0) & (pl.col("ttm_revenue") > 0)).fill_null(False))
+    ).fill_null(False)
+
+
 def build_ttm(facts):
     """Trailing-twelve-month sums for additive FLOW concepts.
 
@@ -2326,7 +2362,7 @@ def build_ttm(facts):
         ).with_columns(pl.col("ttm_stale_concepts").fill_null(""))
     else:
         wide = wide.with_columns(pl.lit("").alias("ttm_stale_concepts"))
-    for needed in ("ttm_ocf", "ttm_capex", "ttm_sbc"):
+    for needed in ("ttm_ocf", "ttm_capex", "ttm_sbc", "ttm_revenue", "ttm_dep_amort"):
         if needed not in wide.columns:
             wide = wide.with_columns(pl.lit(None, dtype=pl.Float64).alias(needed))
     # Same integrity guard as the annual path: a negative TTM capex is a
@@ -2361,9 +2397,11 @@ def build_ttm(facts):
     # never a crash and never a different answer from a null.
     if "ttm_lease_payments" not in wide.columns:
         wide = wide.with_columns(pl.lit(None, dtype=pl.Float64).alias("ttm_lease_payments"))
-    ttm_capex_usable = pl.when(pl.col("ttm_capex") < 0).then(None).otherwise(
-        pl.col("ttm_capex")
-    )
+    ttm_capex_usable = pl.when(_ttm_capex_is_usable()).then(pl.col("ttm_capex")).otherwise(None)
+    ttm_capex_ratio = _safe_div(pl.col("ttm_capex"), pl.col("ttm_revenue"))
+    ttm_ocf_ratio = _safe_div(pl.col("ttm_ocf"), pl.col("ttm_revenue"))
+    ttm_da_ratio = _safe_div(pl.col("ttm_capex"), pl.col("ttm_dep_amort"))
+    ttm_zero = ((pl.col("ttm_capex") == 0) & (pl.col("ttm_revenue") > 0)).fill_null(False)
     # TTM lease_payments: null policy matches annual (Option a).
     # Where ttm_lease_payments is null and ttm_ocf exists, deduct 0.
     ttm_lease_usable = pl.col("ttm_lease_payments").fill_null(0.0)
@@ -2374,6 +2412,16 @@ def build_ttm(facts):
         # fill_null(False): an ABSENT ttm_capex is unknown, not negative --
         # the same distinction ttm_unavailable draws for the window itself.
         (pl.col("ttm_capex") < 0).fill_null(False).alias("ttm_capex_negative"),
+        # NVGS: a measured zero against real revenue is broken, as on FY.
+        ttm_zero.alias("ttm_capex_zero"),
+        (
+            (pl.col("ttm_capex") < 0).fill_null(False)
+            | ttm_zero
+            | ((ttm_capex_ratio < CAPEX_SUSPECT_RATIO)
+               & (ttm_ocf_ratio > CAPEX_SUSPECT_OCF_RATIO)).fill_null(False)
+            | ((pl.col("ttm_dep_amort") > 0)
+               & (ttm_da_ratio < CAPEX_VS_DA_FLOOR)).fill_null(False)
+        ).alias("ttm_capex_suspect"),
         # ...and "unknown" is itself a finding worth naming (added 2026-09-11).
         # A window WAS built here and capex is simply not in it, which blanks
         # ttm_fcf_after_sbc on a row where ttm_unavailable reads FALSE and
@@ -2402,7 +2450,9 @@ def resolve_ttm_sbc(frame):
     as False for consumers of older stores; ttm_sbc_owed names the obligation.
     """
     has_window = pl.col("ttm_ocf").is_not_null()
-    capex_usable = pl.col("ttm_capex").is_not_null() & (pl.col("ttm_capex") >= 0)
+    capex_usable = _ttm_capex_is_usable() if "ttm_revenue" in frame.columns else (
+        pl.col("ttm_capex").is_not_null() & (pl.col("ttm_capex") >= 0)
+    )
     sbc_gap = has_window & pl.col("ttm_sbc").is_null()
     assumed_sbc = pl.col("sbc_assumed_zero").fill_null(False) if "sbc_assumed_zero" in frame.columns else pl.lit(False)
     zero_reported = (pl.col("ttm_sbc").is_null() & (pl.col("sbc") == 0)
@@ -3058,6 +3108,8 @@ OUTPUT_ORDER = (
     "shares_scale_suspect",
     "investing_unreconciled",
     "investing_residual",
+    "capex_floor_from_investing",
+    "fcf_after_sbc_capex_floor",
     "capex_vs_dep_amort",
     "ttm_fcf_divergence",
     "ttm_suspect",
@@ -3117,6 +3169,8 @@ OUTPUT_ORDER = (
     "ttm_ocf",
     "ttm_capex",
     "ttm_capex_negative",
+    "ttm_capex_zero",
+    "ttm_capex_suspect",
     "ttm_capex_missing",
     "ttm_sbc",
     "ttm_sbc_assumed_zero",
@@ -3224,6 +3278,8 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False,
         # not, and a row with no TTM capex to test is a row where it did not.
         frame = frame.with_columns(
             pl.col("ttm_capex_negative").fill_null(False),
+            pl.col("ttm_capex_zero").fill_null(False),
+            pl.col("ttm_capex_suspect").fill_null(False),
             pl.col("ttm_capex_missing").fill_null(False),
         )
         # 🔴 MUST run BEFORE add_ttm_divergence. It turns NULLs into numbers,
@@ -3241,6 +3297,8 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False,
             pl.lit(False).alias("ttm_suspect"),
             pl.lit(True).alias("ttm_unavailable"),
             pl.lit(False).alias("ttm_capex_negative"),
+            pl.lit(False).alias("ttm_capex_zero"),
+            pl.lit(False).alias("ttm_capex_suspect"),
             pl.lit(False).alias("ttm_capex_missing"),
             pl.lit(False).alias("ttm_sbc_assumed_zero"),
             pl.lit(True).alias("ttm_sbc_owed"),
@@ -3254,6 +3312,7 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False,
     # Must run AFTER the provenance join: the reconciliation abstains on a
     # non-USD reporting currency, and reporting_currency arrives here.
     frame = _add_investing_reconciliation(frame.join(provenance, on="cik", how="left"))
+    frame = _add_capex_investing_floor(frame)
     if acceleration.width > 1:
         frame = frame.join(acceleration, on="cik", how="left")
     frame = frame.join(off_currency, on="cik", how="left").with_columns(
@@ -3351,6 +3410,8 @@ def _ttm_window_counts(frame):
     }
     for column, label in (
         ("ttm_capex_negative", "capex_negative"),
+        ("ttm_capex_zero", "capex_zero"),
+        ("ttm_capex_suspect", "capex_suspect"),
         ("ttm_capex_missing", "capex_missing"),
         ("ttm_sbc_window_lost", "sbc_window_lost"),
         ("ttm_sbc_assumed_zero", "sbc_assumed_zero"),

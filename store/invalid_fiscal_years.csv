@@ -6,6 +6,9 @@ cik,entity_name,tag,fiscal_year_raw,form,accn,period_end
 51644,"INTERPUBLIC GROUP OF COMPANIES, INC.",CashAndCashEquivalentsAtCarryingValue,1215,10-K,0000051644-16-000056,2013-12-31
 51644,"INTERPUBLIC GROUP OF COMPANIES, INC.",CashAndCashEquivalentsAtCarryingValue,1215,10-K,0000051644-16-000056,2014-12-31
 51644,"INTERPUBLIC GROUP OF COMPANIES, INC.",CashAndCashEquivalentsAtCarryingValue,1215,10-K,0000051644-16-000056,2015-12-31
+51644,"INTERPUBLIC GROUP OF COMPANIES, INC.",DepreciationAndAmortization,1215,10-K,0000051644-16-000056,2013-12-31
+51644,"INTERPUBLIC GROUP OF COMPANIES, INC.",DepreciationAndAmortization,1215,10-K,0000051644-16-000056,2014-12-31
+51644,"INTERPUBLIC GROUP OF COMPANIES, INC.",DepreciationAndAmortization,1215,10-K,0000051644-16-000056,2015-12-31
 51644,"INTERPUBLIC GROUP OF COMPANIES, INC.",DepreciationDepletionAndAmortization,1215,10-K,0000051644-16-000056,2013-12-31
 51644,"INTERPUBLIC GROUP OF COMPANIES, INC.",DepreciationDepletionAndAmortization,1215,10-K,0000051644-16-000056,2014-12-31
 51644,"INTERPUBLIC GROUP OF COMPANIES, INC.",DepreciationDepletionAndAmortization,1215,10-K,0000051644-16-000056,2015-12-31
@@ -63,6 +66,9 @@ cik,entity_name,tag,fiscal_year_raw,form,accn,period_end
 51644,"INTERPUBLIC GROUP OF COMPANIES, INC.",PaymentsOfDividendsCommonStock,1215,10-K,0000051644-16-000056,2013-12-31
 51644,"INTERPUBLIC GROUP OF COMPANIES, INC.",PaymentsOfDividendsCommonStock,1215,10-K,0000051644-16-000056,2014-12-31
 51644,"INTERPUBLIC GROUP OF COMPANIES, INC.",PaymentsOfDividendsCommonStock,1215,10-K,0000051644-16-000056,2015-12-31
+51644,"INTERPUBLIC GROUP OF COMPANIES, INC.",PaymentsToAcquireBusinessesGross,1215,10-K,0000051644-16-000056,2013-12-31
+51644,"INTERPUBLIC GROUP OF COMPANIES, INC.",PaymentsToAcquireBusinessesGross,1215,10-K,0000051644-16-000056,2014-12-31
+51644,"INTERPUBLIC GROUP OF COMPANIES, INC.",PaymentsToAcquireBusinessesGross,1215,10-K,0000051644-16-000056,2015-12-31
 51644,"INTERPUBLIC GROUP OF COMPANIES, INC.",PaymentsToAcquireBusinessesNetOfCashAcquired,1215,10-K,0000051644-16-000056,2013-12-31
 51644,"INTERPUBLIC GROUP OF COMPANIES, INC.",PaymentsToAcquireBusinessesNetOfCashAcquired,1215,10-K,0000051644-16-000056,2014-12-31
 51644,"INTERPUBLIC GROUP OF COMPANIES, INC.",PaymentsToAcquireBusinessesNetOfCashAcquired,1215,10-K,0000051644-16-000056,2015-12-31
@@ -159,6 +165,14 @@ cik,entity_name,tag,fiscal_year_raw,form,accn,period_end
 880460,"Perfumania Holdings, Inc.",CashAndCashEquivalentsAtCarryingValue,29953000,10-K,0000880460-16-000041,2016-01-30
 880460,"Perfumania Holdings, Inc.",CashAndCashEquivalentsAtCarryingValue,29953000,10-K,0000880460-17-000007,2016-01-30
 880460,"Perfumania Holdings, Inc.",CashAndCashEquivalentsAtCarryingValue,29953000,10-K,0000880460-17-000007,2017-01-28
+880460,"Perfumania Holdings, Inc.",Depreciation,29953000,10-K,0000880460-16-000041,2015-01-31
+880460,"Perfumania Holdings, Inc.",Depreciation,29953000,10-K,0000880460-16-000041,2016-01-30
+880460,"Perfumania Holdings, Inc.",Depreciation,29953000,10-K,0000880460-17-000007,2016-01-30
+880460,"Perfumania Holdings, Inc.",Depreciation,29953000,10-K,0000880460-17-000007,2017-01-28
+880460,"Perfumania Holdings, Inc.",DepreciationAndAmortization,29953000,10-K,0000880460-16-000041,2015-01-31
+880460,"Perfumania Holdings, Inc.",DepreciationAndAmortization,29953000,10-K,0000880460-16-000041,2016-01-30
+880460,"Perfumania Holdings, Inc.",DepreciationAndAmortization,29953000,10-K,0000880460-17-000007,2016-01-30
+880460,"Perfumania Holdings, Inc.",DepreciationAndAmortization,29953000,10-K,0000880460-17-000007,2017-01-28
 880460,"Perfumania Holdings, Inc.",DepreciationDepletionAndAmortization,29953000,10-K,0000880460-16-000041,2015-01-31
 880460,"Perfumania Holdings, Inc.",DepreciationDepletionAndAmortization,29953000,10-K,0000880460-16-000041,2016-01-30
 880460,"Perfumania Holdings, Inc.",DepreciationDepletionAndAmortization,29953000,10-K,0000880460-17-000007,2016-01-30
@@ -256,6 +270,10 @@ cik,entity_name,tag,fiscal_year_raw,form,accn,period_end
 937098,"TRINET GROUP, INC.",CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,43921,10-Q,0000937098-20-000145,2020-03-31
 937098,"TRINET GROUP, INC.",CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,44012,10-Q,0000937098-20-000203,2020-06-30
 937098,"TRINET GROUP, INC.",DebtLongtermAndShorttermCombinedAmount,43921,10-Q,0000937098-20-000145,2020-03-31
+937098,"TRINET GROUP, INC.",Depreciation,43646,10-Q,0000937098-19-000182,2018-06-30
+937098,"TRINET GROUP, INC.",Depreciation,43646,10-Q,0000937098-19-000182,2018-06-30
+937098,"TRINET GROUP, INC.",Depreciation,43738,10-Q,0000937098-19-000216,2018-09-30
+937098,"TRINET GROUP, INC.",Depreciation,43738,10-Q,0000937098-19-000216,2018-09-30
 937098,"TRINET GROUP, INC.",Goodwill,43646,10-Q,0000937098-19-000182,2018-12-31
 937098,"TRINET GROUP, INC.",Goodwill,43738,10-Q,0000937098-19-000216,2018-12-31
 937098,"TRINET GROUP, INC.",Goodwill,43646,10-Q,0000937098-19-000182,2019-06-30
@@ -464,6 +482,14 @@ cik,entity_name,tag,fiscal_year_raw,form,accn,period_end
 1016178,"CARVER BANCORP, INC.",CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,1905,10-Q,0001016178-20-000027,2020-06-30
 1016178,"CARVER BANCORP, INC.",CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,1905,10-Q,0001016178-20-000034,2020-09-30
 1016178,"CARVER BANCORP, INC.",CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,1905,10-Q,0001016178-21-000007,2020-12-31
+1016178,"CARVER BANCORP, INC.",Depreciation,1905,10-Q,0001016178-20-000007,2018-12-31
+1016178,"CARVER BANCORP, INC.",Depreciation,1905,10-Q,0001016178-20-000027,2019-06-30
+1016178,"CARVER BANCORP, INC.",Depreciation,1905,10-Q,0001016178-20-000034,2019-09-30
+1016178,"CARVER BANCORP, INC.",Depreciation,1905,10-Q,0001016178-20-000007,2019-12-31
+1016178,"CARVER BANCORP, INC.",Depreciation,1905,10-Q,0001016178-21-000007,2019-12-31
+1016178,"CARVER BANCORP, INC.",Depreciation,1905,10-Q,0001016178-20-000027,2020-06-30
+1016178,"CARVER BANCORP, INC.",Depreciation,1905,10-Q,0001016178-20-000034,2020-09-30
+1016178,"CARVER BANCORP, INC.",Depreciation,1905,10-Q,0001016178-21-000007,2020-12-31
 1016178,"CARVER BANCORP, INC.",FinanceLeasePrincipalPayments,1905,10-Q,0001016178-20-000027,2019-06-30
 1016178,"CARVER BANCORP, INC.",FinanceLeasePrincipalPayments,1905,10-Q,0001016178-20-000034,2019-09-30
 1016178,"CARVER BANCORP, INC.",FinanceLeasePrincipalPayments,1905,10-Q,0001016178-20-000034,2019-09-30
@@ -624,6 +650,12 @@ cik,entity_name,tag,fiscal_year_raw,form,accn,period_end
 1091883,"CIRCOR INTERNATIONAL, INC.",CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,44561,10-Q,0001091883-21-000014,2021-04-04
 1091883,"CIRCOR INTERNATIONAL, INC.",CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,44561,10-Q,0001091883-21-000022,2021-07-04
 1091883,"CIRCOR INTERNATIONAL, INC.",CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,44561,10-Q,0001091883-21-000027,2021-10-03
+1091883,"CIRCOR INTERNATIONAL, INC.",Depreciation,44561,10-Q,0001091883-21-000014,2020-03-29
+1091883,"CIRCOR INTERNATIONAL, INC.",Depreciation,44561,10-Q,0001091883-21-000022,2020-06-28
+1091883,"CIRCOR INTERNATIONAL, INC.",Depreciation,44561,10-Q,0001091883-21-000027,2020-09-27
+1091883,"CIRCOR INTERNATIONAL, INC.",Depreciation,44561,10-Q,0001091883-21-000014,2021-04-04
+1091883,"CIRCOR INTERNATIONAL, INC.",Depreciation,44561,10-Q,0001091883-21-000022,2021-07-04
+1091883,"CIRCOR INTERNATIONAL, INC.",Depreciation,44561,10-Q,0001091883-21-000027,2021-10-03
 1091883,"CIRCOR INTERNATIONAL, INC.",DepreciationDepletionAndAmortization,44561,10-Q,0001091883-21-000014,2020-03-29
 1091883,"CIRCOR INTERNATIONAL, INC.",DepreciationDepletionAndAmortization,44561,10-Q,0001091883-21-000022,2020-06-28
 1091883,"CIRCOR INTERNATIONAL, INC.",DepreciationDepletionAndAmortization,44561,10-Q,0001091883-21-000022,2020-06-28
@@ -770,6 +802,9 @@ cik,entity_name,tag,fiscal_year_raw,form,accn,period_end
 1166928,"WEST BANCORPORATION, INC.",AdjustmentsToAdditionalPaidInCapitalShareBasedCompensationRestrictedStockUnitsRequisiteServicePeriodRecognition,2107,10-K,0001166928-18-000014,2015-12-31
 1166928,"WEST BANCORPORATION, INC.",AdjustmentsToAdditionalPaidInCapitalShareBasedCompensationRestrictedStockUnitsRequisiteServicePeriodRecognition,2107,10-K,0001166928-18-000014,2016-12-31
 1166928,"WEST BANCORPORATION, INC.",AdjustmentsToAdditionalPaidInCapitalShareBasedCompensationRestrictedStockUnitsRequisiteServicePeriodRecognition,2107,10-K,0001166928-18-000014,2017-12-31
+1166928,"WEST BANCORPORATION, INC.",Depreciation,2107,10-K,0001166928-18-000014,2015-12-31
+1166928,"WEST BANCORPORATION, INC.",Depreciation,2107,10-K,0001166928-18-000014,2016-12-31
+1166928,"WEST BANCORPORATION, INC.",Depreciation,2107,10-K,0001166928-18-000014,2017-12-31
 1166928,"WEST BANCORPORATION, INC.",IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest,2107,10-K,0001166928-18-000014,2015-12-31
 1166928,"WEST BANCORPORATION, INC.",IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest,2107,10-K,0001166928-18-000014,2016-03-31
 1166928,"WEST BANCORPORATION, INC.",IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest,2107,10-K,0001166928-18-000014,2016-06-30
@@ -841,6 +876,8 @@ cik,entity_name,tag,fiscal_year_raw,form,accn,period_end
 1245791,"GI DYNAMICS, INC.",CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,2108,10-Q,0001564590-18-013665,2017-03-31
 1245791,"GI DYNAMICS, INC.",CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,2108,10-Q,0001564590-18-013665,2017-12-31
 1245791,"GI DYNAMICS, INC.",CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,2108,10-Q,0001564590-18-013665,2018-03-31
+1245791,"GI DYNAMICS, INC.",DepreciationAndAmortization,2108,10-Q,0001564590-18-013665,2017-03-31
+1245791,"GI DYNAMICS, INC.",DepreciationAndAmortization,2108,10-Q,0001564590-18-013665,2018-03-31
 1245791,"GI DYNAMICS, INC.",IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest,2108,10-Q,0001564590-18-013665,2017-03-31
 1245791,"GI DYNAMICS, INC.",IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest,2108,10-Q,0001564590-18-013665,2018-03-31
 1245791,"GI DYNAMICS, INC.",IncomeTaxExpenseBenefit,2108,10-Q,0001564590-18-013665,2017-03-31
@@ -873,6 +910,10 @@ cik,entity_name,tag,fiscal_year_raw,form,accn,period_end
 1401521,American Coastal Insurance Corporation,CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,43101,10-Q,0001401521-18-000085,2017-06-30
 1401521,American Coastal Insurance Corporation,CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,43101,10-Q,0001401521-18-000085,2017-12-31
 1401521,American Coastal Insurance Corporation,CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,43101,10-Q,0001401521-18-000085,2018-06-30
+1401521,American Coastal Insurance Corporation,DepreciationAndAmortization,43101,10-Q,0001401521-18-000052,2017-03-31
+1401521,American Coastal Insurance Corporation,DepreciationAndAmortization,43101,10-Q,0001401521-18-000085,2017-06-30
+1401521,American Coastal Insurance Corporation,DepreciationAndAmortization,43101,10-Q,0001401521-18-000052,2018-03-31
+1401521,American Coastal Insurance Corporation,DepreciationAndAmortization,43101,10-Q,0001401521-18-000085,2018-06-30
 1401521,American Coastal Insurance Corporation,DepreciationDepletionAndAmortization,43101,10-Q,0001401521-18-000052,2017-03-31
 1401521,American Coastal Insurance Corporation,DepreciationDepletionAndAmortization,43101,10-Q,0001401521-18-000085,2017-06-30
 1401521,American Coastal Insurance Corporation,DepreciationDepletionAndAmortization,43101,10-Q,0001401521-18-000085,2017-06-30
@@ -1025,6 +1066,9 @@ cik,entity_name,tag,fiscal_year_raw,form,accn,period_end
 1501134,Invitae Corporation,CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,43465,10-K,0001501134-19-000022,2016-12-31
 1501134,Invitae Corporation,CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,43465,10-K,0001501134-19-000022,2017-12-31
 1501134,Invitae Corporation,CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,43465,10-K,0001501134-19-000022,2018-12-31
+1501134,Invitae Corporation,Depreciation,43465,10-K,0001501134-19-000022,2016-12-31
+1501134,Invitae Corporation,Depreciation,43465,10-K,0001501134-19-000022,2017-12-31
+1501134,Invitae Corporation,Depreciation,43465,10-K,0001501134-19-000022,2018-12-31
 1501134,Invitae Corporation,DepreciationDepletionAndAmortization,43465,10-K,0001501134-19-000022,2016-12-31
 1501134,Invitae Corporation,DepreciationDepletionAndAmortization,43465,10-K,0001501134-19-000022,2017-12-31
 1501134,Invitae Corporation,DepreciationDepletionAndAmortization,43465,10-K,0001501134-19-000022,2018-12-31
@@ -1211,6 +1255,38 @@ cik,entity_name,tag,fiscal_year_raw,form,accn,period_end
 1653558,"Priority Technology Holdings, Inc.",CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,43555,10-Q,0001628280-19-006766,2019-03-31
 1653558,"Priority Technology Holdings, Inc.",CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,43555,10-Q,0001628280-19-010770,2019-06-30
 1653558,"Priority Technology Holdings, Inc.",CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents,43830,10-K,0001653558-20-000015,2019-12-31
+1653558,"Priority Technology Holdings, Inc.",Depreciation,43465,10-K,0001628280-19-003666,2016-12-31
+1653558,"Priority Technology Holdings, Inc.",Depreciation,43465,10-Q,0001628280-18-014379,2017-09-30
+1653558,"Priority Technology Holdings, Inc.",Depreciation,43465,10-Q,0001628280-18-014379,2017-09-30
+1653558,"Priority Technology Holdings, Inc.",Depreciation,43465,10-K,0001628280-19-003666,2017-12-31
+1653558,"Priority Technology Holdings, Inc.",Depreciation,43830,10-K,0001653558-20-000015,2017-12-31
+1653558,"Priority Technology Holdings, Inc.",Depreciation,43555,10-Q,0001628280-19-006766,2018-03-31
+1653558,"Priority Technology Holdings, Inc.",Depreciation,43555,10-Q,0001628280-19-010770,2018-06-30
+1653558,"Priority Technology Holdings, Inc.",Depreciation,43555,10-Q,0001628280-19-010770,2018-06-30
+1653558,"Priority Technology Holdings, Inc.",Depreciation,43465,10-Q,0001628280-18-014379,2018-09-30
+1653558,"Priority Technology Holdings, Inc.",Depreciation,43465,10-Q,0001628280-18-014379,2018-09-30
+1653558,"Priority Technology Holdings, Inc.",Depreciation,43465,10-K,0001628280-19-003666,2018-12-31
+1653558,"Priority Technology Holdings, Inc.",Depreciation,43830,10-K,0001653558-20-000015,2018-12-31
+1653558,"Priority Technology Holdings, Inc.",Depreciation,43555,10-Q,0001628280-19-006766,2019-03-31
+1653558,"Priority Technology Holdings, Inc.",Depreciation,43555,10-Q,0001628280-19-010770,2019-06-30
+1653558,"Priority Technology Holdings, Inc.",Depreciation,43555,10-Q,0001628280-19-010770,2019-06-30
+1653558,"Priority Technology Holdings, Inc.",Depreciation,43830,10-K,0001653558-20-000015,2019-12-31
+1653558,"Priority Technology Holdings, Inc.",DepreciationAndAmortization,43465,10-K,0001628280-19-003666,2016-12-31
+1653558,"Priority Technology Holdings, Inc.",DepreciationAndAmortization,43465,10-Q,0001628280-18-014379,2017-09-30
+1653558,"Priority Technology Holdings, Inc.",DepreciationAndAmortization,43465,10-Q,0001628280-18-014379,2017-09-30
+1653558,"Priority Technology Holdings, Inc.",DepreciationAndAmortization,43465,10-K,0001628280-19-003666,2017-12-31
+1653558,"Priority Technology Holdings, Inc.",DepreciationAndAmortization,43830,10-K,0001653558-20-000015,2017-12-31
+1653558,"Priority Technology Holdings, Inc.",DepreciationAndAmortization,43555,10-Q,0001628280-19-006766,2018-03-31
+1653558,"Priority Technology Holdings, Inc.",DepreciationAndAmortization,43555,10-Q,0001628280-19-010770,2018-06-30
+1653558,"Priority Technology Holdings, Inc.",DepreciationAndAmortization,43555,10-Q,0001628280-19-010770,2018-06-30
+1653558,"Priority Technology Holdings, Inc.",DepreciationAndAmortization,43465,10-Q,0001628280-18-014379,2018-09-30
+1653558,"Priority Technology Holdings, Inc.",DepreciationAndAmortization,43465,10-Q,0001628280-18-014379,2018-09-30
+1653558,"Priority Technology Holdings, Inc.",DepreciationAndAmortization,43465,10-K,0001628280-19-003666,2018-12-31
+1653558,"Priority Technology Holdings, Inc.",DepreciationAndAmortization,43830,10-K,0001653558-20-000015,2018-12-31
+1653558,"Priority Technology Holdings, Inc.",DepreciationAndAmortization,43555,10-Q,0001628280-19-006766,2019-03-31
+1653558,"Priority Technology Holdings, Inc.",DepreciationAndAmortization,43555,10-Q,0001628280-19-010770,2019-06-30
+1653558,"Priority Technology Holdings, Inc.",DepreciationAndAmortization,43555,10-Q,0001628280-19-010770,2019-06-30
+1653558,"Priority Technology Holdings, Inc.",DepreciationAndAmortization,43830,10-K,0001653558-20-000015,2019-12-31
 1653558,"Priority Technology Holdings, Inc.",DepreciationDepletionAndAmortization,43465,10-K,0001628280-19-003666,2016-12-31
 1653558,"Priority Technology Holdings, Inc.",DepreciationDepletionAndAmortization,43465,10-Q,0001628280-18-014379,2017-09-30
 1653558,"Priority Technology Holdings, Inc.",DepreciationDepletionAndAmortization,43465,10-K,0001628280-19-003666,2017-12-31

@@ -49,7 +49,8 @@ the queue (§G-1). The rule and the yields it was fitted to are in its docstring
 `fy_flows_stale` (with `fy_flows_period_end`), `ttm_behind_calendar` (against
 `store_as_of`, the newest filing in the store), `ttm_side_flows_lagging`,
 `shares_split_basis_break` (DECK), `latest_q_stale` (SBLK), and
-`revenue_subset_suspect` (SEZL/RUSHA). With a comparable fresh USD cap and
+`revenue_subset_suspect` (SEZL/RUSHA), `revenue_subset_history_suspect` (IONQ).
+With a comparable fresh USD cap and
 price, `screen.py` can also append `share_count_stale_vs_live` (RUSHA/IESC).
 They run after `add_verdict`; a share-scale break also withholds the dilution
 leg and the automatic framework clearance (F-02).

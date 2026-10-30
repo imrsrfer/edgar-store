@@ -307,6 +307,7 @@ Computed metrics, all for the latest reported fiscal year:
 | `dep_amort` | Annual D&A also resolves `us-gaap:DepreciationAndAmortization` (NVGS) and `us-gaap:Depreciation` (BORR) after the prior preferred tags |
 | `revenue` | Largest same-span sibling total among the supported revenue tags, rather than the first matching tag (SEZL/RUSHA) |
 | `revenue_subset_candidate`, `revenue_subset_suspect` | Smaller same-span sibling total that first-match extraction could have chosen, and reader flag when it falls more than 1% below published revenue (SEZL/RUSHA); diagnostic, never a revenue correction |
+| `revenue_subset_history_suspect` | A prior fiscal year inside the revenue CAGR / `operating_margin_2y_ago` window (latest-5 to latest-1) carried side-by-side revenue totals at least 10x apart (IONQ: a SPAC-era `Revenues` fact of $1.235B beside ~$11M of contract revenue). The max-of-siblings rule may have published the mis-tag, inflating a base year and flattering margin expansion. Null with no FY revenue history. Fail-open subset: demotes the queue row, changes no value. Genuine large disagreements (AER) also fire |
 | `acquisitions` | Cash-flow tag chain also accepts `PaymentsToAcquireBusinessesGross` when the preferred net-of-cash tag is absent (RUSHA) |
 | `sbc_pct_revenue` | `sbc / revenue` |
 | `net_cash` | `cash - total_debt` |

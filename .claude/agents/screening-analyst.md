@@ -118,7 +118,16 @@ For each ticker:
      instrument and share class, and NI / EPS where EPS is
      available. If the gap is over 25%, quote every per-share figure at BOTH
      counts and mark which count flatters the company.
-   - **TTM window:** compare `ttm_flows_window_end` (the last quarter in the headline flows) against the company's latest filed quarter. If a later quarter is filed, the store is behind: rebuild TTM from stockanalysis quarterly statements and show the four quarters you summed. Separately, if `ttm_window_binding_concepts` is non-empty, `ttm_window_end` (the binding window) is earlier because those legs end sooner. Say "flows current; <legs> lag to <ttm_window_end>" and re-derive only those legs from the filing. Do not call the whole row behind.
+     Blank `latest_q_*` values beside `latest_q_stale` or
+     `latest_q_stale_components` mean an off-date quarter, not zero.
+   - **TTM window:** `ttm_flows_window_end` (the last quarter in the headline
+     flows) against the company's latest filed quarter. If a later quarter is
+     filed, the store is behind: rebuild TTM from stockanalysis quarterly
+     statements and show the four quarters you summed. If
+     `ttm_window_binding_concepts` is non-empty, `ttm_window_end` (the binding
+     window) is earlier because those legs end sooner: say "flows current;
+     <legs> lag to <ttm_window_end>" and re-derive only those legs from the
+     filing. Do not call the whole row behind.
    - **Investing sums:** capex + acquisitions + named legs against total
      investing CF on stockanalysis quarterly. Read the FULL investing section,
      not the "Capital Expenditures" line. Report the residual as a range and
@@ -132,8 +141,6 @@ For each ticker:
      adjusted-vs-GAAP reconciliation). Missing or undisclosed inputs are
      `NOT_EVALUABLE`, never a pass; each blocks advancement past WATCHLIST.
      Report the missing input and the obligation that would close each leg.
-   - Blank `latest_q_*` values with `latest_q_stale` or
-     `latest_q_stale_components` indicate an off-date quarter, not zero.
      **Dilution:** a dated share-count bridge separating SBC issuance,
      acquisition issuance, other issuance and repurchases, with net annual
      diluted-share growth attributable to SBC. If net growth is unknown or

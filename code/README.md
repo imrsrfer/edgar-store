@@ -47,7 +47,11 @@ the queue (§G-1). The rule and the yields it was fitted to are in its docstring
 `store_defect_flags`: `total_debt_partial`, `capex_gross_of_proceeds` (with
 `ppe_sale_proceeds` and `capex_net` beside gross capex), `shares_history_scale_break`,
 `fy_flows_stale` (with `fy_flows_period_end`), `ttm_behind_calendar` (against
-`store_as_of`, the newest filing in the store) and `ttm_side_flows_lagging`.
+`store_as_of`, the newest filing in the store), `ttm_side_flows_lagging`,
+`shares_split_basis_break` (DECK), `latest_q_stale` (SBLK), and
+`revenue_subset_suspect` (SEZL/RUSHA), `revenue_subset_history_suspect` (IONQ).
+With a comparable fresh USD cap and
+price, `screen.py` can also append `share_count_stale_vs_live` (RUSHA/IESC).
 They run after `add_verdict`; a share-scale break also withholds the dilution
 leg and the automatic framework clearance (F-02).
 
@@ -294,12 +298,19 @@ Computed metrics, all for the latest reported fiscal year:
 | Column | Formula |
 |---|---|
 | `tangible_book` | `equity - goodwill - intangibles`, **fiscal-year vintage**. Unchanged and still the FY figure; `screen.py` and logged watchlist conditions read it by name |
-| `tangible_book_latest_q` | `latest_q_equity - latest_q_goodwill - latest_q_intangibles`, **quarterly vintage**. Quarterly goodwill/intangibles fall back to the resolved fiscal-year figures when the quarter does not tag them (usually a resolved zero — the never-acquired case); quarterly equity never falls back |
-| `tangible_book_basis` | `latest_q` / `fiscal_year` / `none` — which vintage actually decided `fail_tangible_book`. `none` means the leg did not run |
+| `tangible_book_latest_q` | `latest_q_equity - latest_q_goodwill - latest_q_intangibles`, **quarterly vintage**. Quarterly goodwill/intangibles may use supported fiscal-year fallbacks; quarterly equity never falls back. An off-date component with an unsupported fallback that would disagree in sign with the fiscal-year result leaves this null (MMSI) |
+| `tangible_book_basis` | `latest_q` / `fiscal_year` / `none` — which supported vintage decided `fail_tangible_book`. `none` can mean an unsupported quarterly fallback withheld the leg (MMSI) |
 | `tangible_book_vintage_conflict` | Both vintages exist and **disagree in sign**, either direction. A flag for the analyst, not an automatic fail: some hits are the fiscal-year row being the artefact |
 | `income_quality` | `ocf / net_income` |
 | `fcf` | `ocf - capex` |
 | `fcf_after_sbc` | `ocf - capex - sbc - lease_payments` (deduct measured lease principal; missing lease disclosure remains flagged) |
+| `capex_floor_from_investing`, `fcf_after_sbc_capex_floor` | Nullable latest-FY review scenario when negative `investing_residual` is unexplained and capex is small: `capex + abs(investing_residual)` and `fcf_after_sbc - abs(investing_residual)`. BORR proves the case. The residual may instead be acquisitions or investments; reported capex and FCF remain unchanged |
+| `dep_amort` | Annual D&A also resolves `us-gaap:DepreciationAndAmortization` (NVGS) and `us-gaap:Depreciation` (BORR) after the prior preferred tags |
+| `revenue` | Largest same-span sibling total among the supported revenue tags reported in the same accession (the restating filing), rather than the first matching tag (SEZL/RUSHA). An older filing's larger tag never beats a restatement |
+| `revenue_subset_candidate`, `revenue_subset_suspect` | Smaller same-span sibling total that first-match extraction could have chosen, and reader flag when it falls more than 1% below published revenue (SEZL/RUSHA); diagnostic, never a revenue correction |
+| `revenue_subset_tested` | A same-span sibling revenue total existed in the SAME accession, so the subset comparison actually ran. When False/null, `revenue_subset_suspect` and `revenue_subset_history_suspect` are null (not tested), never False |
+| `revenue_subset_history_suspect` | A prior fiscal year inside the revenue CAGR / `operating_margin_2y_ago` window (latest-5 to latest-1) carried side-by-side revenue totals at least 10x apart (IONQ: a SPAC-era `Revenues` fact of $1.235B beside ~$11M of contract revenue). The max-of-siblings rule may have published the mis-tag, inflating a base year and flattering margin expansion. Null with no FY revenue history. Fail-open subset: demotes the queue row, changes no value. Genuine large disagreements (AER) also fire |
+| `acquisitions` | Cash-flow tag chain also accepts `PaymentsToAcquireBusinessesGross` when the preferred net-of-cash tag is absent (RUSHA) |
 | `sbc_pct_revenue` | `sbc / revenue` |
 | `net_cash` | `cash - total_debt` |
 | `effective_tax` | `tax_expense / pretax_income` |
@@ -318,7 +329,7 @@ forward, `fail_*` is kept for backward compatibility:
 
 | `fail_*` / `test_*` | Fails when |
 |---|---|
-| `fail_tangible_book` / `test_tangible_book` | Tangible book `< 0` on the **later of the two balance-sheet vintages** — see `tangible_book_basis` for which one that was on a given row (load-bearing) |
+| `fail_tangible_book` / `test_tangible_book` | Tangible book `< 0` on the **later supported balance-sheet vintage**. An unsupported quarterly fallback that would reverse the fiscal-year sign leaves the leg null / `NOT_EVALUABLE` and `tangible_book_basis = none` (MMSI) |
 | `fail_income_quality` / `test_income_quality` | `income_quality < 0.80` (load-bearing) |
 | `fail_fcf` / `test_fcf` | Plain `fcf <= 0` (load-bearing) |
 | `fail_fcf_after_sbc` / `test_fcf_after_sbc` | Measured `fcf_after_sbc <= 0`; missing SBC is `NOT_EVALUABLE`, not a clearance |
@@ -350,19 +361,24 @@ Trends, because direction matters more than level:
 | `income_quality_direction` | `rising` / `falling` / `flat` |
 
 TTM columns (`ttm_revenue`, `ttm_ocf`, `ttm_fcf_after_sbc`, …) are populated only
-where four discrete quarters genuinely exist. Many filers report year-to-date
-rather than discrete quarters, and a discrete Q4 is never filed on its own, so
-these are frequently null by design rather than stitched from mismatched periods.
+where a valid trailing window exists. A leg may use a discrete-quarter step
+alongside year-to-date facts; `ttm_ocf`, `ttm_capex`, `ttm_sbc`, and
+`ttm_lease_payments` can therefore have different valid end dates (TXT/BKTI).
 
 The TTM window itself is published, because a window can be internally valid and
 still stop short of the fiscal year sitting on the same row:
 
 | Column | Meaning |
 |---|---|
-| `ttm_window_start`, `ttm_window_end` | First and last day the TTM sums actually cover. Where per-concept windows differ, the **binding** one is published — the earliest end among `ocf` / `capex` / `sbc`, the chain every multiple rests on — never the most recent |
+| `ttm_window_start`, `ttm_window_end` | First and last day the binding TTM window covers. Where per-concept windows differ, the earliest end in the FCF chain is published, never the most recent |
+| `ttm_flows_window_end` | End of the OCF trailing window, the last quarter in the headline flows; null without an OCF window (TXT/BKTI) |
+| `ttm_window_binding_concepts` | FCF-chain legs (`capex`, `sbc`, `lease_payments`) ending before `ttm_flows_window_end`, explaining an earlier binding `ttm_window_end`; empty string means none, null means no OCF window (TXT/BKTI) |
 | `ttm_window_misaligned` | `ttm_window_end` is 75 days or more **earlier** than `period_end`: the TTM figures are staler than the annual figures beside them. `False` means measured and aligned; a filer with no buildable TTM has null dates and `False` too, and `ttm_unavailable` is the column that tells those two apart |
 | `ttm_capex_negative` | `ttm_capex` summed to a **negative** figure, so `ttm_fcf_after_sbc` was refused and left null rather than computed through it — a negative capex would ADD to free cash flow. The flag states the sign; it does not correct it, because a negative TTM capex is as likely to be an extraction defect as a real disposal and only the cash-flow statement settles which. Distinct from `ttm_unavailable`: a window WAS built here and `ttm_ocf` / `ttm_revenue` on the row remain usable. 114 rows on the 2026-09-10 store, 86 of which carried an empty `ttm_stale_concepts` and so read as clean |
 | `ttm_capex_missing` | A TTM window exists and **capex is not in it**, so `ttm_fcf_after_sbc` is withheld. Never zero-filled: an absent capex read as zero is a company with no capital expenditure, which overstates FCF by the whole line — the same fail-open direction `capex_broken` exists to catch. Mutually exclusive with `ttm_capex_negative`; a null is not a negative |
+| `ttm_capex_zero` | Zero TTM capex with positive TTM revenue; withholds `ttm_fcf_after_sbc`, including after SBC resolution (NVGS historical pattern) |
+| `ttm_capex_suspect` | TTM analogue of the annual low-capex warning, including low capex against revenue or D&A; warns without changing a verdict or nonzero FCF (NVGS) |
+| `ttm_dep_amort` | Trailing D&A uses the expanded annual tag chain, including NVGS and BORR |
 | `ttm_sbc_window_lost` | A TTM window exists, capex is usable, the **SBC term is absent, and the fiscal year shows real SBC** (`sbc > 0`). The company demonstrably pays it and the four-quarter window lost the line, so the metric is withheld rather than computed with a zero that would overstate FCF-after-SBC by the entire SBC figure |
 | `ttm_sbc_owed` | TTM SBC is missing and the annual SBC is missing or nonzero: withhold `ttm_fcf_after_sbc`. An imputed annual zero cannot resolve the obligation. A null cannot satisfy positive-TTM refill |
 | `ttm_sbc_zero_reported` | Missing TTM SBC resolved by a measured, reported annual SBC zero. Compute TTM OCF minus usable TTM capex minus every measured TTM lease payment; this is not owed. Missing/negative capex and missing OCF still withhold cash |
@@ -475,8 +491,12 @@ tested on the later of them:
 
 | Column | Meaning |
 |---|---|
-| `latest_q_equity`, `latest_q_goodwill`, `latest_q_intangibles`, `latest_q_cash`, `latest_q_total_debt`, `latest_q_shares_diluted` | Most recent **quarterly** balances (and the weighted-average share count). A snapshot, never a trailing sum — hence the different prefix |
+| `latest_q_equity`, `latest_q_goodwill`, `latest_q_intangibles`, `latest_q_cash`, `latest_q_total_debt`, `latest_q_shares_diluted` | Date-checked quarterly balances and weighted-average share count. Off-date balance components are null; a share count is null when older than the equity anchor. Blanks are not zero (MMSI) |
 | `latest_q_period_end` | The balance-sheet date those columns describe, anchored on `equity`. Compared against `period_end` to decide which vintage is later; **presence alone is not enough**, because a filer whose quarterly coverage lags its annual filing has a `latest_q_period_end` *earlier* than `period_end` |
+| `latest_q_stale` | Quarterly balance sheet more than 200 days behind binding `ttm_window_end`; null when dates are unavailable. Superseded balances are withheld, while a quarter newer than FY remains usable (SBLK) |
+| `latest_q_stale_components` | Comma list of quarterly components dropped for their own off-date facts; empty string means none. Share count is dropped only when older (MMSI) |
+| `live_share_count`, `share_count_live_gap`, `share_count_stale_vs_live` | Fresh supplied USD market cap divided by paired price, that count divided by FY diluted shares minus one, and nullable flag for an absolute gap above 25%. Verify share class and instrument; no per-share figure is changed (RUSHA/IESC) |
+| `shares_split_basis_break`, `shares_split_basis_ratio` | Restated adjacent FY diluted-share discontinuity at least 3.75× in either direction but below the 100× scale-break threshold, and newer/older ratio. Missing history gives null; review split basis before using growth (DECK) |
 
 Finally, `source_tag_*` columns echo the XBRL tag chosen for each concept that
 drives a verdict (`equity`, `goodwill`, `intangibles`, `ocf`, `capex`, `sbc`,

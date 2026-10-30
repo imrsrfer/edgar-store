@@ -290,7 +290,9 @@ LIVE_CASES = {
     # 153-day FYE-change logic is still covered by
     # test_fye_change_gap_below_300_days_still_flags.
     "VMC": "ttm_behind_calendar",
-    "LSTR": "ttm_behind_calendar",
+    # LSTR removed 2026-10-29: the refreshed archive holds its Q3 10-Q (window
+    # 2026-09-26), so the store is no longer behind and the flag correctly
+    # stays off. VMC and CTSH still pin the live case.
     "CTSH": "ttm_behind_calendar",
     "OKE": "ttm_side_flows_lagging",
 }

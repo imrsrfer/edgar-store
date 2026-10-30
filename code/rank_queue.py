@@ -80,7 +80,7 @@ import polars as pl
 from build_prices import LANE_FILES
 from edgar_lib import Paths, log_stage
 from gate0 import DEFAULT_EXCLUDE_SIC, parse_sic_ranges
-from store_defects import FAIL_OPEN_DEFECTS
+from store_defects import FAIL_OPEN_DEFECTS, add_share_count_live_check
 from screen import add_framework_triage, rank_by_cheapness
 from fx import load_fx
 
@@ -102,6 +102,7 @@ CARRY = (
     "fcf_after_sbc", "p_fcf_after_sbc_live", "revenue", "gate0_status",
     "gate0_framework_pass", "drawdown_undiagnosed", "warn_inorganic",
     "gate0_unevaluated", "tier2_commodity", "store_defect_flags",
+    "live_share_count", "share_count_live_gap", "share_count_stale_vs_live",
     "framework_leg_failed", "framework_leg_unresolved", "review_bucket",
     "framework_diagnosis", "framework_not_evaluated", "gate0_provisional",
     "ttm_fcf_divergence", "ttm_fcf_after_sbc", "ttm_sbc_owed", "ttm_sbc_zero_reported",
@@ -245,6 +246,11 @@ def direct_pass(gate0, prices, lane_tickers, exclude_sic=DEFAULT_EXCLUDE_SIC):
                 pl.col("ticker").str.to_uppercase(),
                 pl.col(cap_col).cast(pl.Float64, strict=False).alias("_cap"),
                 pl.col("price").cast(pl.Float64, strict=False).alias("_price"),
+                *[
+                    (pl.col(c) if c in prices.columns else
+                     pl.lit(None, dtype=pl.Date if c == "as_of" else pl.String)).alias(c)
+                    for c in ("as_of", "market_cap_fetched_at", "market_cap_currency")
+                ],
             ),
             on="ticker",
             how="left",
@@ -253,9 +259,10 @@ def direct_pass(gate0, prices, lane_tickers, exclude_sic=DEFAULT_EXCLUDE_SIC):
             # price x the store's diluted count, which lags buybacks.
             pl.coalesce(pl.col("_cap"), pl.col("_price") * _num("shares_diluted"))
             .alias("market_cap")
-        ).drop("_cap", "_price")
+        ).rename({"_cap": "market_cap_supplied", "_price": "price"})
     elif "market_cap" not in frame.columns:
         frame = frame.with_columns(pl.lit(None, dtype=pl.Float64).alias("market_cap"))
+    frame = add_share_count_live_check(frame)
     funnel.append(("priced (market cap known)", int(frame["market_cap"].is_not_null().sum())))
     keep = _carry(frame.columns) + ["growth_not_measured"]
     rows = frame.select(keep).with_columns(

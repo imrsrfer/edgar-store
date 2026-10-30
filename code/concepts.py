@@ -51,6 +51,9 @@ class Concept:
         never_alone=None,
         never_sole=None,
         zero_falls_through=False,
+        side_by_side_max=None,
+        subset_min_of=None,
+        subset_tested_of=None,
     ):
         self.name = name
         self.period_type = period_type
@@ -124,6 +127,38 @@ class Concept:
         # build_facts._matching. Never mixed into ``chain``: a coincidental
         # same-named tag in the wrong taxonomy must not silently match.
         self.ifrs_chain = tuple(ifrs_chain) if ifrs_chain else ()
+        # 🔴 SIDE-BY-SIDE TOTALS, NOT A FALLBACK ORDER (added 2026-10-29,
+        # SEZL / RUSHA). These chain tags are ALTERNATIVE presentations of
+        # the same total that a filer reports next to each other, so
+        # first-match-wins takes whichever sits first in the chain even when
+        # it is the SUBSET. SEZL FY2025 resolved to
+        # RevenueFromContractWithCustomerExcludingAssessedTax 235,878,000
+        # against a Revenues of 450,279,000 reported in the same 10-K (the
+        # other 214,401,000 is RevenueNotFromContractWithCustomer -- a
+        # lender's interest/fee income, which IS its revenue); RUSHA lost
+        # 5.0% of revenue the same way, and its ttm_acquisitions was null on
+        # top (see acquisitions). Understated revenue fails OPEN on the
+        # inorganic screen: acq_intensity and bs_acq_intensity both divide
+        # by it. When the chain winner is one of these tags, every other tag
+        # in the set reporting the SAME period (same start AND end) is
+        # checked and the LARGEST value wins; source_tag records the winner.
+        # RevenueFromContractWithCustomerIncludingAssessedTax is
+        # deliberately NOT in the set: it is larger by excise tax, and a
+        # larger revenue LOWERS sbc_pct_revenue and both intensities -- the
+        # flattering direction.
+        self.side_by_side_max = frozenset(side_by_side_max or ())
+        # Diagnostic counterpart: resolve to the SMALLEST of these tags when
+        # at least two share one period INSIDE ONE FILING and disagree, else
+        # null. This is the figure first-match-wins would have published;
+        # gate0 reads it for the revenue_subset_suspect flag. Never a
+        # scoring concept.
+        self.subset_min_of = frozenset(subset_min_of or ())
+        # The evaluability marker (review finding 5): resolve (to the count
+        # of tags compared) whenever at least two of these tags share one
+        # span inside ONE filing -- agree or not -- else null. Lets the
+        # suspect flags tell "tested and agreed" (False) from "never
+        # tested" (null): missing is never zero.
+        self.subset_tested_of = frozenset(subset_tested_of or ())
 
     @property
     def is_instant(self):
@@ -132,7 +167,14 @@ class Concept:
     @property
     def all_tags(self):
         """Every tag this concept might read, for the parser's whitelist."""
-        return tuple(self.components) + self.chain + self.ifrs_chain
+        return (
+            tuple(self.components)
+            + self.chain
+            + self.ifrs_chain
+            + tuple(self.side_by_side_max)
+            + tuple(self.subset_min_of)
+            + tuple(self.subset_tested_of)
+        )
 
     def __repr__(self):
         return f"Concept({self.name!r}, {self.period_type!r}, {len(self.chain)} tags)"
@@ -319,6 +361,15 @@ INVESTING_PORTFOLIO_TAGS = (
 )
 
 
+# The side-by-side revenue totals -- see Concept.side_by_side_max. One
+# module-level tuple so the revenue concept and its diagnostic counterpart
+# cannot drift apart.
+REVENUE_SIDE_BY_SIDE_TAGS = (
+    "Revenues",
+    "RevenueFromContractWithCustomerExcludingAssessedTax",
+    "SalesRevenueNet",
+)
+
 CONCEPTS = (
     Concept(
         "equity",
@@ -391,6 +442,9 @@ CONCEPTS = (
             "PremiumsEarnedNet",
             "RealEstateRevenueNet",
         ],
+        # SEZL / RUSHA: the first two chain tags are reported side by side,
+        # and the first is a subset of the second. See Concept.side_by_side_max.
+        side_by_side_max=REVENUE_SIDE_BY_SIDE_TAGS,
         ifrs_chain=["Revenue", "RevenueFromContractsWithCustomers"],
     ),
     Concept(
@@ -622,7 +676,15 @@ CONCEPTS = (
     Concept(
         "acquisitions",
         DURATION,
-        ["PaymentsToAcquireBusinessesNetOfCashAcquired"],
+        [
+            "PaymentsToAcquireBusinessesNetOfCashAcquired",
+            # RUSHA tags ONLY the Gross variant (FY2025 24,314,000) and
+            # resolved to null. Gross overstates by the cash acquired in the
+            # deal -- it makes acq_intensity LARGER, which is the
+            # fail-closed direction for the inorganic screen, so it is a
+            # safe fallback behind the net tag.
+            "PaymentsToAcquireBusinessesGross",
+        ],
         # The user's candidate was missing the ClassifiedAsInvestingActivities
         # suffix; without it the tag does not exist in the archive.
         ifrs_chain=[
@@ -724,6 +786,8 @@ CONCEPTS = (
         [
             "DepreciationDepletionAndAmortization",
             "DepreciationAmortizationAndAccretionNet",
+            "DepreciationAndAmortization",
+            "Depreciation",
         ],
         # DepreciationExpense verified against TSMC, which reports
         # depreciation and amortisation as two separate tags rather than a
@@ -808,6 +872,33 @@ CONCEPTS = (
     # lease_heavy can fire when lease_payments is unresolved: ZIM reports only
     # this tag, $2,524M against $2,082M FCF-after-SBC, and passed unflagged.
     Concept("lease_outflow_total", DURATION, [], ifrs_chain=["CashOutflowForLeases"]),
+    # Diagnostic only (2026-10-29, SEZL / RUSHA). The figure revenue WOULD
+    # have published under first-match-wins: when at least two of revenue's
+    # side-by-side total tags share one period and disagree, this resolves
+    # to the smallest of them (source_tag names it). Null everywhere else.
+    # gate0 reads it for the reader-only revenue_subset_suspect flag; it
+    # never scores, and every tag in the set is already a scoring revenue
+    # tag, so it cannot relabel a period (see DIAGNOSTIC_ONLY_TAGS).
+    Concept(
+        "revenue_subset_candidate",
+        DURATION,
+        [],
+        subset_min_of=REVENUE_SIDE_BY_SIDE_TAGS,
+    ),
+    # Diagnostic only (2026-10-30, review finding 5). The evaluability
+    # marker: resolves to the COUNT of side-by-side revenue tags that shared
+    # one span inside ONE filing (2 in practice), whether they agreed or
+    # not. Null everywhere else. store_defects reads it so
+    # revenue_subset_suspect / revenue_subset_history_suspect can tell
+    # "tested and agreed" (False) from "never tested" (null) -- missing is
+    # never zero. Never a scoring concept; its tags are all scoring revenue
+    # tags already, so it cannot relabel a period.
+    Concept(
+        "revenue_subset_tested",
+        DURATION,
+        [],
+        subset_tested_of=REVENUE_SIDE_BY_SIDE_TAGS,
+    ),
 )
 
 CONCEPTS_BY_NAME = {c.name: c for c in CONCEPTS}
@@ -835,6 +926,8 @@ DIAGNOSTIC_CONCEPT_NAMES = (
     "investing_inflows",
     "investing_portfolio",
     "lease_outflow_total",
+    "revenue_subset_candidate",
+    "revenue_subset_tested",
 )
 
 # 🔴 Tags reachable ONLY through a diagnostic concept.

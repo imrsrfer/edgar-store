@@ -68,6 +68,14 @@ Detectors, each with the case that proved it:
                              the subset. The value is now the larger total --
                              fixed at the source; this flag says the filer's
                              tags disagreed, nothing more. Reader-only.
+  revenue_subset_history_suspect  IONQ, Biora. A PRIOR fiscal year inside the
+                             trend window (revenue_cagr_3y/5y,
+                             operating_margin_2y_ago) carries a side-by-side
+                             disagreement of 10x or more -- the mis-tag shape.
+                             An inflated base year shrinks base-year operating
+                             margin, so margin-expansion legs read BETTER than
+                             truth: fail-open, hence FAIL_OPEN_DEFECTS. The
+                             latest-year twin stays with revenue_subset_suspect.
 
 ``store_defect_flags`` lists every detector that fired, comma-joined, so the
 queue ranker and a human reader see one column rather than six.
@@ -137,6 +145,22 @@ QUARTERLY_FILER_FORMS = ("10-K", "10-Q", "10-K/A", "10-Q/A")
 # 5.0%, SEZL's 47.6%; both are named cases the flag exists to catch.
 REVENUE_SUBSET_TOLERANCE = 0.01
 
+# revenue_subset_history_suspect: the max/min ratio between a prior year's
+# side-by-side revenue totals above which the year is treated as resting on
+# a disputed tag. Measured on 2,684 FY candidate rows (2026-10-22 archive):
+# the distribution is CONTINUOUS -- 1-1.5x: 1,616 rows, 2-3x: 92, 5-10x: 195,
+# 10-50x: 282, >50x: 183 -- so no threshold separates the mis-tag shape from
+# a genuine large gap (AER's real lease-revenue total sits at 396-463x). 10x
+# is a precision choice, not a natural break: the named mis-tags (IONQ 111x,
+# Biora 458x) sit far above it, 80% of candidate rows sit below it, and the
+# flag's wording ("rests on a disputed tag -- re-derive by hand") is true of
+# every row it catches, AER and OSCR included.
+REVENUE_HISTORY_SUSPECT_RATIO = 10.0
+# The window the flag protects: the years feeding revenue_cagr_3y,
+# revenue_cagr_5y and operating_margin_2y_ago (CAGR_LONG_YEARS in gate0),
+# EXCLUDING the latest year -- that one is revenue_subset_suspect's question.
+REVENUE_HISTORY_WINDOW_YEARS = 5
+
 DEFECT_COLUMNS = (
     "total_debt_partial",
     "capex_gross_of_proceeds",
@@ -146,6 +170,7 @@ DEFECT_COLUMNS = (
     "ttm_behind_calendar",
     "latest_q_stale",
     "revenue_subset_suspect",
+    "revenue_subset_history_suspect",
 )
 
 # The subset that can make a Gate 0 or growth figure read BETTER than the truth
@@ -158,6 +183,7 @@ FAIL_OPEN_DEFECTS = (
     "fy_flows_stale",
     "ttm_behind_calendar",
     "ttm_side_flows_lagging",
+    "revenue_subset_history_suspect",
 )
 
 
@@ -411,6 +437,74 @@ def _revenue_subset_suspect(frame):
     )
 
 
+def _revenue_subset_history_suspect(facts, frame):
+    """True when a PRIOR fiscal year in the trend window rests on a disputed tag.
+
+    IONQ (FY2022: revenue 1,235.0M beside a subset candidate of 11.131M) and
+    Biora (2020: 74.3M beside 162k) carry SPAC-era mis-tags in their history.
+    The W3 max rule fixes the latest year; the poisoned base year remains,
+    and because it shrinks base-year operating margin, the margin-expansion
+    legs (operating_margin_2y_ago, the margin2y lane, inflection) read BETTER
+    than truth -- the fail-open direction, so this sits in FAIL_OPEN_DEFECTS
+    for queue demotion. The window is latest-5 .. latest-1: the years feeding
+    revenue_cagr_3y/5y and operating_margin_2y_ago. A disagreement on the
+    latest year is revenue_subset_suspect's question and does NOT fire this
+    flag. FY rows only: the trend columns read nothing else.
+
+    🔴 A FLAG, NOT A CORRECTION. The 10x ratio cannot tell IONQ's mis-tag
+    from AER's genuine 462x lease-revenue total (AER/OSCR fire too -- the
+    flag says "this history rests on a disputed tag, re-derive by hand",
+    which is true of both). NULL when the filer has no FY revenue history at
+    all: missing is never zero, and an unmeasured history is not a clean one.
+    """
+    if "latest_fiscal_year" not in frame.columns:
+        return frame.with_columns(
+            pl.lit(None, dtype=pl.Boolean).alias("revenue_subset_history_suspect")
+        )
+    rev = facts.filter(
+        (pl.col("concept") == "revenue") & (pl.col("fiscal_period") == "FY")
+    ).select("cik", "fiscal_year", "value")
+    cand = facts.filter(
+        (pl.col("concept") == "revenue_subset_candidate")
+        & (pl.col("fiscal_period") == "FY")
+    ).select("cik", "fiscal_year", pl.col("value").alias("_candidate"))
+    pairs = (
+        rev.join(cand, on=["cik", "fiscal_year"], how="inner")
+        .join(
+            frame.select("cik", "latest_fiscal_year"), on="cik", how="inner"
+        )
+        .filter(
+            (pl.col("fiscal_year") < pl.col("latest_fiscal_year"))
+            & (
+                pl.col("fiscal_year")
+                >= pl.col("latest_fiscal_year") - REVENUE_HISTORY_WINDOW_YEARS
+            )
+        )
+    )
+    lo = pl.min_horizontal("value", "_candidate")
+    hi = pl.max_horizontal("value", "_candidate")
+    fires = ((lo <= 0) & (hi > 0)) | (
+        (lo > 0) & (hi / lo >= REVENUE_HISTORY_SUSPECT_RATIO)
+    )
+    hits = pairs.filter(fires).select("cik").unique().with_columns(
+        pl.lit(True).alias("_hit")
+    )
+    history = rev.select("cik").unique().with_columns(
+        pl.lit(True).alias("_has_history")
+    )
+    return (
+        frame.join(history, on="cik", how="left")
+        .join(hits, on="cik", how="left")
+        .with_columns(
+            pl.when(pl.col("_has_history").is_null())
+            .then(None)
+            .otherwise(pl.col("_hit").fill_null(False))
+            .alias("revenue_subset_history_suspect")
+        )
+        .drop("_has_history", "_hit")
+    )
+
+
 def add_store_defect_flags(frame, facts):
     """Attach the detectors above to the one-row-per-company frame.
 
@@ -483,6 +577,7 @@ def add_store_defect_flags(frame, facts):
         pl.col("ttm_side_flows_lagging").fill_null(""),
     ).drop("_newest_period")
     frame = _revenue_subset_suspect(frame)
+    frame = _revenue_subset_history_suspect(facts, frame)
     fired = [
         pl.when(pl.col(c).fill_null(False)).then(pl.lit(c)).otherwise(None)
         for c in DEFECT_COLUMNS

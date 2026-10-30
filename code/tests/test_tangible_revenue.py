@@ -41,7 +41,7 @@ SUBSET_CANDIDATE = concepts.CONCEPTS_BY_NAME["revenue_subset_candidate"]
 RFCWCEAT = "RevenueFromContractWithCustomerExcludingAssessedTax"
 
 
-def _fact(tag, value, start, end):
+def _fact(tag, value, start, end, accn="0000000000-25-000001", filed=None):
     return {
         "tag": tag,
         "value": value,
@@ -51,17 +51,25 @@ def _fact(tag, value, start, end):
         "fiscal_year": 2025,
         "fiscal_period": "FY",
         "form": "10-K",
-        "accn": "0000000000-25-000001",
-        "filed": None,
+        "accn": accn,
+        "filed": filed,
         "taxonomy": "us-gaap",
     }
 
 
 def _index(entries):
-    """Minimal (tag, fiscal_year, period) -> facts index for _resolve_one."""
+    """Minimal (tag, fiscal_year, period) -> facts index for _resolve_one.
+
+    An entry is (tag, value, start, end) with optional trailing (accn, filed).
+    """
     index = {}
-    for tag, value, start, end in entries:
-        index.setdefault((tag, 2025, "FY"), []).append(_fact(tag, value, start, end))
+    for entry in entries:
+        tag, value, start, end = entry[:4]
+        accn = entry[4] if len(entry) > 4 else "0000000000-25-000001"
+        filed = dt.date.fromisoformat(entry[5]) if len(entry) > 5 else None
+        index.setdefault((tag, 2025, "FY"), []).append(
+            _fact(tag, value, start, end, accn=accn, filed=filed)
+        )
     return index
 
 
@@ -148,6 +156,139 @@ def test_including_assessed_tax_never_wins_the_max():
 
 
 # --------------------------------------------------------------------------
+# Finding 1 (rv-review.md, HIGH): side-by-side totals compete only within the
+# SAME accession. An obsolete filing's larger tag must never beat the
+# restatement that superseded it.
+# --------------------------------------------------------------------------
+
+OLD_ACCN = "0000000000-25-000099"
+NEW_ACCN = "0000000000-26-000001"
+
+
+def test_an_obsolete_filings_larger_tag_never_beats_the_restatement():
+    """The reviewer's synthetic, verbatim: the 2026 restatement reports
+    RFCWCEAT=80 for the FY span and OMITS Revenues; the superseded 2025
+    filing had reported Revenues=100 for the same span. Cross-accession
+    maxing published 100 from a filing the filer itself replaced."""
+    row = build_facts._resolve_one(
+        REVENUE, 2025, "FY",
+        _index([
+            (RFCWCEAT, 80_000_000.0, *FY_SPAN, NEW_ACCN, "2026-02-01"),
+            ("Revenues", 100_000_000.0, *FY_SPAN, OLD_ACCN, "2025-02-01"),
+        ]),
+    )
+    assert row["value"] == pytest.approx(80_000_000.0)
+    assert row["source_tag"] == RFCWCEAT
+    assert row["accn"] == NEW_ACCN
+
+
+def test_same_accession_siblings_still_max():
+    """The SEZL/RUSHA fix is untouched: two totals reported side by side IN
+    ONE filing still resolve to the larger."""
+    row = build_facts._resolve_one(
+        REVENUE, 2025, "FY",
+        _index([
+            (RFCWCEAT, 235_878_000.0, *FY_SPAN, NEW_ACCN, "2026-02-01"),
+            ("Revenues", 450_279_000.0, *FY_SPAN, NEW_ACCN, "2026-02-01"),
+        ]),
+    )
+    assert row["value"] == pytest.approx(450_279_000.0)
+    assert row["source_tag"] == "Revenues"
+
+
+def test_a_restated_total_inside_the_restatement_wins():
+    """The restatement carries BOTH tags (the comparative re-presented): the
+    larger of the restatement's OWN pair wins, and the obsolete filing is
+    irrelevant either way."""
+    row = build_facts._resolve_one(
+        REVENUE, 2025, "FY",
+        _index([
+            (RFCWCEAT, 80_000_000.0, *FY_SPAN, NEW_ACCN, "2026-02-01"),
+            ("Revenues", 95_000_000.0, *FY_SPAN, NEW_ACCN, "2026-02-01"),
+            ("Revenues", 100_000_000.0, *FY_SPAN, OLD_ACCN, "2025-02-01"),
+        ]),
+    )
+    assert row["value"] == pytest.approx(95_000_000.0)
+    assert row["source_tag"] == "Revenues"
+    assert row["accn"] == NEW_ACCN
+
+
+def test_subset_candidate_ignores_cross_accession_siblings():
+    """The diagnostic answers the same question as the max rule: with the
+    only sibling in a superseded filing there is no side-by-side
+    disagreement to report."""
+    row = build_facts._resolve_one(
+        SUBSET_CANDIDATE, 2025, "FY",
+        _index([
+            (RFCWCEAT, 80_000_000.0, *FY_SPAN, NEW_ACCN, "2026-02-01"),
+            ("Revenues", 100_000_000.0, *FY_SPAN, OLD_ACCN, "2025-02-01"),
+        ]),
+    )
+    assert row is None
+
+
+# --------------------------------------------------------------------------
+# revenue_subset_tested (finding 5, rv-review.md MEDIUM): an evaluable
+# marker -- emitted whenever at least two side-by-side tags shared one span
+# inside ONE filing, whether they agreed or not. Lone tag / cross-accession
+# only -> no row, so the suspect flags can tell untested from tested-clean.
+# --------------------------------------------------------------------------
+
+TESTED = concepts.CONCEPTS_BY_NAME["revenue_subset_tested"]
+
+
+def test_subset_tested_emitted_when_siblings_agree():
+    row = build_facts._resolve_one(
+        TESTED, 2025, "FY",
+        _index([(RFCWCEAT, 100_000_000.0, *FY_SPAN), ("Revenues", 100_000_000.0, *FY_SPAN)]),
+    )
+    assert row is not None
+    assert row["value"] == pytest.approx(2.0)
+
+
+def test_subset_tested_emitted_when_siblings_disagree():
+    row = build_facts._resolve_one(
+        TESTED, 2025, "FY",
+        _index([(RFCWCEAT, 235_878_000.0, *FY_SPAN), ("Revenues", 450_279_000.0, *FY_SPAN)]),
+    )
+    assert row is not None
+
+
+def test_subset_tested_is_null_with_a_single_tag():
+    row = build_facts._resolve_one(
+        TESTED, 2025, "FY", _index([(RFCWCEAT, 100_000_000.0, *FY_SPAN)])
+    )
+    assert row is None
+
+
+def test_subset_tested_is_null_across_accessions():
+    row = build_facts._resolve_one(
+        TESTED, 2025, "FY",
+        _index([
+            (RFCWCEAT, 80_000_000.0, *FY_SPAN, NEW_ACCN, "2026-02-01"),
+            ("Revenues", 100_000_000.0, *FY_SPAN, OLD_ACCN, "2025-02-01"),
+        ]),
+    )
+    assert row is None
+
+
+def test_subset_tested_is_null_across_spans():
+    row = build_facts._resolve_one(
+        TESTED, 2025, "FY",
+        _index([
+            (RFCWCEAT, 100_000_000.0, "2025-01-01", "2025-03-31"),
+            ("Revenues", 190_000_000.0, "2025-01-01", "2025-06-30"),
+        ]),
+    )
+    assert row is None
+
+
+def test_subset_tested_is_diagnostic_never_scoring():
+    assert "revenue_subset_tested" in concepts.DIAGNOSTIC_CONCEPT_NAMES
+    assert "revenue_subset_tested" not in gate0.ALL_CONCEPTS
+
+
+# --------------------------------------------------------------------------
 # The revenue_subset_candidate diagnostic: the figure first-match-wins would
 # have published, emitted only when the sibling totals disagree.
 # --------------------------------------------------------------------------
@@ -198,6 +339,7 @@ def _suspect(rows):
             "cik": pl.Int64,
             "revenue": pl.Float64,
             "revenue_subset_candidate": pl.Float64,
+            "revenue_subset_tested": pl.Float64,
         },
     )
     return store_defects._revenue_subset_suspect(frame)
@@ -206,26 +348,42 @@ def _suspect(rows):
 def test_a_material_gap_is_flagged():
     """RUSHA's 5.0% gap and SEZL's 47.6% gap are both material."""
     out = _suspect([
-        {"cik": 1, "revenue": 450_279_000.0, "revenue_subset_candidate": 235_878_000.0},
-        {"cik": 2, "revenue": 7_434_195_000.0, "revenue_subset_candidate": 7_064_640_000.0},
+        {"cik": 1, "revenue": 450_279_000.0, "revenue_subset_candidate": 235_878_000.0,
+         "revenue_subset_tested": 2.0},
+        {"cik": 2, "revenue": 7_434_195_000.0, "revenue_subset_candidate": 7_064_640_000.0,
+         "revenue_subset_tested": 2.0},
     ])
     assert out["revenue_subset_suspect"].to_list() == [True, True]
 
 
 def test_an_immaterial_gap_is_not_flagged():
-    out = _suspect([{"cik": 1, "revenue": 1_000_000_000.0, "revenue_subset_candidate": 997_000_000.0}])
+    out = _suspect([{"cik": 1, "revenue": 1_000_000_000.0,
+                     "revenue_subset_candidate": 997_000_000.0, "revenue_subset_tested": 2.0}])
     assert out["revenue_subset_suspect"].to_list() == [False]
 
 
-def test_no_disagreeing_candidate_is_not_flagged():
-    out = _suspect([{"cik": 1, "revenue": 1_000_000_000.0, "revenue_subset_candidate": None}])
+def test_tested_and_agreeing_is_measured_false():
+    """False is reserved for tested-and-agreed (finding 5): the reviewer
+    could not distinguish this from untested before revenue_subset_tested."""
+    out = _suspect([{"cik": 1, "revenue": 1_000_000_000.0,
+                     "revenue_subset_candidate": None, "revenue_subset_tested": 2.0}])
     assert out["revenue_subset_suspect"].to_list() == [False]
+
+
+def test_an_untested_revenue_is_null_not_false():
+    """The reviewer's synthetic (finding 5): revenue 100 with only one
+    eligible tag -- nothing was compared, so the flag is null, not a False
+    that reads as checked-and-clean. Missing is never zero."""
+    out = _suspect([{"cik": 1, "revenue": 100_000_000.0,
+                     "revenue_subset_candidate": None, "revenue_subset_tested": None}])
+    assert out["revenue_subset_suspect"].to_list() == [None]
 
 
 def test_an_unresolved_revenue_is_not_evaluated():
     """Missing is never zero: with no revenue there is nothing to test, and
     the flag is null, never a False that reads as checked-and-clean."""
-    out = _suspect([{"cik": 1, "revenue": None, "revenue_subset_candidate": None}])
+    out = _suspect([{"cik": 1, "revenue": None,
+                     "revenue_subset_candidate": None, "revenue_subset_tested": None}])
     assert out["revenue_subset_suspect"].to_list() == [None]
 
 

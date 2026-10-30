@@ -3439,6 +3439,7 @@ OUTPUT_ORDER = (
     "revenue_subset_suspect",
     "revenue_subset_history_suspect",
     "revenue_subset_candidate",
+    "revenue_subset_tested",
     "net_income",
     "operating_income",
     "ocf",

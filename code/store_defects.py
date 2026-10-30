@@ -418,17 +418,27 @@ def _revenue_subset_suspect(frame):
 
     Reads the revenue_subset_candidate diagnostic column (the figure
     first-match-wins would have published; null unless two side-by-side
-    totals disagreed). A null candidate is a measured non-disagreement --
-    False, not null. A null REVENUE means nothing was tested, and the flag
-    is null with it: missing is never zero.
+    totals disagreed) and the revenue_subset_tested marker (non-null only
+    when a same-span sibling inside one filing was actually compared).
+    Review finding 5: False is reserved for TESTED -- a lone-tag filer was
+    never compared to anything, and untested is null, not
+    checked-and-clean. A null REVENUE means nothing was tested either:
+    missing is never zero.
     """
-    if "revenue_subset_candidate" not in frame.columns:
+    if (
+        "revenue_subset_candidate" not in frame.columns
+        or "revenue_subset_tested" not in frame.columns
+    ):
         return frame.with_columns(
             pl.lit(None, dtype=pl.Boolean).alias("revenue_subset_suspect")
         )
     gap = (pl.col("revenue") - pl.col("revenue_subset_candidate")) / pl.col("revenue")
     return frame.with_columns(
-        pl.when(pl.col("revenue").is_null() | (pl.col("revenue") == 0))
+        pl.when(
+            pl.col("revenue").is_null()
+            | (pl.col("revenue") == 0)
+            | pl.col("revenue_subset_tested").is_null()
+        )
         .then(None)
         .otherwise(
             pl.col("revenue_subset_candidate").is_not_null()
@@ -455,8 +465,10 @@ def _revenue_subset_history_suspect(facts, frame):
     🔴 A FLAG, NOT A CORRECTION. The 10x ratio cannot tell IONQ's mis-tag
     from AER's genuine 462x lease-revenue total (AER/OSCR fire too -- the
     flag says "this history rests on a disputed tag, re-derive by hand",
-    which is true of both). NULL when the filer has no FY revenue history at
-    all: missing is never zero, and an unmeasured history is not a clean one.
+    which is true of both). NULL when no window year was TESTED (review
+    finding 5: revenue_subset_tested marks the years a same-span sibling
+    comparison actually ran): an untested history is not a clean one, and
+    missing is never zero. False is reserved for "tested and agreed".
     """
     if "latest_fiscal_year" not in frame.columns:
         return frame.with_columns(
@@ -469,18 +481,22 @@ def _revenue_subset_history_suspect(facts, frame):
         (pl.col("concept") == "revenue_subset_candidate")
         & (pl.col("fiscal_period") == "FY")
     ).select("cik", "fiscal_year", pl.col("value").alias("_candidate"))
+    tested = facts.filter(
+        (pl.col("concept") == "revenue_subset_tested")
+        & (pl.col("fiscal_period") == "FY")
+    ).select("cik", "fiscal_year")
+    window = frame.select("cik", "latest_fiscal_year")
+    in_window = (
+        (pl.col("fiscal_year") < pl.col("latest_fiscal_year"))
+        & (
+            pl.col("fiscal_year")
+            >= pl.col("latest_fiscal_year") - REVENUE_HISTORY_WINDOW_YEARS
+        )
+    )
     pairs = (
         rev.join(cand, on=["cik", "fiscal_year"], how="inner")
-        .join(
-            frame.select("cik", "latest_fiscal_year"), on="cik", how="inner"
-        )
-        .filter(
-            (pl.col("fiscal_year") < pl.col("latest_fiscal_year"))
-            & (
-                pl.col("fiscal_year")
-                >= pl.col("latest_fiscal_year") - REVENUE_HISTORY_WINDOW_YEARS
-            )
-        )
+        .join(window, on="cik", how="inner")
+        .filter(in_window)
     )
     lo = pl.min_horizontal("value", "_candidate")
     hi = pl.max_horizontal("value", "_candidate")
@@ -490,19 +506,23 @@ def _revenue_subset_history_suspect(facts, frame):
     hits = pairs.filter(fires).select("cik").unique().with_columns(
         pl.lit(True).alias("_hit")
     )
-    history = rev.select("cik").unique().with_columns(
-        pl.lit(True).alias("_has_history")
+    measured = (
+        tested.join(window, on="cik", how="inner")
+        .filter(in_window)
+        .select("cik")
+        .unique()
+        .with_columns(pl.lit(True).alias("_was_tested"))
     )
     return (
-        frame.join(history, on="cik", how="left")
+        frame.join(measured, on="cik", how="left")
         .join(hits, on="cik", how="left")
         .with_columns(
-            pl.when(pl.col("_has_history").is_null())
+            pl.when(pl.col("_was_tested").is_null())
             .then(None)
             .otherwise(pl.col("_hit").fill_null(False))
             .alias("revenue_subset_history_suspect")
         )
-        .drop("_has_history", "_hit")
+        .drop("_was_tested", "_hit")
     )
 
 

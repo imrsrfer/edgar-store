@@ -53,6 +53,7 @@ class Concept:
         zero_falls_through=False,
         side_by_side_max=None,
         subset_min_of=None,
+        subset_tested_of=None,
     ):
         self.name = name
         self.period_type = period_type
@@ -147,10 +148,17 @@ class Concept:
         # flattering direction.
         self.side_by_side_max = frozenset(side_by_side_max or ())
         # Diagnostic counterpart: resolve to the SMALLEST of these tags when
-        # at least two share one period and disagree, else null. This is the
-        # figure first-match-wins would have published; gate0 reads it for
-        # the revenue_subset_suspect flag. Never a scoring concept.
+        # at least two share one period INSIDE ONE FILING and disagree, else
+        # null. This is the figure first-match-wins would have published;
+        # gate0 reads it for the revenue_subset_suspect flag. Never a
+        # scoring concept.
         self.subset_min_of = frozenset(subset_min_of or ())
+        # The evaluability marker (review finding 5): resolve (to the count
+        # of tags compared) whenever at least two of these tags share one
+        # span inside ONE filing -- agree or not -- else null. Lets the
+        # suspect flags tell "tested and agreed" (False) from "never
+        # tested" (null): missing is never zero.
+        self.subset_tested_of = frozenset(subset_tested_of or ())
 
     @property
     def is_instant(self):
@@ -165,6 +173,7 @@ class Concept:
             + self.ifrs_chain
             + tuple(self.side_by_side_max)
             + tuple(self.subset_min_of)
+            + tuple(self.subset_tested_of)
         )
 
     def __repr__(self):
@@ -876,6 +885,20 @@ CONCEPTS = (
         [],
         subset_min_of=REVENUE_SIDE_BY_SIDE_TAGS,
     ),
+    # Diagnostic only (2026-10-30, review finding 5). The evaluability
+    # marker: resolves to the COUNT of side-by-side revenue tags that shared
+    # one span inside ONE filing (2 in practice), whether they agreed or
+    # not. Null everywhere else. store_defects reads it so
+    # revenue_subset_suspect / revenue_subset_history_suspect can tell
+    # "tested and agreed" (False) from "never tested" (null) -- missing is
+    # never zero. Never a scoring concept; its tags are all scoring revenue
+    # tags already, so it cannot relabel a period.
+    Concept(
+        "revenue_subset_tested",
+        DURATION,
+        [],
+        subset_tested_of=REVENUE_SIDE_BY_SIDE_TAGS,
+    ),
 )
 
 CONCEPTS_BY_NAME = {c.name: c for c in CONCEPTS}
@@ -904,6 +927,7 @@ DIAGNOSTIC_CONCEPT_NAMES = (
     "investing_portfolio",
     "lease_outflow_total",
     "revenue_subset_candidate",
+    "revenue_subset_tested",
 )
 
 # 🔴 Tags reachable ONLY through a diagnostic concept.

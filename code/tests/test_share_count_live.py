@@ -142,3 +142,15 @@ def test_deck_split_basis_break_and_issuance_controls():
     assert rows[4]["shares_history_scale_break"] is True
     assert rows[5]["shares_split_basis_break"] is True
     assert rows[6]["shares_split_basis_break"] is False
+
+
+def test_split_basis_break_abstains_with_only_one_annual_count():
+    from test_store_defects import _fy, _frame, _row as store_row
+
+    facts = pl.DataFrame([
+        {**_fy(70, "shares_diluted", 2025, 100e6), "restated": True},
+    ])
+    frame = _frame([store_row(70, period_end=date(2025, 12, 31))])
+    row = sd.add_store_defect_flags(frame, facts).row(0, named=True)
+    assert row["shares_split_basis_break"] is None
+    assert row["shares_split_basis_ratio"] is None

@@ -112,23 +112,28 @@ For each ticker:
    Then re-run `fact_pack.py rows <t> --quote <t>=<price>,<cap>` to get the
    share-count gap and the live P/FCF.
 4. **The four mandatory checks, each with numbers and sources:**
-   - **Share count:** store `shares_diluted` and `latest_q_shares_diluted`
-     against live `market_cap / price`, and against NI / EPS where EPS is
+   - **Share count:** quote store `shares_diluted`, `latest_q_shares_diluted`,
+     `live_share_count`, `share_count_live_gap`, `share_count_stale_vs_live`,
+     and `shares_split_basis_break`. Verify live `market_cap / price`, its
+     instrument and share class, and NI / EPS where EPS is
      available. If the gap is over 25%, quote every per-share figure at BOTH
      counts and mark which count flatters the company.
-   - **TTM window:** `ttm_window_end` against the company's latest filed
-     quarter. If a later quarter is filed, rebuild TTM from stockanalysis
-     quarterly statements and show the four quarters you summed.
+   - **TTM window:** compare `ttm_flows_window_end` (the last quarter in the headline flows) against the company's latest filed quarter. If a later quarter is filed, the store is behind: rebuild TTM from stockanalysis quarterly statements and show the four quarters you summed. Separately, if `ttm_window_binding_concepts` is non-empty, `ttm_window_end` (the binding window) is earlier because those legs end sooner. Say "flows current; <legs> lag to <ttm_window_end>" and re-derive only those legs from the filing. Do not call the whole row behind.
    - **Investing sums:** capex + acquisitions + named legs against total
      investing CF on stockanalysis quarterly. Read the FULL investing section,
      not the "Capital Expenditures" line. Report the residual as a range and
-     deduct it at the low end.
+     deduct it at the low end. On `capex_suspect` rows quote
+     `capex_floor_from_investing` and `fcf_after_sbc_capex_floor` beside
+     `fcf_after_sbc` and the live residual; the floor assumes the unexplained
+     outflow is capex.
    - **Gate 0:** `framework_leg_failed` and every `test_*` leg, not only
      `gate0_pass`. Enumerate every `NOT_EVALUABLE` Gate 0 leg, including manual
      inputs the store does not measure (organic/acquired growth, SBC dilution,
      adjusted-vs-GAAP reconciliation). Missing or undisclosed inputs are
      `NOT_EVALUABLE`, never a pass; each blocks advancement past WATCHLIST.
      Report the missing input and the obligation that would close each leg.
+   - Blank `latest_q_*` values with `latest_q_stale` or
+     `latest_q_stale_components` indicate an off-date quarter, not zero.
      **Dilution:** a dated share-count bridge separating SBC issuance,
      acquisition issuance, other issuance and repurchases, with net annual
      diluted-share growth attributable to SBC. If net growth is unknown or

@@ -49,7 +49,7 @@ GROUPS = {
     "identity": [
         "ticker", "cik", "company_name", "exchange", "sic", "sic_description",
         "taxonomy", "filing_form", "reporting_currency", "fiscal_year_end",
-        "latest_fiscal_year", "period_end", "latest_q_period_end", "sec_download_date",
+        "latest_fiscal_year", "period_end", "latest_q_period_end", "latest_q_stale", "latest_q_stale_components", "sec_download_date",
     ],
     "gate0": [
         "gate0_pass", "gate0_framework_pass", "framework_leg_failed", "gate0_status",
@@ -59,7 +59,7 @@ GROUPS = {
         "tangible_book_vintage_conflict",
     ],
     "flags": [
-        "warn_inorganic", "capex_suspect", "capex_broken", "investing_unreconciled",
+        "warn_inorganic", "capex_suspect", "capex_broken", "ttm_capex_zero", "ttm_capex_suspect", "investing_unreconciled",
         "ttm_fcf_divergence", "ttm_suspect", "ttm_unavailable", "ttm_stale_concepts",
         "ttm_window_misaligned", "shares_scale_suspect", "income_quality_suspect",
         "net_income_suspect", "lease_unmeasured", "lease_heavy", "sbc_unverified",
@@ -67,20 +67,20 @@ GROUPS = {
         "ttm_sbc_window_lost", "ttm_sbc_assumed_zero", "ttm_sbc_evidence_conflict", "ttm_sbc_owed", "ttm_sbc_zero_reported",
         "dilution_attribution_owed", "dilution_share_scale_break", "warn_low_tax",
         "store_defect_flags", "total_debt_partial", "capex_gross_of_proceeds",
-        "shares_history_scale_break", "fy_flows_stale", "ttm_behind_calendar",
+        "shares_history_scale_break", "shares_split_basis_break", "share_count_stale_vs_live", "revenue_subset_suspect", "fy_flows_stale", "ttm_behind_calendar",
         "ttm_side_flows_lagging",
     ],
-    "residuals": ["investing_residual", "net_income_residual", "capex_vs_dep_amort"],
+    "residuals": ["investing_residual", "capex_floor_from_investing", "fcf_after_sbc_capex_floor", "net_income_residual", "capex_vs_dep_amort"],
     "fy_flows": [
-        "revenue", "operating_income", "pretax_income", "tax_expense", "net_income",
+        "revenue", "revenue_subset_candidate", "operating_income", "pretax_income", "tax_expense", "net_income",
         "ocf", "capex", "capex_net", "ppe_sale_proceeds", "sbc", "lease_payments",
         "acquisitions", "buybacks", "dividends", "dep_amort", "investing_cf",
         "fcf", "fcf_after_sbc", "fy_flows_period_end",
     ],
     "ttm": [
-        "ttm_window_start", "ttm_window_end", "ttm_revenue", "ttm_net_income",
+        "ttm_window_start", "ttm_window_end", "ttm_flows_window_end", "ttm_window_binding_concepts", "ttm_revenue", "ttm_net_income",
         "ttm_ocf", "ttm_capex", "ttm_sbc", "ttm_lease_payments", "ttm_fcf_after_sbc",
-        "ttm_acquisitions", "ttm_buybacks", "ttm_dividends",
+        "ttm_acquisitions", "ttm_buybacks", "ttm_dividends", "ttm_dep_amort",
     ],
     "balance": [
         "equity", "goodwill", "intangibles", "tangible_book", "tangible_book_latest_q",
@@ -88,7 +88,7 @@ GROUPS = {
         "latest_q_total_debt",
     ],
     "shares": [
-        "shares_diluted", "shares_diluted_prior_fy", "latest_q_shares_diluted", "fcf_per_share",
+        "shares_diluted", "shares_diluted_prior_fy", "latest_q_shares_diluted", "live_share_count", "share_count_live_gap", "shares_split_basis_ratio", "fcf_per_share",
         "dilution_yoy", "dilution_cagr_3y", "acquisition_shares",
         "equity_issuance_shares", "equity_issuance_proceeds", "debt_conversion_shares", "preferred_conversion_shares",
         "acquisition_shares_measured", "equity_issuance_shares_measured", "equity_issuance_proceeds_measured",

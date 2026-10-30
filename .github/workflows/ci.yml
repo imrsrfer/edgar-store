@@ -12,7 +12,7 @@ on: [push, pull_request]
 
 jobs:
   frozen:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       EDGAR_FROZEN: "1"
     steps:
@@ -24,7 +24,7 @@ jobs:
       - run: python -B -m pytest code/tests -m "not integration" -q -p no:cacheprovider
 
   integration:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     continue-on-error: true
     env:
       EDGAR_ROOT: ${{ github.workspace }}/store

@@ -386,6 +386,67 @@ def resolve_concepts(facts, annual, quarterly, offset):
     return rows
 
 
+def _side_by_side_max(concept, row, fiscal_year, period, index):
+    """Let the LARGEST same-period sibling total win over the chain order.
+
+    See Concept.side_by_side_max (SEZL / RUSHA): the tags in the set are
+    alternative presentations of one total reported side by side, and the
+    chain's first match can be the subset. Only a candidate sharing the
+    winner's exact span (start AND end) competes -- a 6-month Revenues
+    beside a 3-month contract-revenue tag is a different measure, not a
+    sibling total. An equal value keeps the chain winner, so a clean
+    filer's row is bit-identical to what first-match-wins produced.
+    """
+    best_value, best_tag, best_fact, best_candidates = (
+        row["value"], row["source_tag"], None, (),
+    )
+    for tag in concept.side_by_side_max:
+        if tag == row["source_tag"]:
+            continue
+        candidates = _matching(index, tag, fiscal_year, period, concept)
+        if not candidates:
+            continue
+        fact = _pick_latest(candidates)
+        if fact["start"] != row["period_start"] or fact["end"] != row["period_end"]:
+            continue
+        if fact["value"] > best_value:
+            best_value, best_tag, best_fact, best_candidates = (
+                fact["value"], tag, fact, candidates,
+            )
+    if best_fact is None:
+        return row
+    return _make_row(concept, best_fact, best_tag, best_candidates)
+
+
+def _resolve_subset_min(concept, fiscal_year, period, index):
+    """The smallest of a concept's subset_min_of tags, when they disagree.
+
+    The diagnostic counterpart of _side_by_side_max: this is the figure
+    first-match-wins WOULD have published, so gate0 can size the gap
+    between it and the shipped revenue. Emitted only when at least two of
+    the tags share one period (the max's span is the reference) and the
+    smallest is below the largest; agreement and lone tags emit nothing.
+    """
+    picked = []
+    for tag in concept.subset_min_of:
+        candidates = _matching(index, tag, fiscal_year, period, concept)
+        if candidates:
+            picked.append((tag, _pick_latest(candidates), candidates))
+    if len(picked) < 2:
+        return None
+    reference = max(picked, key=lambda entry: entry[1]["value"])[1]
+    same_span = [
+        entry for entry in picked
+        if entry[1]["start"] == reference["start"] and entry[1]["end"] == reference["end"]
+    ]
+    if len(same_span) < 2:
+        return None
+    smallest = min(same_span, key=lambda entry: entry[1]["value"])
+    if smallest[1]["value"] == reference["value"]:
+        return None
+    return _make_row(concept, smallest[1], smallest[0], smallest[2])
+
+
 def _resolve_one(concept, fiscal_year, period, index):
     """Resolve a single concept for a single period, or return None.
 
@@ -395,6 +456,8 @@ def _resolve_one(concept, fiscal_year, period, index):
     wins for a given company, and a pure us-gaap or pure ifrs-full filer only
     ever has facts under one of the two anyway.
     """
+    if concept.subset_min_of:
+        return _resolve_subset_min(concept, fiscal_year, period, index)
     # 🔴 Two tiers, both measured on the 2026-09-09 regression run.
     #
     # never_sole  -> DISCARD. Not a plausible sole disclosure, so a sum made
@@ -437,6 +500,10 @@ def _resolve_one(concept, fiscal_year, period, index):
                     continue
                 if zero_row is not None and row["period_end"] != zero_row["period_end"]:
                     continue
+            if concept.side_by_side_max and tag in concept.side_by_side_max:
+                # SEZL / RUSHA: the chain winner may be the SUBSET of a
+                # side-by-side total; the largest same-span sibling wins.
+                row = _side_by_side_max(concept, row, fiscal_year, period, index)
             return row
     if zero_row is not None:
         return zero_row

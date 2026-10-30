@@ -60,6 +60,14 @@ Detectors, each with the case that proved it:
                              2026 TTM). Built in gate0.add_latest_q_staleness,
                              which also nulls those balances; registered here so
                              the row says why latest_q_* is blank.
+  revenue_subset_suspect     SEZL, RUSHA. The filer reports two side-by-side
+                             revenue totals that disagree materially on the
+                             latest fiscal year (the ASC 606 contract-revenue
+                             subset beside the broader Revenues), so the
+                             revenue figure on the row was at risk of being
+                             the subset. The value is now the larger total --
+                             fixed at the source; this flag says the filer's
+                             tags disagreed, nothing more. Reader-only.
 
 ``store_defect_flags`` lists every detector that fired, comma-joined, so the
 queue ranker and a human reader see one column rather than six.
@@ -123,6 +131,12 @@ NEXT_IS_ANNUAL_WITHIN_DAYS = 100
 # 40-F filer's interims are 6-Ks with no XBRL, so its TTM is FY-based by design.
 QUARTERLY_FILER_FORMS = ("10-K", "10-Q", "10-K/A", "10-Q/A")
 
+# revenue_subset_suspect: the relative gap between the shipped revenue (the
+# side-by-side MAX after the 2026-10-29 fix) and the smallest disagreeing
+# sibling total above which the disagreement is material. RUSHA's gap is
+# 5.0%, SEZL's 47.6%; both are named cases the flag exists to catch.
+REVENUE_SUBSET_TOLERANCE = 0.01
+
 DEFECT_COLUMNS = (
     "total_debt_partial",
     "capex_gross_of_proceeds",
@@ -131,6 +145,7 @@ DEFECT_COLUMNS = (
     "fy_flows_stale",
     "ttm_behind_calendar",
     "latest_q_stale",
+    "revenue_subset_suspect",
 )
 
 # The subset that can make a Gate 0 or growth figure read BETTER than the truth
@@ -371,6 +386,31 @@ def add_share_count_live_check(frame):
     )
 
 
+def _revenue_subset_suspect(frame):
+    """True when the latest-year revenue had a materially smaller sibling total.
+
+    Reads the revenue_subset_candidate diagnostic column (the figure
+    first-match-wins would have published; null unless two side-by-side
+    totals disagreed). A null candidate is a measured non-disagreement --
+    False, not null. A null REVENUE means nothing was tested, and the flag
+    is null with it: missing is never zero.
+    """
+    if "revenue_subset_candidate" not in frame.columns:
+        return frame.with_columns(
+            pl.lit(None, dtype=pl.Boolean).alias("revenue_subset_suspect")
+        )
+    gap = (pl.col("revenue") - pl.col("revenue_subset_candidate")) / pl.col("revenue")
+    return frame.with_columns(
+        pl.when(pl.col("revenue").is_null() | (pl.col("revenue") == 0))
+        .then(None)
+        .otherwise(
+            pl.col("revenue_subset_candidate").is_not_null()
+            & (gap > REVENUE_SUBSET_TOLERANCE)
+        )
+        .alias("revenue_subset_suspect")
+    )
+
+
 def add_store_defect_flags(frame, facts):
     """Attach the detectors above to the one-row-per-company frame.
 
@@ -442,6 +482,7 @@ def add_store_defect_flags(frame, facts):
         .alias("ttm_behind_calendar"),
         pl.col("ttm_side_flows_lagging").fill_null(""),
     ).drop("_newest_period")
+    frame = _revenue_subset_suspect(frame)
     fired = [
         pl.when(pl.col(c).fill_null(False)).then(pl.lit(c)).otherwise(None)
         for c in DEFECT_COLUMNS

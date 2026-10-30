@@ -116,6 +116,37 @@ def test_discrete_step_needs_the_prior_year_quarter_it_drops():
     assert _one(out, 3, "ttm_window_binding_concepts") == "sbc"
 
 
+def test_capex_discrete_step_cannot_run_past_ocf():
+    """Q2 capex facts alone cannot turn Q1 OCF 100 / capex 40 into FCF 89."""
+    rows = (
+        _q1_chain(30, "ocf", 100, 40, 40)
+        + _q1_chain(30, "capex", 40, 20, 20)
+        + _q1_chain(30, "sbc", 0, 0, 0)
+        + [
+            _fact(30, "capex", "Q2", "2025-04-01", "2025-06-30", 30),
+            _fact(30, "capex", "Q2", "2026-04-01", "2026-06-30", 1),
+        ]
+    )
+    out = gate0.build_ttm(_facts(rows))
+    assert _one(out, 30, "ttm_capex") == pytest.approx(40)
+    assert _one(out, 30, "ttm_flows_window_end") == D("2026-03-31")
+    assert _one(out, 30, "ttm_window_end") == D("2026-03-31")
+    assert _one(out, 30, "ttm_window_binding_concepts") == ""
+    assert _one(out, 30, "ttm_fcf_after_sbc") == pytest.approx(60)
+
+
+def test_fcf_stays_null_when_reported_capex_window_is_later_than_ocf():
+    rows = (
+        _q1_chain(31, "ocf", 100, 40, 40)
+        + _ytd_chain(31, "capex", 40, 20, 20)
+    )
+    out = gate0.build_ttm(_facts(rows))
+    assert _one(out, 31, "ttm_flows_window_end") == D("2026-03-31")
+    assert _one(out, 31, "ttm_fcf_after_sbc") is None
+    resolved = gate0.resolve_ttm_sbc(out.with_columns(pl.lit(0.0).alias("sbc")))
+    assert _one(resolved, 31, "ttm_fcf_after_sbc") is None
+
+
 def test_discrete_step_refuses_a_gap_after_the_window():
     """A discrete quarter that does not start the day after the window ends
     would leave a hole in the year. No step."""
@@ -331,7 +362,34 @@ def test_osw_shape_agreeing_evidence_still_decides_the_leg():
     way: the answer does not depend on which figure is right."""
     out = gate0.add_tangible_book_vintage(_osw(100.0))
     assert out["fail_tangible_book"][0] is False
-    assert out["tangible_book_basis"][0] == gate0.TANGIBLE_BOOK_BASIS_LATEST_Q
+    assert out["tangible_book_basis"][0] == gate0.TANGIBLE_BOOK_BASIS_FISCAL_YEAR
+    assert out["tangible_book_latest_q"][0] is None
+
+
+def test_unsupported_goodwill_zero_never_publishes_quarterly_tangible_book():
+    """Reviewer case: 200 equity, dropped 100 goodwill, inferred FY zero."""
+    frame = _dropped(
+        _row(latest_q_equity=200.0, latest_q_goodwill=None,
+             latest_q_intangibles=0.0, goodwill=0.0, intangibles=0.0,
+             tangible_book=200.0),
+        "goodwill", "2025-09-30", "never_acquired", 100.0,
+    )
+    out = gate0.add_tangible_book_vintage(frame)
+    assert out["tangible_book_latest_q"][0] is None
+    assert out["fail_tangible_book"][0] is False
+    assert out["tangible_book_basis"][0] == gate0.TANGIBLE_BOOK_BASIS_FISCAL_YEAR
+
+
+def test_agreeing_unsupported_fallback_needs_independent_fy_evidence():
+    frame = _dropped(
+        _row(latest_q_equity=200.0, latest_q_goodwill=None,
+             latest_q_intangibles=0.0, goodwill=0.0, intangibles=0.0,
+             tangible_book=None),
+        "goodwill", "2025-09-30", "never_acquired", 100.0,
+    )
+    out = gate0.add_tangible_book_vintage(frame)
+    assert out["tangible_book_latest_q"][0] is None
+    assert out["fail_tangible_book"][0] is None
 
 
 def test_lvs_shape_newer_reported_fy_figure_may_stand_in():

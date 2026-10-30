@@ -82,9 +82,9 @@ def test_dep_amort_chain_reaches_navigator_and_borr_tags():
     assert set(chain[-2:]) <= WANTED_TAGS
 
 
-def _ttm(capex, revenue=614.474*M):
+def _ttm(capex, revenue=614.474*M, dep_amort=134.497*M):
     values = {"ocf": 193.684*M, "capex": capex,
-              "sbc": 2.151*M, "revenue": revenue, "dep_amort": 134.497*M}
+              "sbc": 2.151*M, "revenue": revenue, "dep_amort": dep_amort}
     quarters = [(dt.date(2025, 7, 1), dt.date(2025, 9, 30)),
                 (dt.date(2025, 10, 1), dt.date(2025, 12, 31)),
                 (dt.date(2026, 1, 1), dt.date(2026, 3, 31)),
@@ -115,8 +115,22 @@ def test_zero_ttm_capex_nulls_fcf_even_after_sbc_resolution():
 
 def test_ttm_zero_without_revenue_is_not_a_broken_capex_claim():
     row = _ttm(0.0, revenue=None)
-    assert row["ttm_capex_zero"] is False
+    assert row["ttm_capex_zero"] is None
     assert row["ttm_fcf_after_sbc"] == pytest.approx((193.684-2.151)*M)
+
+
+@pytest.mark.parametrize("capex,revenue,da", [
+    (None, 614.474*M, 134.497*M),
+    (85.019*M, None, 134.497*M),
+    (85.019*M, 614.474*M, None),
+])
+def test_ttm_capex_flags_abstain_without_required_inputs(capex, revenue, da):
+    row = _ttm(capex, revenue, da)
+    if capex is None or revenue is None:
+        assert row["ttm_capex_zero"] is None
+    else:
+        assert row["ttm_capex_zero"] is False
+    assert row["ttm_capex_suspect"] is None
 
 
 @pytest.fixture(scope="module")

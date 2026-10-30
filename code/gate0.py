@@ -287,11 +287,9 @@ TANGIBLE_BOOK_BASIS_NONE = "none"
 # disagree are not a pass. So the fallback decides alone only when the
 # fiscal-year figure is REPORTED and dated at or after the dropped one (LVS:
 # intangibles 489M@2025-09 superseded by a reported 470M@2025-12). Otherwise
-# the leg is computed BOTH ways -- on the dropped quarterly value and on the
-# fallback -- and where the two disagree in sign it is NOT_EVALUABLE, with no
-# retreat to the older fiscal year. Where they agree the answer does not depend
-# on which is right: blocking those too was measured at 284 rows NOT_EVALUABLE
-# and 27 passes lost, 271 and all 27 of them on two figures that agreed.
+# the quarterly value is withheld. The old FY tangible book can still decide
+# the leg if it exists and its sign agrees with both the dropped and fallback
+# scenarios. This keeps agreement from manufacturing a quarterly dollar value.
 TANGIBLE_BOOK_DROPPED_COMPONENTS = ("goodwill", "intangibles")
 
 
@@ -1693,18 +1691,34 @@ def add_tangible_book_vintage(frame):
     # is still published in tangible_book_latest_q beside a
     # tangible_book_basis of `none`, which is what that opportunity looks like
     # from the outside.
+    unsupported_drop = _dropped_fallback_unsupported(frame)
     use_quarter = (
         quarter_is_newer
+        & ~unsupported_drop
         & pl.col("tangible_book_latest_q").is_not_null()
         & pl.col("tangible_book").is_not_null()
     )
-    # See TANGIBLE_BOOK_DROPPED_COMPONENTS (OSW). A quarter newer than the
-    # fiscal year whose component fallback is not newer reported evidence, and
-    # whose dropped value tells a different sign, is NOT_EVALUABLE: neither
-    # figure nor the older fiscal-year one decides.
-    blocked = quarter_is_newer & _dropped_fallback_unsupported(frame) & ~(
-        (_tangible_book_on_dropped(frame) < 0) == (pl.col("tangible_book_latest_q") < 0)
+    # An unsupported fallback never supplies a publishable quarterly value.
+    # The FY leg survives only when its own value and both quarterly scenarios
+    # independently agree on the sign; otherwise the leg is not evaluable.
+    dropped_complete = pl.lit(True)
+    for concept in TANGIBLE_BOOK_DROPPED_COMPONENTS:
+        dropped_end = _dropped_end_column(concept)
+        dropped_value = _dropped_value_column(concept)
+        if dropped_end in frame.columns:
+            dropped_complete = dropped_complete & (
+                pl.col(dropped_end).is_null()
+                | (pl.col(dropped_value).is_not_null() if dropped_value in frame.columns
+                   else pl.lit(False))
+            )
+    dropped_fail = _tangible_book_on_dropped(frame) < 0
+    fallback_fail = pl.col("tangible_book_latest_q") < 0
+    fy_fail = pl.col("tangible_book") < 0
+    independent_agreement = (
+        dropped_complete & pl.col("tangible_book").is_not_null()
+        & (dropped_fail == fallback_fail) & (dropped_fail == fy_fail)
     ).fill_null(False)
+    blocked = quarter_is_newer & unsupported_drop & ~independent_agreement
     tested = (
         pl.when(use_quarter)
         .then(pl.col("tangible_book_latest_q"))
@@ -1713,7 +1727,7 @@ def add_tangible_book_vintage(frame):
     private = [name(c) for c in TANGIBLE_BOOK_DROPPED_COMPONENTS
                for name in (_dropped_end_column, _dropped_value_column)]
     return frame.with_columns(
-        pl.when(blocked).then(None)
+        pl.when(unsupported_drop).then(None)
         .otherwise(pl.col("tangible_book_latest_q")).alias("tangible_book_latest_q"),
         # A null on the chosen vintage stays null: NOT_EVALUABLE, never a pass.
         pl.when(blocked).then(None).otherwise(tested < 0).alias("fail_tangible_book"),
@@ -2402,15 +2416,20 @@ def _discrete_quarters(facts):
     )
 
 
-def _ttm_step_once(legs, quarters):
+def _ttm_step_once(legs, quarters, ceiling=None):
     """Advance every leg that can move one discrete quarter; the rest as-is."""
     def side(prefix):
         return quarters.rename({c: f"{prefix}{c}" for c in
                                 ("period_start", "period_end", "_q_days", "value")})
 
     gap = TTM_STEP_CONTIGUITY_DAYS
+    candidates = legs.join(side("new_"), on=["cik", "concept"], how="inner")
+    if ceiling is not None:
+        candidates = candidates.join(ceiling, on="cik", how="left").filter(
+            pl.col("new_period_end") <= pl.col("_ocf_window_end")
+        )
     steps = (
-        legs.join(side("new_"), on=["cik", "concept"], how="inner")
+        candidates
         .filter(
             ((pl.col("new_period_start") - pl.col("ttm_window_end")).dt.total_days() - 1)
             .abs() <= gap
@@ -2446,10 +2465,16 @@ def _ttm_discrete_step(recent, facts):
         return recent
     is_leg = pl.col("concept").is_in(list(TTM_WINDOW_CONCEPTS))
     legs = recent.filter(is_leg)
+    ocf = legs.filter(pl.col("concept") == "ocf")
+    other = legs.filter(pl.col("concept") != "ocf")
     for _ in range(TTM_DISCRETE_MAX_STEPS):
-        legs, moved = _ttm_step_once(legs, quarters)
+        ocf, ocf_moved = _ttm_step_once(ocf, quarters)
+        ceiling = ocf.select("cik", pl.col("ttm_window_end").alias("_ocf_window_end"))
+        other, other_moved = _ttm_step_once(other, quarters, ceiling)
+        moved = ocf_moved + other_moved
         if not moved:
             break
+    legs = pl.concat([ocf, other], how="vertical_relaxed")
     return pl.concat([legs, recent.filter(~is_leg)], how="vertical_relaxed")
 
 
@@ -2628,6 +2653,19 @@ def build_ttm(facts):
     # until the dates are ON the row nothing can tell that case from a clean one.
     wide = wide.join(_ttm_binding_window(recent), on="cik", how="left")
     wide = wide.join(_ttm_flows_window(recent), on="cik", how="left")
+    # A later non-OCF leg must never be combined with an older OCF window.
+    overrun = (
+        recent.filter(pl.col("concept").is_in(["capex", "sbc", "lease_payments"]))
+        .join(recent.filter(pl.col("concept") == "ocf")
+              .select("cik", pl.col("ttm_window_end").alias("_ocf_end")),
+              on="cik", how="inner")
+        .filter(pl.col("ttm_window_end") > pl.col("_ocf_end"))
+        .select("cik").unique()
+        .with_columns(pl.lit(True).alias("_ttm_fcf_overrun"))
+    )
+    wide = wide.join(overrun, on="cik", how="left").with_columns(
+        (~pl.col("_ttm_fcf_overrun").fill_null(False)).alias("_ttm_fcf_window_valid")
+    ).drop("_ttm_fcf_overrun")
     # 🔴 SIDE-FLOW LAG (added 2026-10-01, OKE). The recency guard above measures
     # each window against the filer's latest period across ALL concepts with a
     # 400-day allowance. A filer that simply stops tagging a zero acquisitions or
@@ -2699,12 +2737,25 @@ def build_ttm(facts):
     ttm_capex_ratio = _safe_div(pl.col("ttm_capex"), pl.col("ttm_revenue"))
     ttm_ocf_ratio = _safe_div(pl.col("ttm_ocf"), pl.col("ttm_revenue"))
     ttm_da_ratio = _safe_div(pl.col("ttm_capex"), pl.col("ttm_dep_amort"))
-    ttm_zero = ((pl.col("ttm_capex") == 0) & (pl.col("ttm_revenue") > 0)).fill_null(False)
+    capex_evaluable = pl.col("ttm_capex").is_not_null() & (pl.col("ttm_revenue") > 0)
+    ttm_zero = pl.when(capex_evaluable).then(pl.col("ttm_capex") == 0).otherwise(None)
+    da_suspect = pl.when(pl.col("ttm_dep_amort") > 0).then(
+        ttm_da_ratio < CAPEX_VS_DA_FLOOR
+    ).otherwise(None)
+    capex_suspect = pl.when(capex_evaluable).then(
+        (pl.col("ttm_capex") < 0)
+        | ttm_zero
+        | ((ttm_capex_ratio < CAPEX_SUSPECT_RATIO)
+           & (ttm_ocf_ratio > CAPEX_SUSPECT_OCF_RATIO))
+        | da_suspect
+    ).otherwise(None)
     # TTM lease_payments: null policy matches annual (Option a).
     # Where ttm_lease_payments is null and ttm_ocf exists, deduct 0.
     ttm_lease_usable = pl.col("ttm_lease_payments").fill_null(0.0)
     return wide.with_columns(
-        (pl.col("ttm_ocf") - ttm_capex_usable - ttm_lease_usable - pl.col("ttm_sbc")).alias(
+        pl.when(pl.col("_ttm_fcf_window_valid"))
+        .then(pl.col("ttm_ocf") - ttm_capex_usable - ttm_lease_usable - pl.col("ttm_sbc"))
+        .otherwise(None).alias(
             "ttm_fcf_after_sbc"
         ),
         # fill_null(False): an ABSENT ttm_capex is unknown, not negative --
@@ -2712,14 +2763,7 @@ def build_ttm(facts):
         (pl.col("ttm_capex") < 0).fill_null(False).alias("ttm_capex_negative"),
         # NVGS: a measured zero against real revenue is broken, as on FY.
         ttm_zero.alias("ttm_capex_zero"),
-        (
-            (pl.col("ttm_capex") < 0).fill_null(False)
-            | ttm_zero
-            | ((ttm_capex_ratio < CAPEX_SUSPECT_RATIO)
-               & (ttm_ocf_ratio > CAPEX_SUSPECT_OCF_RATIO)).fill_null(False)
-            | ((pl.col("ttm_dep_amort") > 0)
-               & (ttm_da_ratio < CAPEX_VS_DA_FLOOR)).fill_null(False)
-        ).alias("ttm_capex_suspect"),
+        capex_suspect.alias("ttm_capex_suspect"),
         # ...and "unknown" is itself a finding worth naming (added 2026-09-11).
         # A window WAS built here and capex is simply not in it, which blanks
         # ttm_fcf_after_sbc on a row where ttm_unavailable reads FALSE and
@@ -2758,11 +2802,13 @@ def resolve_ttm_sbc(frame):
     fy_sbc_real = pl.col("sbc").is_not_null() & (pl.col("sbc") > 0)
     window_lost = (sbc_gap & fy_sbc_real).fill_null(False)
     leases = pl.col("ttm_lease_payments").fill_null(0) if "ttm_lease_payments" in frame.columns else pl.lit(0.0)
+    window_valid = (pl.col("_ttm_fcf_window_valid")
+                    if "_ttm_fcf_window_valid" in frame.columns else pl.lit(True))
     return frame.with_columns(
-        pl.when(zero_reported & has_window & capex_usable)
+        pl.when(zero_reported & has_window & capex_usable & window_valid)
         .then(pl.col("ttm_ocf") - pl.col("ttm_capex") - leases)
         .when(pl.col("ttm_sbc").is_null()).then(None)
-        .when(pl.col("ttm_fcf_after_sbc").is_not_null() & capex_usable)
+        .when(pl.col("ttm_fcf_after_sbc").is_not_null() & capex_usable & window_valid)
         .then(pl.col("ttm_ocf") - pl.col("ttm_capex") - pl.col("ttm_sbc") - leases)
         .otherwise(pl.col("ttm_fcf_after_sbc"))
         .alias("ttm_fcf_after_sbc"),
@@ -3578,17 +3624,10 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False,
     # fixing it -- the row would then contradict itself in the shipped store.
     frame = add_tangible_book_vintage(frame)
     # Must run AFTER the ttm join -- it reads both the FY and the TTM columns.
-    # When no TTM was buildable at all the flags are false, not null: "no TTM
-    # series exists" is not a divergence.
+    # Missing TTM capex/revenue cannot support a capex-zero or suspect verdict.
     if "ttm_fcf_after_sbc" in frame.columns:
-        # The capex flags ride in on a LEFT join, so they are null on every
-        # filer that had no TTM row at all. A null boolean is a third state
-        # these columns do not mean: each is a flag that either fired or did
-        # not, and a row with no TTM capex to test is a row where it did not.
         frame = frame.with_columns(
             pl.col("ttm_capex_negative").fill_null(False),
-            pl.col("ttm_capex_zero").fill_null(False),
-            pl.col("ttm_capex_suspect").fill_null(False),
             pl.col("ttm_capex_missing").fill_null(False),
         )
         # 🔴 MUST run BEFORE add_ttm_divergence. It turns NULLs into numbers,
@@ -3606,8 +3645,8 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False,
             pl.lit(False).alias("ttm_suspect"),
             pl.lit(True).alias("ttm_unavailable"),
             pl.lit(False).alias("ttm_capex_negative"),
-            pl.lit(False).alias("ttm_capex_zero"),
-            pl.lit(False).alias("ttm_capex_suspect"),
+            pl.lit(None, dtype=pl.Boolean).alias("ttm_capex_zero"),
+            pl.lit(None, dtype=pl.Boolean).alias("ttm_capex_suspect"),
             pl.lit(False).alias("ttm_capex_missing"),
             pl.lit(False).alias("ttm_sbc_assumed_zero"),
             pl.lit(True).alias("ttm_sbc_owed"),

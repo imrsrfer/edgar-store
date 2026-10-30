@@ -360,7 +360,8 @@ def _shares_split_basis_break(facts, frame):
         & (((ratio >= SHARES_SPLIT_MIN_RATIO) & (ratio < SHARES_SCALE_BREAK_RATIO))
            | ((ratio <= 1 / SHARES_SPLIT_MIN_RATIO) & (ratio > 1 / SHARES_SCALE_BREAK_RATIO)))
     )
-    breaks = hist.group_by("cik").agg(
+    # One FY count cannot establish agreement; only an actual adjacent pair can.
+    breaks = hist.filter(pl.col("_year_gap").is_between(*FY_DAYS)).group_by("cik").agg(
         split.any().alias("shares_split_basis_break"),
         pl.when(split).then(ratio).otherwise(None).drop_nulls().first()
         .alias("shares_split_basis_ratio"),

@@ -95,6 +95,18 @@ edgar/
   invalid_fiscal_years.csv facts SEC's own bulk data mislabelled with a corrupt fy value
 ```
 
+For a historical facts build, run `python build_facts.py --as-of 2024-12-31
+--root C:\edgar-history\2024-12-31` after placing the raw inputs under that
+root's `raw/` directory. `--as-of YYYY-MM-DD` keeps only facts with a known
+filing date on or before the cut, before fiscal labels, restatement precedence
+and `restated` are computed. It requires an explicit root different from the
+default/live store (including equivalent resolved paths), and records the cut
+as `build:facts.as_of` in `<root>/raw/manifest.json`. Without the flag, build
+behavior and Parquet schemas are unchanged. This cuts filing knowledge only:
+downstream price/FX freshness and screening clocks still need historical
+inputs and an explicit clock, and `meta.parquet` uses today's ticker maps,
+which introduce survivorship bias.
+
 ## Refresh
 
 SEC rebuilds `companyfacts.zip` daily.

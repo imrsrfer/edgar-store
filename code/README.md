@@ -550,6 +550,48 @@ CIKs and prints what it failed to match.
 
 ---
 
+## Scorecard
+
+Grade a Decisions CSV or extracted Run Log lines against later market returns:
+
+```powershell
+python code/scorecard.py --decisions C:\private\decisions.csv --out C:\private\scorecard --as-of 2026-10-30
+```
+
+CSV requires unique `decision_id`, `decided_at` (`YYYY-MM-DD`), `ticker`, and
+`disposition`. Optional fields are `run_id`, `cik`, `stage_failed`,
+`price_at_decision` (retained but unused), `currency`, `benchmark`, and
+`superseded_by`. Alternatively, supply a UTF-8 text file containing one
+`DECISION · ticker · cik · disposition · stage_failed · decided UTC ISO` line
+per call; UTC timestamps use `Z` or `+00:00`. Its ID is `UTC timestamp|TICKER`
+(UTC is normalized to `Z`); malformed lines report their line number.
+
+Dispositions are case-insensitive `pipeline`, `watchlist`, `discarded`, `owed`;
+`BUY`, `WATCH`, `DISCARD`, `OWED` remain aliases. Entry uses the first adjusted
+close strictly after the decision date; exits are 63/126/252 stock sessions
+after entry. The benchmark uses its last close on or before each endpoint,
+including across different holiday calendars. `--benchmark` defaults to SPY
+and fills blank per-row benchmarks. `--as-of` defaults to today and bounds
+prices inclusively; yfinance conservatively excludes today's potentially live
+bar. Reproducible historical reruns still depend on the provider's revisions.
+
+Only full windows settle; incomplete windows remain `pending`, and unavailable
+prices are counted as `no_data` with a reason. Excess is stock total return
+minus benchmark total return, measured in each instrument's own currency.
+Pipeline/watchlist hits require positive excess; discarded hits require negative
+excess. Zero excess is a miss; owed calls have returns but no hit/miss or
+slugging. Slugging is average direction-aware winning excess magnitude divided
+by average losing magnitude (undefined without both sides or a positive loss).
+
+Outputs are `scorecard.md` (at most 30 lines) and `scorecard_detail.csv` (every
+decision/horizon, including missing data, metadata, endpoint prices/dates and
+fractional returns). The compact tables group by disposition and stage failed,
+with current and superseded calls separate; the five biggest misses show one
+worst horizon per decision. **`--out` inside any Git repository is refused:**
+these outputs contain portfolio data and must never be committed. Prices use
+the existing yfinance dependency, imported only when fetching; tests inject
+fake providers and never use the network.
+
 ## Tests
 
 ```

@@ -22,6 +22,7 @@ import zipfile
 from collections import Counter, defaultdict
 from concurrent.futures import ProcessPoolExecutor
 from datetime import date, datetime
+from functools import partial
 
 import polars as pl
 
@@ -50,7 +51,7 @@ from concepts import (
     YTD2_DAYS,
     YTD3_DAYS,
 )
-from edgar_lib import Paths, log_stage, manifest_download_date
+from edgar_lib import Paths, log_stage, manifest_download_date, read_manifest, write_manifest
 
 # Only annual and quarterly reports. Amendments (10-K/A) are excluded so one
 # filing is not counted twice under two accessions. 20-F/40-F are the annual
@@ -681,7 +682,7 @@ def _archive(zip_path):
     return archive
 
 
-def process_member(args):
+def process_member(args, as_of=None):
     """Worker entry point: parse one zip member into resolved concept rows."""
     zip_path, member = args
     try:
@@ -695,6 +696,8 @@ def process_member(args):
         return None
     entity_name = payload.get("entityName")
     facts = extract_raw_facts(payload)
+    if as_of is not None:
+        facts = [f for f in facts if f["filed"] is not None and f["filed"] <= as_of]
     if not facts:
         return {"cik": int(cik), "entity_name": entity_name, "rows": []}
 
@@ -730,7 +733,7 @@ def _members(archive_path, limit=None):
     return names[:limit] if limit else names
 
 
-def parse_archive(paths, limit=None, workers=None):
+def parse_archive(paths, limit=None, workers=None, as_of=None):
     """Stream the archive through a process pool, writing Parquet parts."""
     archive_path = str(paths.companyfacts_zip)
     names = _members(archive_path, limit)
@@ -746,7 +749,8 @@ def parse_archive(paths, limit=None, workers=None):
 
     tasks = ((archive_path, name) for name in names)
     with ProcessPoolExecutor(max_workers=workers) as pool:
-        for result in pool.map(process_member, tasks, chunksize=CHUNK_SIZE):
+        worker = partial(process_member, as_of=as_of)
+        for result in pool.map(worker, tasks, chunksize=CHUNK_SIZE):
             if result is None:
                 continue
             parsed += 1
@@ -912,12 +916,34 @@ def build_meta(paths, names, fiscal_year_ends):
     return frame.height
 
 
-def main(argv=None):
+def _as_of_date(text):
+    """Accept only a calendar date spelled YYYY-MM-DD."""
+    try:
+        parsed = date.fromisoformat(text)
+        if parsed.isoformat() == text:
+            return parsed
+    except ValueError:
+        pass
+    raise argparse.ArgumentTypeError("--as-of must be a valid date in YYYY-MM-DD format")
+
+
+def _parse_args(argv):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--root", default=None, help="output root directory")
     parser.add_argument("--limit", type=int, default=None, help="cap companies")
     parser.add_argument("--workers", type=int, default=None, help="process count")
+    parser.add_argument("--as-of", type=_as_of_date, metavar="YYYY-MM-DD",
+                        help="keep only facts filed by this date; requires a separate --root")
     args = parser.parse_args(argv)
+    if args.as_of is not None and (
+        not args.root or Paths(args.root).root.resolve() == Paths().root.resolve()
+    ):
+        parser.error("--as-of requires an explicit --root different from the live store")
+    return parser, args
+
+
+def main(argv=None):
+    parser, args = _parse_args(argv)
 
     paths = Paths(args.root).ensure()
     if not paths.companyfacts_zip.exists():
@@ -925,7 +951,7 @@ def main(argv=None):
 
     started = time.monotonic()
     print(f"Building facts from {paths.companyfacts_zip.name}")
-    stats = parse_archive(paths, limit=args.limit, workers=args.workers)
+    stats = parse_archive(paths, limit=args.limit, workers=args.workers, as_of=args.as_of)
     log_stage(
         "build:facts",
         companies_parsed=f"{stats['companies_parsed']:,}",
@@ -939,6 +965,9 @@ def main(argv=None):
         companies=f"{companies:,}",
         sec_download_date=manifest_download_date(paths),
     )
+    if args.as_of is not None:
+        manifest = {**read_manifest(paths), "build:facts": {"as_of": args.as_of.isoformat()}}
+        write_manifest(paths, manifest)
     log_stage("build", elapsed_min=f"{(time.monotonic() - started) / 60:.1f}")
     return 0
 

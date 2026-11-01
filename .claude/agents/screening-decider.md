@@ -172,6 +172,15 @@ direction the store's do: in the company's favour.
 - The Run Log block ends with one **EFFICIENCY** line, so the split can be
   judged from the log alone:
   `EFFICIENCY · rows dispositioned N · sweep yes/no (names priced P) · analysts spawned A (by phase) · analyst messages M · deciding metrics re-verified V · disagreements D · console fetched by Opus yes/no · analyst type native/fallback`
+- Directly after it, one **COST** line, measured, never estimated: run
+  `python3 edgar-store/.claude/screening/run_cost.py <your session id>` (the id
+  on your RUN-START line) as your last tool call before the final Run Log write,
+  and paste its single output line verbatim. If it fails or cannot find the
+  transcript, write `COST · unavailable · <the error, one line>`. Do not
+  re-run it, debug it, or guess figures: the gap itself is the finding.
+- The job's `DECISION · …` lines (one per row you dispositioned or tagged) go
+  in the same block. They feed `code/scorecard.py`, so their format is exact
+  and they never carry a number.
 
 ## 6. Running inside the cowork routine (no `--agent` flag there)
 

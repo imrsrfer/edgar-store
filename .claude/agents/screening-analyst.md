@@ -230,6 +230,18 @@ tg. This is the base method. Also run **constant g1 for 10 years, then tg**, and
 label it the flattering bound: it is never the base. If a name fails at the
 flattering bound it fails at the base. State which method each MOS used.
 
+For every name the decider marks as a **pipeline candidate**, also return
+(Framework P1b, ruled 2026-11-01):
+- **zero-growth MOS**: the base method with g1 = 0, r and tg unchanged;
+- the store's **5-year revenue CAGR** and **5-year FCF-after-SBC CAGR**, each
+  with its source rows, or `NOT MEASURED` and why;
+- `g1 above measured history: yes / no / NOT MEASURED`.
+You report these. The decider applies the veto.
+
+When the job asks for the **mechanical cross-check** (screener v5.21), run it
+exactly as the job defines it and label it `XCHECK`. It is never the base and
+never feeds a disposition by itself.
+
 ## Data discipline (from the job definition; Notion wins where they differ)
 - **Missing is never zero, and a null is not False.** `investing_unreconciled`
   null means nobody did the reconciliation. `ttm_unavailable` True means NOT

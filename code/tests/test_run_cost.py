@@ -138,6 +138,30 @@ def test_session_id_lookup_under_config_dir(tmp_path, monkeypatch):
         rc.resolve_transcript("nope")
 
 
+def test_latest_picks_newest_main_transcript_not_subagent(tmp_path, monkeypatch):
+    import os
+    proj = tmp_path / "projects" / "-home-claude"
+    proj.mkdir(parents=True)
+    old, new = proj / "old-session.jsonl", proj / "new-session.jsonl"
+    write(old, [asst("m1", OPUS, usage(1))])
+    write(new, [asst("m2", OPUS, usage(1))])
+    sub = proj / "new-session" / "subagents" / "agent-1.jsonl"
+    sub.parent.mkdir(parents=True)
+    write(sub, [asst("s1", "claude-sonnet-5-5", usage(1), side=True)])
+    os.utime(old, (1_000, 1_000))
+    os.utime(new, (2_000, 2_000))
+    os.utime(sub, (3_000, 3_000))  # newest file overall, but a subagent's
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
+    assert rc.resolve_transcript("latest") == new
+
+
+def test_latest_with_no_transcripts_raises(tmp_path, monkeypatch):
+    (tmp_path / "projects").mkdir()
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
+    with pytest.raises(FileNotFoundError):
+        rc.resolve_transcript("latest")
+
+
 def test_line_format_and_json_cli(tmp_path, capsys):
     p = write(tmp_path / "s.jsonl", [
         asst("m1", OPUS, usage(12000, 210000, 1_900_000, 31000)),

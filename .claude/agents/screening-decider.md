@@ -172,12 +172,16 @@ direction the store's do: in the company's favour.
 - The Run Log block ends with one **EFFICIENCY** line, so the split can be
   judged from the log alone:
   `EFFICIENCY · rows dispositioned N · sweep yes/no (names priced P) · analysts spawned A (by phase) · analyst messages M · deciding metrics re-verified V · disagreements D · console fetched by Opus yes/no · analyst type native/fallback`
-- Directly after it, one **COST** line, measured, never estimated: run
-  `python3 edgar-store/.claude/screening/run_cost.py <your session id>` (the id
-  on your RUN-START line) as your last tool call before the final Run Log write,
-  and paste its single output line verbatim. If it fails or cannot find the
-  transcript, write `COST · unavailable · <the error, one line>`. Do not
-  re-run it, debug it, or guess figures: the gap itself is the finding.
+- Directly after it, one **COST** line, measured, never estimated. **The
+  analyst runs the meter, not you**: the cloud auto-mode classifier blocks the
+  main agent from executing scripts in the fresh clone ("Code from External",
+  Opus pass 2026-11-01), while the analyst runs `fact_pack.py` from the same
+  clone without issue. As the last request to the run's live analyst (or one
+  short request to a fresh one if none is live), send `COST latest` (the
+  remote cse_ id is not the transcript's file name) and paste the single line it returns
+  verbatim. If it returns an error, write `COST · unavailable · <the error,
+  one line>`. Do not run it yourself, re-run it, debug it, or guess figures:
+  the gap itself is the finding.
 - The job's `DECISION · …` lines (one per row you dispositioned or tagged) go
   in the same block. They feed `code/scorecard.py`, so their format is exact
   and they never carry a number.

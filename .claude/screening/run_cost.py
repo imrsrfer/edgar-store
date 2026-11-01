@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Meter for a screener run: what a Claude Code transcript actually consumed. Standard library only.
 
-    python .claude/screening/run_cost.py <transcript.jsonl | session-id> [--json]
+    python .claude/screening/run_cost.py <transcript.jsonl | session-id | latest> [--json]
 
 Reads the session transcript (JSONL) plus its subagent transcripts and prints
 one line for the Run Log, so the decider's EFFICIENCY line is measured, not
@@ -58,14 +58,25 @@ def family(model):
 
 
 def resolve_transcript(arg):
-    """A path to a .jsonl, or a session id found under CLAUDE_CONFIG_DIR/projects."""
+    """A path to a .jsonl, a session id, or `latest`, under CLAUDE_CONFIG_DIR/projects.
+
+    `latest` is the most recently modified MAIN transcript (`projects/*/*.jsonl`;
+    subagent files live one level deeper and are never picked). It exists for the
+    cloud routine, whose remote session id (cse_...) is not the transcript's file
+    name and whose ephemeral container holds only the current run.
+    """
     path = Path(arg)
     if path.is_file():
         return path
     config = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
-    for hit in sorted((config / "projects").glob(f"*/{arg}.jsonl")):
+    projects = config / "projects"
+    if arg == "latest":
+        mains = list(projects.glob("*/*.jsonl"))
+        if mains:
+            return max(mains, key=lambda p: p.stat().st_mtime)
+    for hit in sorted(projects.glob(f"*/{arg}.jsonl")):
         return hit
-    raise FileNotFoundError(f"no transcript for {arg!r} under {config / 'projects'}")
+    raise FileNotFoundError(f"no transcript for {arg!r} under {projects}")
 
 
 def transcript_files(main):

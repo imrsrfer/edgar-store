@@ -83,3 +83,15 @@ pass bands them on the fresh prices. Skip the lanes and the repo pairs a new
 queue is empty, then one watchlist re-look, then `SWEEP STATE: COMPLETE` on the
 Review Queue header. Runs idle until the next rebuild. Refill (`direct`) names
 are queued only on request.
+
+## Measuring a run: `run_cost.py`
+
+`python .claude/screening/run_cost.py <transcript.jsonl | session-id> [--json]`
+reads a Claude Code transcript (a session id is looked up under
+`$CLAUDE_CONFIG_DIR/projects`, falling back to `~/.claude`) together with its
+`<session>/subagents/agent-*.jsonl` files, and prints one Run Log line:
+tokens per model family (input, cache-read, cache-write, output; each
+`message.id` counted once), the main agent's peak context, Notion tool-result
+bytes split main vs analyst with the largest single result, and `malformed N` /
+`usage_missing N` when lines or usage blocks are absent. No dollar figures.
+Read-only; standard library only.

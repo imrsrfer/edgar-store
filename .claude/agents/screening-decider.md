@@ -169,6 +169,18 @@ direction the store's do: in the company's favour.
   Entry requires position percent at most 5% and liquidation within 5 trading
   days. Missing inputs leave liquidity OWED and block the buy. Recheck both at
   each re-underwrite; a later breach caps adds and never forces a sale.
+- **Vocabulary is Framework §L** (ruled 2026-11-01). A bare "pipeline" means the
+  console PIPELINE table. Count queue rows as "queue rows: … N pipeline", never as
+  a bare "N pipeline". Not-known-yet states are `NOT_MEASURED` (input value
+  missing), `NOT_EVALUABLE` (test cannot run), `ABSENT` (column missing), `not
+  scored`, `OWED` (obligation). None is a pass.
+- **LEVEL lines (§L-6).** Every time you set, change, suspend or strike a trigger
+  or accumulate-below, write or rewrite that name's single console line under
+  PIPELINE, in the same write: `LEVEL · TICKER · <price> <currency> ·
+  trigger|accumulate-below · live|suspended|struck · set <YYYY-MM-DD>`. One
+  number, no zones. Your first run under job v5.22 adds a LEVEL line for every
+  existing live or suspended level and logs `LEVEL lines added: N`. The
+  Pipeline & Screener Coverage dashboard reads these lines first.
 - The Run Log block ends with one **EFFICIENCY** line, so the split can be
   judged from the log alone:
   `EFFICIENCY · rows dispositioned N · sweep yes/no (names priced P) · analysts spawned A (by phase) · analyst messages M · deciding metrics re-verified V · disagreements D · console fetched by Opus yes/no · analyst type native/fallback`

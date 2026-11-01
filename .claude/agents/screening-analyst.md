@@ -83,7 +83,7 @@ retry, debug, or estimate. The decider pastes your line into the Run Log.
 2. If `store_defect_flags` is absent and `code/store_defects.py` exists, run
    `python code/gate0.py --root store` (about 4 s, no network) and re-run
    `fact_pack.py store` to confirm the column now exists. Say you did it.
-3. A column that is present but uniformly null is **NOT MEASURED**. Report it
+3. A column that is present but uniformly null is **NOT_MEASURED**. Report it
    as a failed check, not as "nothing fired".
 
 ### `ROWS <tickers>`: fact pack per row
@@ -240,8 +240,8 @@ For every name the decider marks as a **pipeline candidate**, also return
 (Framework P1b, ruled 2026-11-01):
 - **zero-growth MOS**: the base method with g1 = 0, r and tg unchanged;
 - the store's **5-year revenue CAGR** and **5-year FCF-after-SBC CAGR**, each
-  with its source rows, or `NOT MEASURED` and why;
-- `g1 above measured history: yes / no / NOT MEASURED`.
+  with its source rows, or `NOT_MEASURED` and why;
+- `g1 above measured history: yes / no / NOT_MEASURED`.
 You report these. The decider applies the veto.
 
 When the job asks for the **mechanical cross-check** (screener v5.21), run it
@@ -279,7 +279,7 @@ Checks: shares <gap %, both counts if >25%> · TTM <window end vs latest filed q
 Dilution: <share bridge: SBC / acquisition / other issuance / repurchases; annual SBC-driven net dilution; source + period, or NOT_EVALUABLE · OWED>
 adjusted-vs-GAAP §C-1 reconciliation: <same-period reconciliation, itemized add-backs + nature, gap, logged acceptance, or NOT_EVALUABLE · OWED>
 Flags:  <each True / ABSENT / NOT_MEASURED flag = sizing value>
-FCF:    FY fcf_after_sbc <v> · TTM <v or NOT MEASURED + why> · P/FCF live <FY x / TTM x> · ranges <low–high, flattering end named>
+FCF:    FY fcf_after_sbc <v> · TTM <v or NOT_MEASURED + why> · P/FCF live <FY x / TTM x> · ranges <low–high, flattering end named>
 Opus-only (mechanical): <each trigger = true/false/NOT_MEASURED>
 Owed:   <every obligation you could not close, and why>
 Notes:  <one factual line per anomaly, or "none">

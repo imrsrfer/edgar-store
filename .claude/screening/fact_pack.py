@@ -154,7 +154,7 @@ def store_brief(repo, root):
         non_null = sum(1 for row in rows if row[column] != "")
         checks[column] = {"present": True, "non_null": non_null}
         if non_null == 0:
-            # Present and uniformly null is NOT MEASURED, not "nothing fired".
+            # Present and uniformly null is NOT_MEASURED, not "nothing fired".
             checks[column]["uniformly_null"] = True
 
     failed = [c for c, v in checks.items() if not v["present"] or v.get("uniformly_null")]

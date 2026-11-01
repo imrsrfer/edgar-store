@@ -71,10 +71,21 @@ def pytest_runtest_makereport(item, call):
 
 @pytest.fixture(autouse=True)
 def _no_network_when_frozen(monkeypatch):
-    """EDGAR_FROZEN=1 (CI): any socket connect is a test failure."""
+    """EDGAR_FROZEN=1 (CI): any internet socket connect is a test failure.
+
+    Only AF_INET/AF_INET6 are refused. On Linux, Python 3.14's process pools
+    start workers through a forkserver that talks over an AF_UNIX socket; that
+    is local IPC, not network, and refusing it broke every real process-pool
+    test on the CI runner while the same tests passed on Windows (spawn, pipes).
+    """
     if os.environ.get("EDGAR_FROZEN") == "1":
-        def refuse(*_a, **_k):
-            raise RuntimeError("network access in a frozen test")
+        connect = socket.socket.connect
+        internet = (socket.AF_INET, socket.AF_INET6)
+
+        def refuse(self, *args, **kwargs):
+            if self.family in internet:
+                raise RuntimeError("network access in a frozen test")
+            return connect(self, *args, **kwargs)
         monkeypatch.setattr(socket.socket, "connect", refuse)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))

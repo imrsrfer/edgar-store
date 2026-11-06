@@ -141,6 +141,13 @@ For each ticker:
      `capex_floor_from_investing` and `fcf_after_sbc_capex_floor` beside
      `fcf_after_sbc` and the live residual; the floor assumes the unexplained
      outflow is capex.
+     On `capex_tag_hold` rows the store's capex is a lone narrow tag (Other
+     PP&E, Software, or ProductiveAssets at very low capex/D&A) and both FCF
+     legs read `NOT_EVALUABLE` by design: rebuild capex from the full investing
+     section before quoting any FCF figure (ALK read +$689M FCF-after-SBC
+     against a true -$392M). On `capex_unconfirmed` rows the figure may be
+     right (two in three were, against Capital IQ), but confirm capex before
+     quoting FCF.
    - **Gate 0:** `framework_leg_failed` and every `test_*` leg, not only
      `gate0_pass`. Enumerate every `NOT_EVALUABLE` Gate 0 leg, including manual
      inputs the store does not measure (organic/acquired growth, SBC dilution,

@@ -981,6 +981,89 @@ def _add_capex_investing_floor(frame):
     )
 
 
+# 🔴 NARROW CAPEX TAG HOLD (added 2026-11-05). Each of these tags is a
+# legitimate capex line for SOME filers and a sub-line for others. When one
+# is the ONLY capex source, the store cannot tell which, and when it is a
+# sub-line the error runs in the company's favour: capex too low, FCF too high.
+# Capital IQ cross-check, 2026-10-30 store (screener-note-2026-11-05):
+#   ALK  OtherPP&E    capex 289  vs 1,370  FCF-SBC +689 vs -392  (sign flip)
+#   TH   OtherPP&E    capex 5.7  vs 160.3  FCF-SBC 156.7 vs 2.1
+#   HNI  Software     capex 3.4  vs 97.9   FCF-SBC 154.9 vs 60.4
+#   HOS  ProductiveA. capex 17.8 vs 105.1  FCF-SBC 229.3 vs 53.9
+#   GRDN ProductiveA. capex 4.5  vs 19.1   (screener-note-2026-09-27)
+# capex/D&A on those five: 0.39, 0.01, 0.02, 0.09, 0.60. Filers using the same
+# tags as their genuine total (LLY 3.93, LNT 2.69, WEC 2.97) sit above 1.0,
+# so the hold fires only below the tag's ceiling. A null ratio (no D&A)
+# also holds: nothing on the row can clear the tag.
+#
+# ProductiveAssets gets a much lower ceiling. It is the GENUINE total capex
+# line for most of its 397 users: at < 1.0 the hold caught 47 annual passers,
+# including CTS, AGYS, DMC and PHIN, whose capex matched Capital IQ exactly,
+# plus QCOM, FDX and ISRG. Low-capex distributors (SNX 0.34, SCSC 0.39) are
+# real, not sub-lines. At < 0.15 it still catches HOS (0.09). GRDN (0.60) is
+# NOT caught: no ceiling separates it from the verified-correct rows, so it
+# stays a documented exception (screener-note-2026-09-27).
+NARROW_CAPEX_TAG_CEILINGS = {
+    "PaymentsToAcquireOtherPropertyPlantAndEquipment": 1.0,
+    "PaymentsToAcquireSoftware": 1.0,
+    "PaymentsToAcquireProductiveAssets": 0.15,
+}
+NARROW_CAPEX_TAGS = tuple(NARROW_CAPEX_TAG_CEILINGS)
+
+
+def add_capex_tag_hold(frame):
+    """Hold the FCF legs NOT_EVALUABLE where capex is a lone narrow tag.
+
+    MUST run after add_flags and BEFORE add_verdict: it nulls fail_fcf and
+    fail_fcf_after_sbc, and add_verdict turns a null into NOT_EVALUABLE, which
+    blocks gate0_pass (fcf is load-bearing) and leaves gate0_framework_pass
+    null. The figures themselves are left untouched -- this is a hold pending
+    confirmation against the investing section, not a correction.
+    """
+    if "source_tag_capex" not in frame.columns:
+        return frame.with_columns(pl.lit(False).alias("capex_tag_hold"))
+    ratio = (pl.col("capex_vs_dep_amort") if "capex_vs_dep_amort" in frame.columns
+             else pl.lit(None, dtype=pl.Float64))
+    # Financials (SIC 6000-6799) are out: capex is immaterial to an asset
+    # manager or bank and the default screen excludes them anyway. BAM
+    # (capex 9M vs D&A 40M, ratio 0.23) is the case that would otherwise hold.
+    if "sic" in frame.columns:
+        sic_num = pl.col("sic").cast(pl.Int64, strict=False)
+        financial = sic_num.is_between(6000, 6799).fill_null(False)
+    else:
+        financial = pl.lit(False)
+    ceiling = pl.col("source_tag_capex").replace_strict(
+        NARROW_CAPEX_TAG_CEILINGS, default=None, return_dtype=pl.Float64)
+    hold = (
+        ceiling.is_not_null()
+        & (ratio.is_null() | (ratio < ceiling))
+        & ~financial
+    ).fill_null(False)
+    out = frame.with_columns(hold.alias("capex_tag_hold"))
+    for col in ("fail_fcf", "fail_fcf_after_sbc"):
+        if col in out.columns:
+            out = out.with_columns(
+                pl.when(pl.col("capex_tag_hold")).then(None)
+                .otherwise(pl.col(col)).alias(col)
+            )
+    return out
+
+
+def add_capex_unconfirmed(frame):
+    """Reader flag: capex is suspect on the FY or TTM side but not held.
+
+    The Capital IQ check found 32 of 48 suspect-flagged passers correct, so a
+    suspect flag alone must not block. It must be VISIBLE, so any such row
+    reaching the queue gets its capex confirmed at underwrite.
+    """
+    parts = [pl.col(c).fill_null(False) for c in ("capex_suspect", "ttm_capex_suspect")
+             if c in frame.columns]
+    if not parts:
+        return frame.with_columns(pl.lit(False).alias("capex_unconfirmed"))
+    held = pl.col("capex_tag_hold").fill_null(False) if "capex_tag_hold" in frame.columns else pl.lit(False)
+    return frame.with_columns((pl.any_horizontal(parts) & ~held).alias("capex_unconfirmed"))
+
+
 def add_flags(frame):
     """Attach the boolean Gate 0 tests. A null input yields a null flag.
 
@@ -3457,6 +3540,8 @@ OUTPUT_ORDER = (
     "investing_unreconciled",
     "investing_residual",
     "capex_floor_from_investing",
+    "capex_tag_hold",
+    "capex_unconfirmed",
     "fcf_after_sbc_capex_floor",
     "capex_vs_dep_amort",
     "ttm_fcf_divergence",
@@ -3668,7 +3753,13 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False,
         pl.col("off_currency_facts_dropped").fill_null(0),
         pl.col("currency_unresolved").fill_null(False),
     )
-    frame = add_verdict(frame.join(meta, on="cik", how="left"), allow_imputed=allow_imputed)
+    # 🔴 add_capex_tag_hold runs AFTER the meta join (it reads sic for the
+    # financials carve-out) and BEFORE add_verdict (it nulls fail_fcf and
+    # fail_fcf_after_sbc, which add_verdict turns into NOT_EVALUABLE).
+    frame = add_verdict(
+        add_capex_tag_hold(frame.join(meta, on="cik", how="left")),
+        allow_imputed=allow_imputed,
+    )
     # 🔴 AFTER add_verdict, on purpose: these are reader flags, and running them
     # after the verdict is the structural guarantee that none of them can move a
     # pass or a fail. Reads the FULL facts table -- the proceeds detector needs
@@ -3676,6 +3767,7 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False,
     # scoring_facts above. See store_defects.py.
     frame = add_store_defect_flags(frame, facts)
     frame = add_dilution_verdict(frame)
+    frame = add_capex_unconfirmed(frame)
     return add_gate0_provisional(frame)
 
 

@@ -101,3 +101,20 @@ def test_other_productive_assets_never_beats_a_broad_total():
 def test_construction_in_process_stays_out():
     """On AEP it overshot the Compustat gap by 65%: it double-counts a PP&E total."""
     assert "PaymentsForConstructionInProcess" not in CAPEX.all_tags
+
+
+@pytest.mark.parametrize("tag", NEW_LEGS)
+def test_each_new_leg_alone_never_replaces_a_broad_total(tag):
+    """AEP, first rebuild 2026-11-06: nuclear fuel 130M replaced a 3,453M
+    PaymentsToAcquireProductiveAssets total (Compustat 8,583M)."""
+    assert tag in CAPEX.never_alone
+    row = _capex([(tag, 130_000_000.0), ("PaymentsToAcquireProductiveAssets", 3_453_000_000.0)])
+    assert row["value"] == pytest.approx(3_453_000_000.0)
+    assert row["source_tag"] == "PaymentsToAcquireProductiveAssets"
+
+
+def test_a_new_leg_still_counts_beside_an_itemised_ppe_leg():
+    """never_alone must not undo the fix: MGRC reports PP&E plus rental fleet and no broad total."""
+    row = _capex([("PaymentsToAcquirePropertyPlantAndEquipment", 44_384_000.0),
+                  ("PaymentsToAcquireEquipmentOnLease", 142_616_000.0)])
+    assert row["value"] == pytest.approx(187_000_000.0)

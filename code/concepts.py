@@ -593,8 +593,20 @@ CONCEPTS = (
         never_alone=(
             "PaymentsToAcquireOtherPropertyPlantAndEquipment",
             "PaymentsToAcquireIntangibleAssets",
-            # A residual "other" line, like other PP&E: summed, never the winner.
+            # 🔴 Every 2026-11-06 leg is a COMPLEMENT: summed beside an itemised
+            # PP&E leg, never a replacement for a broad total. Without this,
+            # components resolve before the chain, so AEP's capex fell from its
+            # PaymentsToAcquireProductiveAssets total of 3,453M to its nuclear
+            # fuel line alone, 130M, against Compustat 8,583M (first rebuild,
+            # 2026-11-06). Where no broad total exists the leg still counts.
+            "PaymentsForSoftware",
+            "PaymentsToAcquireEquipmentOnLease",
+            "PaymentsToAcquireOilAndGasPropertyAndEquipment",
+            "PaymentsForFlightEquipment",
             "PaymentsToAcquireOtherProductiveAssets",
+            "PaymentsToAcquireWaterAndWasteWaterSystems",
+            "PaymentsForNuclearFuel",
+            "PaymentsToAcquireAndDevelopRealEstate",
         ),
         # ...and intangibles alone are not a capex disclosure at all. See
         # Concept.never_sole for the five rows that drew this line.

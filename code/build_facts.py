@@ -74,6 +74,17 @@ _CURRENCY_UNIT = re.compile(r"^[A-Z]{3}$")
 
 # Earliest fiscal year retained, per spec.
 MIN_FISCAL_YEAR = 2019
+# A point-in-time build keeps the same depth of history the live store has
+# (2019 against 2026), measured back from its cut. Without this every --as-of
+# before ~2020 resolved zero facts: the 2016-03-31 backtest build wrote 0 rows.
+AS_OF_LOOKBACK_YEARS = 7
+
+
+def min_fiscal_year(as_of=None):
+    """Earliest fiscal year a build keeps: the spec floor live, cut-relative as-of."""
+    if as_of is None:
+        return MIN_FISCAL_YEAR
+    return min(MIN_FISCAL_YEAR, as_of.year - AS_OF_LOOKBACK_YEARS)
 
 # How far an unlabelled instant may sit from a known fiscal year-end (by day
 # of year) and still be read as one. Covers 52/53-week year-end drift.
@@ -359,7 +370,7 @@ def find_invalid_fiscal_years(facts):
     return rejects
 
 
-def resolve_concepts(facts, annual, quarterly, offset):
+def resolve_concepts(facts, annual, quarterly, offset, min_year=MIN_FISCAL_YEAR):
     """Collapse raw tag-level facts into one row per (concept, period).
 
     The first tag in a concept's chain that yields a value for that period wins,
@@ -372,7 +383,7 @@ def resolve_concepts(facts, annual, quarterly, offset):
         if label is None:
             continue
         fiscal_year, period = label
-        if fiscal_year is None or fiscal_year < MIN_FISCAL_YEAR:
+        if fiscal_year is None or fiscal_year < min_year:
             continue
         fact["fiscal_year"], fact["fiscal_period"] = fiscal_year, period
         index[(fact["tag"], fiscal_year, period)].append(fact)
@@ -714,7 +725,7 @@ def process_member(args, as_of=None):
         reject["entity_name"] = entity_name
 
     annual, quarterly, offset = build_period_labels(labelling_facts)
-    rows = resolve_concepts(facts, annual, quarterly, offset)
+    rows = resolve_concepts(facts, annual, quarterly, offset, min_fiscal_year(as_of))
     for row in rows:
         row["cik"] = int(cik)
         row["entity_name"] = entity_name

@@ -114,3 +114,25 @@ def test_cli_worker_cut_and_manifest_preserve_schemas(tmp_path, historical):
         assert manifest["companyfacts"] == original["companyfacts"]
     else:
         assert manifest == original
+
+
+def test_live_floor_is_the_spec_floor():
+    assert build_facts.min_fiscal_year(None) == build_facts.MIN_FISCAL_YEAR
+
+
+def test_as_of_floor_moves_back_with_the_cut():
+    """2016-03-31 backtest build: the fixed 2019 floor dropped every fact (0 rows)."""
+    assert build_facts.min_fiscal_year(date(2016, 3, 31)) == 2009
+    assert build_facts.min_fiscal_year(date(2030, 1, 1)) == build_facts.MIN_FISCAL_YEAR
+
+
+def test_as_of_2016_build_keeps_pre_2019_years(tmp_path):
+    task = archive(Paths(tmp_path).ensure(), [
+        entry(100, "2016-02-20", "fy15", "2015-12-31", 2015),
+        entry(90, "2016-02-20", "fy15", "2014-12-31", 2015),
+        entry(500, "2020-02-20", "fy19", "2019-12-31", 2019),
+    ])
+    result = build_facts.process_member(task, as_of=date(2016, 3, 31))
+    years = {row["fiscal_year"] for row in result["rows"]}
+    assert 2015 in years
+    assert 2019 not in years

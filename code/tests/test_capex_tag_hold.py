@@ -126,3 +126,17 @@ def test_financial_sic_is_not_held():
                 source_tag_capex="PaymentsToAcquireOtherPropertyPlantAndEquipment",
                 capex_vs_dep_amort=0.225)
     assert row["capex_tag_hold"] is False
+
+
+def test_asc_other_productive_assets_alone_is_held():
+    """ASC: sole tag PaymentsToAcquireOtherProductiveAssets, 0.28M vs Compustat 121M."""
+    row = _hold(ticker="ASC", source_tag_capex="PaymentsToAcquireOtherProductiveAssets",
+                capex_vs_dep_amort=0.008)
+    assert row["capex_tag_hold"] is True
+
+
+def test_bcpc_other_productive_assets_as_genuine_total_is_not_held():
+    """BCPC: 43.5M, matches Compustat exactly; capex/D&A 0.95."""
+    row = _hold(ticker="BCPC", source_tag_capex="PaymentsToAcquireOtherProductiveAssets",
+                capex_vs_dep_amort=0.952)
+    assert row["capex_tag_hold"] is False

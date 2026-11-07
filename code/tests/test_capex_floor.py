@@ -146,9 +146,17 @@ def _live(universe, ticker):
 
 
 def test_borr_live_floor(universe):
+    """Before 2026-11-06 the store read only BORR's 0.3M machinery line; the
+    88.2M of rig purchases (PaymentsToAcquireOilAndGasPropertyAndEquipment) sat
+    in the investing residual and fired a 124.5M floor. Capex now reads 88.5M,
+    equal to Compustat capx, so the floor must NOT fire. The 36M left in the
+    residual still keeps investing_unreconciled on."""
     row = _live(universe, "BORR")
-    assert row["capex_floor_from_investing"] == pytest.approx(124.5*M, rel=0.01)
-    assert row["fcf_after_sbc_capex_floor"] == pytest.approx(116.1*M, rel=0.01)
+    if "OilAndGas" not in (row["source_tag_capex"] or ""):
+        pytest.skip("facts.parquet predates the separate-legs capex fix")
+    assert row["capex"] == pytest.approx(88.5*M, rel=0.01)
+    assert row["capex_floor_from_investing"] is None
+    assert row["investing_unreconciled"] is True
 
 
 def test_navigator_live_ttm_suspect(universe):

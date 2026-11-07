@@ -363,7 +363,7 @@ def apply_quality_unevaluated(frame):
     fails = (
         (iq.is_not_null() & (iq < QUALITY_MIN_INCOME_QUALITY))
         | (sbc.is_not_null() & (sbc > QUALITY_MAX_SBC_PCT_REVENUE))
-        | (tb.is_not_null() & (tb <= 0))
+        | (tb.is_not_null() & (tb <= 0) & ~_buyback_exempt(frame))
     ).fill_null(False)
     rejected = frame.filter(fails).with_columns(
         pl.lit("quality:evaluable_leg_failed").alias("rejected_because")
@@ -406,14 +406,31 @@ def apply_quality(frame):
         & (pl.col("income_quality") >= QUALITY_MIN_INCOME_QUALITY)
         & pl.col("sbc_pct_revenue").is_not_null()
         & (pl.col("sbc_pct_revenue") <= QUALITY_MAX_SBC_PCT_REVENUE)
-        & pl.col("tangible_book").is_not_null()
-        & (pl.col("tangible_book") > 0)
         & (
-            pl.col("tangible_book_yrs_negative").fill_null(0)
-            <= TANGIBLE_BOOK_MAX_YRS_NEGATIVE
+            (
+                pl.col("tangible_book").is_not_null()
+                & (pl.col("tangible_book") > 0)
+                & (
+                    pl.col("tangible_book_yrs_negative").fill_null(0)
+                    <= TANGIBLE_BOOK_MAX_YRS_NEGATIVE
+                )
+            )
+            # Gate 0 buyback-equity exemption (2026-11-06): a name whose
+            # negative book is explained by buybacks out of earnings clears
+            # BOTH tangible-book legs here, or the screen would silently
+            # re-impose the fail Gate 0 just lifted.
+            | _buyback_exempt(frame)
         )
     )
     return _partition(frame, ok, "quality")
+
+
+def _buyback_exempt(frame):
+    """True only where Gate 0 granted the buyback-equity exemption; an older
+    store without the column exempts nothing."""
+    if "tangible_book_buyback_exempt" not in frame.columns:
+        return pl.lit(False)
+    return pl.col("tangible_book_buyback_exempt").fill_null(False)
 
 
 def add_sbc_band(frame):

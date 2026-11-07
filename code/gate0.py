@@ -228,6 +228,20 @@ LOAD_BEARING_TESTS = ("tangible_book", "income_quality", "fcf")
 # Companies that never filed since this year are dead/delisted, not unscored.
 DEFAULT_MIN_FISCAL_YEAR = 2024
 
+# 🔴 BUYBACK-EQUITY EXEMPTION from the negative-tangible-book fail (Fer ruling
+# 2026-11-06; Framework §C, Rulings register). Negative book built by buying
+# back stock out of real earnings (MCD, AZO, ORLY, LOW) is not the balance-
+# sheet weakness the test exists to catch. The exemption keys on REPORTED
+# EQUITY, never on tangible book: a positive-equity company whose TANGIBLE
+# book is negative got there through acquisition goodwill (JNJ, PFE, the
+# FLO/UPBD shape the Rulings protect) and stays a FAIL. A tangible-book
+# version of this rule was measured and rejected for admitting exactly those.
+# Backtest 2016-2025 (point-in-time stores): 18-29 names a year admitted,
+# returns neutral against PASS. The case is logic, not alpha.
+BUYBACK_EXEMPT_YEARS = 5
+BUYBACK_EXEMPT_MAX_LOSS_YEARS = 1
+BUYBACK_EXEMPT_MIN_NI_YEARS = 3
+
 # Relative disagreement between the cash-flow-tag and balance-sheet-delta
 # measures of inorganic growth above which the two are flagged as conflicting.
 ACQ_DISAGREEMENT_THRESHOLD = 0.20
@@ -1296,6 +1310,27 @@ def build_trends(frame):
         .lt(0)
         .sum()
         .alias("tangible_book_yrs_negative"),
+        # Buyback-equity exemption inputs (2026-11-06): the last
+        # BUYBACK_EXEMPT_YEARS fiscal years. A null buybacks year sums as 0,
+        # which can only make the exemption HARDER to reach.
+        pl.col("buybacks")
+        .filter(pl.col("fiscal_year") > latest_year - BUYBACK_EXEMPT_YEARS)
+        .sum()
+        .alias("buybacks_5y"),
+        pl.col("net_income")
+        .filter(pl.col("fiscal_year") > latest_year - BUYBACK_EXEMPT_YEARS)
+        .sum()
+        .alias("net_income_5y"),
+        pl.col("net_income")
+        .filter(pl.col("fiscal_year") > latest_year - BUYBACK_EXEMPT_YEARS)
+        .lt(0)
+        .sum()
+        .alias("net_income_loss_yrs_5y"),
+        pl.col("net_income")
+        .filter((pl.col("fiscal_year") > latest_year - BUYBACK_EXEMPT_YEARS)
+                & pl.col("net_income").is_not_null())
+        .count()
+        .alias("net_income_yrs_5y"),
         _cagr(
             pl.col("revenue").last(),
             _nth_back(pl.col("revenue"), CAGR_SHORT_YEARS),
@@ -1835,6 +1870,52 @@ def add_tangible_book_vintage(frame):
             & ((pl.col("tangible_book") < 0) != (pl.col("tangible_book_latest_q") < 0))
         ).alias("tangible_book_vintage_conflict"),
     ).drop(private, strict=False)
+
+
+def add_buyback_equity_exemption(frame):
+    """Clear fail_tangible_book where buybacks out of earnings explain negative equity.
+
+    Must run AFTER add_tangible_book_vintage (it reads the chosen vintage and
+    the fail flag that function overwrites) and BEFORE add_verdict.
+
+    Exempt only when ALL hold, on the vintage that decided the leg:
+      * fail_tangible_book is True -- a measured negative, never a null;
+      * REPORTED equity < 0 (positive equity with negative tangible book is
+        goodwill-driven and is not exempt);
+      * buybacks over the last BUYBACK_EXEMPT_YEARS fiscal years >= |equity|;
+      * net income summed over those years > 0, with at most
+        BUYBACK_EXEMPT_MAX_LOSS_YEARS loss years and at least
+        BUYBACK_EXEMPT_MIN_NI_YEARS years reported.
+    Any null input leaves the fail standing: the gate fails closed.
+
+    tangible_book_buyback_exempt is True on an exempted row, False on a row
+    that failed and did not qualify, and null where the leg did not fail.
+    """
+    needed = ("buybacks_5y", "net_income_5y", "net_income_loss_yrs_5y", "net_income_yrs_5y")
+    if any(c not in frame.columns for c in needed + ("equity",)):
+        return frame.with_columns(pl.lit(None, dtype=pl.Boolean).alias("tangible_book_buyback_exempt"))
+    use_q = pl.col("tangible_book_basis") == TANGIBLE_BOOK_BASIS_LATEST_Q
+    # Cast before arithmetic: an all-null column has dtype Null, where negation raises.
+    fy_equity = pl.col("equity").cast(pl.Float64, strict=False)
+    equity = (pl.when(use_q).then(pl.col("latest_q_equity").cast(pl.Float64, strict=False))
+              .otherwise(fy_equity)
+              if "latest_q_equity" in frame.columns else fy_equity)
+    qualifies = (
+        (equity < 0)
+        & (pl.col("buybacks_5y").cast(pl.Float64, strict=False) >= -equity)
+        & (pl.col("net_income_5y").cast(pl.Float64, strict=False) > 0)
+        & (pl.col("net_income_loss_yrs_5y") <= BUYBACK_EXEMPT_MAX_LOSS_YEARS)
+        & (pl.col("net_income_yrs_5y") >= BUYBACK_EXEMPT_MIN_NI_YEARS)
+    ).fill_null(False)
+    failed = pl.col("fail_tangible_book") == True  # noqa: E712
+    return frame.with_columns(
+        pl.when(failed).then(qualifies).otherwise(None).alias("tangible_book_buyback_exempt"),
+    ).with_columns(
+        pl.when(pl.col("tangible_book_buyback_exempt") == True)  # noqa: E712
+        .then(False)
+        .otherwise(pl.col("fail_tangible_book"))
+        .alias("fail_tangible_book"),
+    )
 
 
 def _tangible_book_on_dropped(frame):
@@ -3572,6 +3653,9 @@ OUTPUT_ORDER = (
     "shares_diluted",
     "fail_tangible_book",
     "test_tangible_book",
+    "tangible_book_buyback_exempt",
+    "buybacks_5y",
+    "net_income_5y",
     "fail_income_quality",
     "test_income_quality",
     "fail_fcf",
@@ -3715,6 +3799,8 @@ def load_universe(paths, assume_absent_zero=False, allow_imputed=False,
     # column changes while the verdict does not, which is worse than not
     # fixing it -- the row would then contradict itself in the shipped store.
     frame = add_tangible_book_vintage(frame)
+    # After the vintage re-test (reads its fail flag and basis), before add_verdict.
+    frame = add_buyback_equity_exemption(frame)
     # Must run AFTER the ttm join -- it reads both the FY and the TTM columns.
     # Missing TTM capex/revenue cannot support a capex-zero or suspect verdict.
     if "ttm_fcf_after_sbc" in frame.columns:

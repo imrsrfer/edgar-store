@@ -312,6 +312,7 @@ Computed metrics, all for the latest reported fiscal year:
 | `tangible_book` | `equity - goodwill - intangibles`, **fiscal-year vintage**. Unchanged and still the FY figure; `screen.py` and logged watchlist conditions read it by name |
 | `tangible_book_latest_q` | `latest_q_equity - latest_q_goodwill - latest_q_intangibles`, **quarterly vintage**. Quarterly goodwill/intangibles may use supported fiscal-year fallbacks; quarterly equity never falls back. An off-date component with an unsupported fallback that would disagree in sign with the fiscal-year result leaves this null (MMSI) |
 | `tangible_book_basis` | `latest_q` / `fiscal_year` / `none` — which supported vintage decided `fail_tangible_book`. `none` can mean an unsupported quarterly fallback withheld the leg (MMSI) |
+| `tangible_book_buyback_exempt` | True where a measured negative tangible book is cleared because **reported equity** is negative, 5-year buybacks are at least \|equity\|, 5-year net income is positive with at most 1 loss year, and at least 3 years are reported (Fer ruling 2026-11-06). Positive equity with negative tangible book is goodwill-driven and is never exempt. False = failed and did not qualify; null = the leg did not fail. `screen.py`'s quality gate honours it. Inputs: `buybacks_5y`, `net_income_5y` |
 | `tangible_book_vintage_conflict` | Both vintages exist and **disagree in sign**, either direction. A flag for the analyst, not an automatic fail: some hits are the fiscal-year row being the artefact |
 | `income_quality` | `ocf / net_income` |
 | `fcf` | `ocf - capex` |

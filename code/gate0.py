@@ -1007,6 +1007,12 @@ NARROW_CAPEX_TAG_CEILINGS = {
     "PaymentsToAcquireOtherPropertyPlantAndEquipment": 1.0,
     "PaymentsToAcquireSoftware": 1.0,
     "PaymentsToAcquireProductiveAssets": 0.15,
+    # Added 2026-11-06 with the separate-legs capex fix, which made this
+    # residual "other" line reachable as a sole capex source. ASC, a tanker
+    # owner, then passed Gate 0 on 0.28M of capex against Compustat 121M
+    # (capex/D&A 0.008); DREM likewise at 0.015. BCPC files its genuine total
+    # this way (43.5M, Compustat 43.5M, capex/D&A 0.95). 0.5 separates them.
+    "PaymentsToAcquireOtherProductiveAssets": 0.5,
 }
 NARROW_CAPEX_TAGS = tuple(NARROW_CAPEX_TAG_CEILINGS)
 

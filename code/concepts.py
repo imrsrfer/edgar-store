@@ -224,6 +224,15 @@ INVESTING_OUTFLOW_TAGS = (
     "PaymentsToAcquireSoftware",
     "PaymentsToAcquireOtherPropertyPlantAndEquipment",
     "PaymentsToAcquireIntangibleAssets",
+    # The 2026-11-06 capex legs not already listed below (PaymentsForSoftware
+    # and PaymentsToAcquireOtherProductiveAssets are): an outflow capex now
+    # reads must count here too, or the residual double-flags captured dollars.
+    "PaymentsToAcquireEquipmentOnLease",
+    "PaymentsToAcquireOilAndGasPropertyAndEquipment",
+    "PaymentsForFlightEquipment",
+    "PaymentsToAcquireWaterAndWasteWaterSystems",
+    "PaymentsForNuclearFuel",
+    "PaymentsToAcquireAndDevelopRealEstate",
     "PaymentsToAcquireBusinessesNetOfCashAcquired",
     "PaymentsToAcquireBusinessesGross",
     "PaymentsToAcquireBusinessesAndInterestInAffiliates",
@@ -549,6 +558,34 @@ CONCEPTS = (
             # that never occurs is not harmless, it is a claim of coverage that
             # nothing tests, and the next reader cannot tell it from a live one.
             "PaymentsToAcquireIntangibleAssets",
+            # 🔴 SEPARATELY REPORTED OPERATING-ASSET PURCHASES. (Added
+            # 2026-11-06.) A full-universe check against Compustat found 104
+            # rows with store capex under half of Compustat capx; 22 passed
+            # Gate 0 and 32 carried no flag. The PP&E leg they report is
+            # complete -- the missing dollars sit on a SECOND standard line
+            # that this sum never read. A census of the raw archive for those
+            # 104 rows found each tag below closing 50-150% of the gap on every
+            # filer that carries it:
+            #   PaymentsForSoftware                           14 of 14 (MQ, SCOR, ASAN)
+            #   PaymentsToAcquireEquipmentOnLease              8 of 8  (MGRC 44.4 -> 187.0, TRN, WSC, HRI)
+            #   PaymentsToAcquireOilAndGasPropertyAndEquipment 5 of 5  (BORR 0.3 -> 88.5, EOG, NAT)
+            #   PaymentsForFlightEquipment                     3 of 3  (SKYW 32 -> 653; ALK with the next)
+            #   PaymentsToAcquireOtherProductiveAssets         3 of 5  (ALK 309 -> 1,588 with flight)
+            #   PaymentsToAcquireWaterAndWasteWaterSystems     PCYO
+            #   PaymentsForNuclearFuel                         TLN
+            #   PaymentsToAcquireAndDevelopRealEstate          FCFS
+            # PaymentsForConstructionInProcess is deliberately NOT added: on AEP
+            # it overshot the gap by 65%, i.e. it double-counts a PP&E total.
+            # Captive-finance lessors (DE) now carry their leased-equipment
+            # purchases as capex; that understates FCF, the safe direction.
+            "PaymentsForSoftware",
+            "PaymentsToAcquireEquipmentOnLease",
+            "PaymentsToAcquireOilAndGasPropertyAndEquipment",
+            "PaymentsForFlightEquipment",
+            "PaymentsToAcquireOtherProductiveAssets",
+            "PaymentsToAcquireWaterAndWasteWaterSystems",
+            "PaymentsForNuclearFuel",
+            "PaymentsToAcquireAndDevelopRealEstate",
         ],
         partial_ok=True,
         # See Concept.never_alone. Both of these are complements to the PP&E
@@ -556,6 +593,20 @@ CONCEPTS = (
         never_alone=(
             "PaymentsToAcquireOtherPropertyPlantAndEquipment",
             "PaymentsToAcquireIntangibleAssets",
+            # 🔴 Every 2026-11-06 leg is a COMPLEMENT: summed beside an itemised
+            # PP&E leg, never a replacement for a broad total. Without this,
+            # components resolve before the chain, so AEP's capex fell from its
+            # PaymentsToAcquireProductiveAssets total of 3,453M to its nuclear
+            # fuel line alone, 130M, against Compustat 8,583M (first rebuild,
+            # 2026-11-06). Where no broad total exists the leg still counts.
+            "PaymentsForSoftware",
+            "PaymentsToAcquireEquipmentOnLease",
+            "PaymentsToAcquireOilAndGasPropertyAndEquipment",
+            "PaymentsForFlightEquipment",
+            "PaymentsToAcquireOtherProductiveAssets",
+            "PaymentsToAcquireWaterAndWasteWaterSystems",
+            "PaymentsForNuclearFuel",
+            "PaymentsToAcquireAndDevelopRealEstate",
         ),
         # ...and intangibles alone are not a capex disclosure at all. See
         # Concept.never_sole for the five rows that drew this line.

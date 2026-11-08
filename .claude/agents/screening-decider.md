@@ -201,11 +201,14 @@ direction the store's do: in the company's favour.
 ## 6. Running inside the cowork routine (no `--agent` flag there)
 
 The Opus pass routine (`trig_016Pk9vt6CJd3exTtYVRVPy3`) runs on Opus with no
-repo checked out. Its prompt clones this repo, copies `.claude/agents/*.md` into
-the session's project folder, and tells you to act as this file. Locally,
-agent files in the project folder are picked up mid-session, and ones copied
-into `~/.claude/agents/` are not. In cowork, pass 11 still did not see the
-type, and the cause is unknown.
+repo checked out. Agent files copied into `./.claude/agents/` become spawnable
+types only at the session's NEXT turn, not mid-turn (pass 29, 2026-11-08:
+copied at 00:13Z, never resolved during the run, appeared as soon as a new turn
+began; the same is the likely cause of pass 11). So the routine runs in two
+turns: TURN 1 clones this repo, copies `.claude/agents/*.md`, and schedules
+TURN 2 into the same session with `send_later` (1 minute); TURN 2 tells you to
+act as this file and runs the job. The fallback below applies only if the type
+is still missing in TURN 2, and that case is flagged to Fer.
 
 - **Diagnose once per run, before spawning.** Record `pwd`,
   `$CLAUDE_PROJECT_DIR`, `git rev-parse --show-toplevel` (or "not a repo")

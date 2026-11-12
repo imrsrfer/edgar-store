@@ -69,7 +69,8 @@ python gate0.py
 $lanes = "value","ifrs","inflection","shorthist","margin2y","accel","unevaluated"
 foreach ($l in $lanes) { python screen.py --lane $l --out "shortlist_$l.csv" --price-csv prices.csv --min-mktcap 100e6 --momentum flag }
 python build_prices.py --from-framework-pass --max-age-days 7
-foreach ($l in $lanes) { python screen.py --lane $l --out "shortlist_$l.csv" --price-csv prices.csv --min-mktcap 100e6 --momentum flag }
+python build_eps.py
+foreach ($l in $lanes) { python screen.py --lane $l --out "shortlist_$l.csv" --price-csv prices.csv --eps-csv eps.csv --min-mktcap 100e6 --momentum flag }
 python sync_to_repo.py
 ```
 The lanes run twice. The first pass finds this store's quality survivors, so

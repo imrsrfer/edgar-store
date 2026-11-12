@@ -28,6 +28,7 @@ python fetch_edgar.py       # ~15 min cold, seconds when cached
 python build_facts.py       # ~1.2 min
 python gate0.py             # <1 s
 python build_prices.py --from-lanes   # prices every lane's quality-stage survivors
+python build_eps.py                   # forward/trailing P/E -> eps.csv, for --eps-csv
 python rank_queue.py --exclude-tickers tracked.txt   # one ranked queue, uncapped
 ```
 
@@ -295,6 +296,7 @@ Identity and verdict:
 | Column | Meaning |
 |---|---|
 | `gate0_pass` | True only when `tangible_book`, `income_quality`, `fcf` are all `PASS`, and `imputed_fields` is empty (or `--allow-imputed`) |
+| `gate0_pass_strict` | `gate0_pass` AND `test_fcf_after_sbc = PASS`. `gate0_pass` exempts a `NOT_EVALUABLE` FCF-after-SBC leg (`sbc_unverified`); this column does not. Published beside the frozen `gate0_pass`, which nothing here changes |
 | `gate0_status` | `pass` / `fail` / `unknown`, from the load-bearing tests only |
 | `gate0_framework_pass` | Automatic computed-leg clearance: legacy load-bearing legs plus sector-applicable SBC, tax and NI/OI legs, and net dilution. False on a failure, null on an unresolved applicable automated leg. This does **not** settle manual §C-1 or organic/acquired-growth obligations |
 | `framework_leg_failed` | Names of actual failed core and additional framework legs; the `test_*` columns retain every individual result. Missing inputs and imputation holds cannot create failures |

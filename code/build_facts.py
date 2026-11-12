@@ -408,7 +408,13 @@ def _siblings_by_accession(tags, fiscal_year, period, index, concept):
     accession.
     """
     by_accession = defaultdict(dict)
-    for tag in tags:
+    # 🔴 sorted(): the tag sets arrive as frozensets, and a frozenset of str
+    # iterates in an order that changes with Python's per-process hash seed.
+    # Every tie downstream (equal values, equal group sizes) is settled by
+    # this order, so two builds of the same archive recorded different
+    # source_tag / accn on ~4,800 revenue_subset_* rows (audit 2026-11-11).
+    # Values never moved; the whole-store diff did.
+    for tag in sorted(tags):
         for fact in _matching(index, tag, fiscal_year, period, concept):
             accn = fact["accn"]
             existing = by_accession[accn].get(tag)

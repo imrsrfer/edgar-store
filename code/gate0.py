@@ -2128,6 +2128,19 @@ def add_verdict(frame, allow_imputed=False):
     else:
         frame = frame.with_columns(pl.col("_gate0_pass_raw").alias("gate0_pass"))
 
+    # 🔴 gate0_pass_strict (audit 2026-11-11). gate0_pass exempts a
+    # NOT_EVALUABLE fcf_after_sbc leg (sbc_unverified, Exxon), so it reads
+    # true on rows where the master metric does not exist: 83 of 903 passers
+    # on the 2026-11-07 store. gate0_pass is frozen -- the lanes and every
+    # historical comparison rest on it -- so the strict answer is published
+    # BESIDE it: true only when fcf_after_sbc was tested and PASSED. Null
+    # where the leg was never built at all, never a pass.
+    strict_leg = ((pl.col("test_fcf_after_sbc") == "PASS") if has_fcf_after_sbc_test
+                  else pl.lit(None, dtype=pl.Boolean))
+    frame = frame.with_columns(
+        (pl.col("gate0_pass") & strict_leg).alias("gate0_pass_strict")
+    )
+
     return add_framework_verdict(frame.drop("_gate0_pass_raw"))
 
 
@@ -3555,6 +3568,7 @@ OUTPUT_ORDER = (
     "latest_fiscal_year",
     "period_end",
     "gate0_pass",
+    "gate0_pass_strict",
     "gate0_framework_pass",
     "framework_leg_failed",
     "gate0_status",

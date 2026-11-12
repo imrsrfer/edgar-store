@@ -44,6 +44,8 @@ COLUMN_CHECKS = {
 FRESH_DAYS = 21
 SHARE_GAP_LIMIT = 0.25
 FOREIGN_FORMS = {"20-F", "20-F/A", "6-K", "40-F", "40-F/A"}
+# Free-text identity columns: never type-guessed (see parse).
+TEXT_COLUMNS = frozenset({"ticker", "company_name", "exchange", "sic_description"})
 
 GROUPS = {
     "identity": [
@@ -52,7 +54,7 @@ GROUPS = {
         "latest_fiscal_year", "period_end", "latest_q_period_end", "latest_q_stale", "latest_q_stale_components", "sec_download_date",
     ],
     "gate0": [
-        "gate0_pass", "gate0_framework_pass", "framework_leg_failed", "gate0_status",
+        "gate0_pass", "gate0_pass_strict", "gate0_framework_pass", "framework_leg_failed", "gate0_status",
         "gate0_not_evaluable", "gate0_provisional", "imputed_fields", "test_tangible_book",
         "test_income_quality", "test_fcf", "test_fcf_after_sbc", "test_sbc",
         "test_ni_vs_oi", "test_tax_anomaly", "test_dilution", "test_adjusted_vs_gaap", "tangible_book_basis",
@@ -116,10 +118,15 @@ GROUPS = {
 }
 
 
-def parse(raw):
-    """CSV text -> None / bool / float / str. Empty is null, never zero."""
+def parse(raw, column=None):
+    """CSV text -> None / bool / float / str. Empty is null, never zero.
+
+    A TEXT_COLUMNS value is returned as written: a ticker spelled TRUE, NAN,
+    INF or 1E5 is a name, not a bool or a number (audit 2026-11-11)."""
     if raw is None or raw == "":
         return None
+    if column in TEXT_COLUMNS:
+        return raw
     low = raw.lower()
     if low in ("true", "false"):
         return low == "true"
@@ -230,7 +237,7 @@ def live_checks(values, price, market_cap, cap_currency="USD"):
 
 
 def row_pack(columns, row, quote):
-    values = {c: (parse(row[c]) if c in columns else ABSENT) for g in GROUPS.values() for c in g}
+    values = {c: (parse(row[c], c) if c in columns else ABSENT) for g in GROUPS.values() for c in g}
     pack = {group: {c: values[c] for c in cols} for group, cols in GROUPS.items()}
     pack["adjusted_vs_gaap_obligation"] = "adjusted-vs-GAAP §C-1 reconciliation: OWED"
     pack["dilution_attribution_rule"] = (

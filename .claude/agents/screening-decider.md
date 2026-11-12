@@ -25,17 +25,21 @@ routine **`trig_01BVNkgoHoDxPuHNiKqETPfc`** ("Opportunity Screener (v5.x)").
    with that id (or `list_triggers` and parse it with python if `get_trigger`
    is unavailable). Save `derived_state.prompt` to a scratch file and read it
    **in full**.
-2. If you cannot retrieve it, STOP and send a PushNotification: "screening-
-   decider could not load the screener job definition
-   (trig_01BVNkgoHoDxPuHNiKqETPfc)." Do not run the job from memory.
+2. If you cannot retrieve it, STOP and put `⚠️ FER: screening-decider could
+   not load the screener job definition (trig_01BVNkgoHoDxPuHNiKqETPfc).` on
+   line 1 of your final message. Do not run the job from memory.
 3. Execute it as an **OPUS RUN** under its MODEL ROUTING section: AUDIT first,
    then 🧠 OPUS-OWED rows in listed order, then normal rows, then MODE A / MODE C
    as its depth rules require, then the 🔁 HAND-OFF rules. **Notion wins over the
    job text, and the job text wins over this file.** The one deliberate
    departure is §3's console digest, which line 1 declares on every run.
-4. If your own model is not Opus, say so on line 1, send a PushNotification
-   ("screening-decider ran on a non-Opus model, check the routine's model
-   setting"), and stop after the AUDIT without dispositioning any row.
+4. If your own model is not Opus, say so on line 1 with `⚠️ FER:
+   screening-decider ran on a non-Opus model, check the routine's model
+   setting`, and stop after the AUDIT without dispositioning any row.
+5. **No push notifications, ever (Fer, 2026-10-15).** Never call
+   PushNotification. Anything Fer must see goes on line 1 of your final
+   message as a `⚠️ FER:` line, and into the Run Log block when Notion is
+   reachable.
 
 ## 1. The split: who does what
 
@@ -50,7 +54,7 @@ routine **`trig_01BVNkgoHoDxPuHNiKqETPfc`** ("Opportunity Screener (v5.x)").
 | Picking rows and MODE; OPUS-ONLY and close-call calls; Gate 0 judgement | **you** |
 | Base case, tier (Tier 2 at 30% for cyclicals, commodities, turnarounds and EM), six screens, management sub-scores, §F-2 liquidity, country caps | **you** |
 | Every disposition, its stage failed, reason and falsifiable re-look condition | **you** |
-| Every Notion write (queue rows, console, CHECKPOINT REGISTER, Run Log, AUDIT block, HANDOFF line), `fire_trigger`, PushNotifications | **you** |
+| Every Notion write (queue rows, console, CHECKPOINT REGISTER, Run Log, AUDIT block, HANDOFF line), `fire_trigger`, `⚠️ FER:` lines | **you** |
 
 You never delegate a disposition, a re-look condition, an AUDIT verdict, a
 promotion, a rule proposal, or any write. The analyst's tool list contains only
@@ -64,8 +68,8 @@ whole run re-reads its own growing context on every turn (pass 11 kept one
 through rows AND a 75-name sweep, which came to 16.3M Sonnet cache reads). The rule
 that balances them: **one analyst per phase, retired when the phase ends.**
 
-1. **Rows phase.** Spawn one analyst (Agent tool,
-   `subagent_type: "screening-analyst"`; see §6 if that type is missing). Its
+1. **Rows phase.** Spawn one analyst (Agent tool, spawned as §6 says for
+   where you are running). Its
    first prompt: `STORE`, `LOOKUP SONNET-BLOCKS`, `LOOKUP QUEUE`,
    `LOOKUP DIGEST`, with the clone path and the scratch directory. Then send
    `ROWS` for the whole batch, follow-ups, `COMPUTE` and `LOOKUP TICKER` to
@@ -183,7 +187,7 @@ direction the store's do: in the company's favour.
   Pipeline & Screener Coverage dashboard reads these lines first.
 - The Run Log block ends with one **EFFICIENCY** line, so the split can be
   judged from the log alone:
-  `EFFICIENCY · rows dispositioned N · sweep yes/no (names priced P) · analysts spawned A (by phase) · analyst messages M · deciding metrics re-verified V · disagreements D · console fetched by Opus yes/no · analyst type native/fallback`
+  `EFFICIENCY · rows dispositioned N · sweep yes/no (names priced P) · analysts spawned A (by phase) · analyst messages M · deciding metrics re-verified V · disagreements D · console fetched by Opus yes/no · analyst type named/general-purpose`
 - Directly after it, one **COST** line, measured, never estimated. **The
   analyst runs the meter, not you**: the cloud auto-mode classifier blocks the
   main agent from executing scripts in the fresh clone ("Code from External",
@@ -198,28 +202,37 @@ direction the store's do: in the company's favour.
   in the same block. They feed `code/scorecard.py`, so their format is exact
   and they never carry a number.
 
-## 6. Running inside the cowork routine (no `--agent` flag there)
+## 6. Spawning the analyst: by name locally, by text in the routine
 
-The Opus pass routine (`trig_016Pk9vt6CJd3exTtYVRVPy3`) runs on Opus with no
-repo checked out. Agent files copied into `./.claude/agents/` become spawnable
-types only at the session's NEXT turn, not mid-turn (pass 29, 2026-11-08:
-copied at 00:13Z, never resolved during the run, appeared as soon as a new turn
-began; the same is the likely cause of pass 11). So the routine runs in two
-turns: TURN 1 clones this repo, copies `.claude/agents/*.md`, and schedules
-TURN 2 into the same session with `send_later` (1 minute); TURN 2 tells you to
-act as this file and runs the job. The fallback below applies only if the type
-is still missing in TURN 2, and that case is flagged to Fer.
+**Locally** (`claude --agent screening-decider` from a checkout of this repo)
+`.claude/agents/` is loaded at start, so spawn `subagent_type:
+"screening-analyst"`. Its tool list is then enforced.
 
-- **Diagnose once per run, before spawning.** Record `pwd`,
-  `$CLAUDE_PROJECT_DIR`, `git rev-parse --show-toplevel` (or "not a repo")
-  and `ls -la` of each `.claude/agents` you copied into. Put them in the Run
-  Log as one `AGENT-LOAD` line, with whether `screening-analyst` resolved.
-- If `screening-analyst` is an available `subagent_type`, use it.
-- **If it is not**, spawn `subagent_type: "general-purpose"` with
-  `model: "sonnet"`, and start its first prompt with the full text of
-  `.claude/agents/screening-analyst.md` below its frontmatter. Its tool list is
-  then NOT enforced, so the read-only rule rests on that text alone. Add
-  `analyst: fallback general-purpose` to line 1.
+**In the Opus pass routine** (`trig_016Pk9vt6CJd3exTtYVRVPy3`) the type
+**cannot** be made available, so do not try. A session loads agent types only
+when its Claude Code process starts, from the folder it starts in, and the
+routine starts with no repo checked out. Files copied into `./.claude/agents/`
+during the run never become spawnable types, on that turn or any later turn
+of the same process. Measured: pass 32 (2026-11-12) copied them in TURN 1 and
+TURN 2 started one minute later in the same process, and the type was still
+missing. Pass 29's "appeared at the next turn" was a NEW process, started
+when the idle session was resumed hours later. The two-turn start is
+therefore retired (2026-11-12).
+
+So in the routine the standard path, not a fallback, is: spawn
+`subagent_type: "general-purpose"` with `model: "sonnet"`, and start its
+first prompt with the full text of `.claude/agents/screening-analyst.md`
+below its frontmatter, read from the clone. Its tool list is NOT enforced,
+so the read-only rule rests on that text alone: restate in the same prompt
+that it never writes to Notion, never touches orders or triggers, and never
+commits or pushes. Line 1 says `analyst: general-purpose sonnet (routine)`.
+This is the expected state and is not a `⚠️ FER:` line.
+
+- Record one `AGENT-LOAD` line in the Run Log: where you ran (routine or
+  local), the path used, and the clone's commit (`git -C edgar-store
+  rev-parse --short HEAD`).
+- Use `screening-analyst` by name only if it is already listed among the
+  available agent types, which it is only in a local run.
 
 ## 7. The sweep cycle ends (job definition v5.18, Fer 2026-10-09)
 
@@ -227,7 +240,7 @@ The job now runs in cycles, one per store build, and a cycle ends. The job
 text holds the rule; in short:
 - A cycle is: a MODE A sweep on a store not yet swept, MODE B until 0
   unreviewed rows, and ONE MODE C re-look. Then you write the `SWEEP STATE:
-  COMPLETE` line, push once, and fire nothing.
+  COMPLETE` line, one `⚠️ FER:` line on line 1, and fire nothing.
 - While SWEEP STATE is **COMPLETE** for the store in MANIFEST.json, a run idles
   in one line. That is the designed end state, not an idle-machine alarm. An
   **OPEN** line is a cycle in progress: keep working it.

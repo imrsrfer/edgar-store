@@ -25,11 +25,13 @@ below 2.5% passes this leg. A reported annual SBC zero can resolve missing TTM
 SBC, retaining measured lease deductions and `ttm_sbc_zero_reported`; annual
 absence instead leaves `ttm_sbc_owed` and null cash.
 
-- **Cowork (the normal path):** fire the Opus pass routine, or let the weekly
-  task's hand-off fire it. Its prompt clones this repo, copies the agent files
-  into the session's `./.claude/agents/`, and runs as the decider. If the
-  analyst type does not load, the decider falls back to a general-purpose
-  Sonnet agent carrying the analyst instructions, and says so on line 1.
+- **Cowork (the normal path):** Fer fires the Opus pass routine by hand. Its
+  prompt clones this repo and runs as the decider in one turn. A routine
+  session loads agent types only when its process starts, and it starts with
+  no repo checked out, so `screening-analyst` can never be spawned by name
+  there: the decider spawns a general-purpose Sonnet agent carrying the
+  analyst file's text instead (decider §6). That is the designed path, not a
+  failure, and it is not flagged to Fer.
 - **Locally (testing only):** `claude --agent screening-decider "Run the
   Opportunity Screener Opus pass."` Do not run it alongside the routine. Rows
   are owned by their Notion state, but two runs would still double-spend.

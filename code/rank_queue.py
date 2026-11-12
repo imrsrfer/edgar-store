@@ -54,9 +54,11 @@ it cannot fire a trade, carries no date, and caps nothing.
     Within a tier:
       1. clean rows before provisional or unresolved rows
       2. rows with no fail-open store defect before rows with one
-      3. more lanes first -- a direct (refill) name has zero and sorts after
+      3. rows with a SUPPLIED cap before rows whose cap is price x filed
+         shares -- the tier itself rests on that cap (audit 2026-11-11)
+      4. more lanes first -- a direct (refill) name has zero and sorts after
          every lane survivor in its tier, which is what 56.1% vs 9.9% says
-      4. cheaper first on live P/FCF-after-SBC, NULLS LAST (BELFB, 2026-08-06)
+      5. cheaper first on live P/FCF-after-SBC, NULLS LAST (BELFB, 2026-08-06)
 
 🔴 NO CAP. §G-1 says never cap the queue (Fork J, 2026-09-25). The 2026-08-26
 residual asking for a top-N cap predates that ruling and is superseded by it;
@@ -81,7 +83,7 @@ from build_prices import LANE_FILES
 from edgar_lib import Paths, log_stage
 from gate0 import DEFAULT_EXCLUDE_SIC, parse_sic_ranges
 from store_defects import FAIL_OPEN_DEFECTS, add_share_count_live_check
-from screen import add_framework_triage, rank_by_cheapness
+from screen import add_framework_triage, rank_by_cheapness, revenue_floor
 from fx import load_fx
 
 BAND_LOW, BAND_HIGH, LARGE_HIGH = 500e6, 5e9, 20e9
@@ -111,6 +113,11 @@ CARRY = (
     "reporting_currency", "currency_unresolved", "fx_owed", "fx_as_of", "fx_usd_per_unit",
     "sbc_10_15", "sbc_pct_revenue", "dilution_yoy", "dilution_cagr_3y",
     "dilution_attribution_owed", "warn_low_tax", "adjusted_eps_guard",
+    # Audit 2026-11-11: how the cap was obtained travels with it. A derived cap
+    # is price x the filed share count, and the share-identity check cannot run
+    # on one, so the queue must say which rows rest on it.
+    "market_cap_derived", "market_cap_rejected", "shares_identity_suspect",
+    "implied_shares_ratio", "revenue_usd",
 )
 
 
@@ -168,7 +175,8 @@ def load_survivors(root, lane_files=LANE_FILES):
             return (pl.when((status == "FAIL").any()).then(pl.lit("FAIL"))
                     .when((status.is_null() | (status == "NOT_EVALUABLE")).any()).then(pl.lit("NOT_EVALUABLE"))
                     .otherwise(status.first()).alias(c))
-        if c == "gate0_provisional":
+        if c in ("gate0_provisional", "market_cap_derived"):
+            # Either is a caution: one lane file saying so is enough.
             return pl.col(c).cast(pl.String).str.to_lowercase().is_in(["true", "1"]).any().alias(c)
         if c == "reporting_currency":
             return (pl.when(pl.col(c).drop_nulls().n_unique() > 1).then(None)
@@ -183,7 +191,7 @@ def load_survivors(root, lane_files=LANE_FILES):
     return merged.rename({"_key": "ticker"}), missing
 
 
-def direct_pass(gate0, prices, lane_tickers, exclude_sic=DEFAULT_EXCLUDE_SIC):
+def direct_pass(gate0, prices, lane_tickers, exclude_sic=DEFAULT_EXCLUDE_SIC, fx_rates=None):
     """The §G-1 refill funnel, step for step as the 2026-09-27 page built it.
 
     Returns (rows, funnel) where funnel is an ordered list of (step, count).
@@ -215,9 +223,10 @@ def direct_pass(gate0, prices, lane_tickers, exclude_sic=DEFAULT_EXCLUDE_SIC):
         frame.filter(~pl.col("ticker").is_in(list(lane_tickers))),
         "not already a lane survivor",
     )
-    frame = step(
-        frame.filter(_num("revenue") > DIRECT_MIN_REVENUE), "revenue above $50M"
-    )
+    # In USD, like screen.apply_eligibility: an unconverted foreign figure is
+    # unresolved and does not clear a dollar floor (audit 2026-11-11).
+    frame, revenue_ok = revenue_floor(frame, DIRECT_MIN_REVENUE, fx_rates)
+    frame = step(frame.filter(revenue_ok.fill_null(False)), "revenue above $50M")
     suspect = pl.lit(False)
     for name in ("net_income_suspect", "shares_scale_suspect"):
         if name in frame.columns:
@@ -251,14 +260,23 @@ def direct_pass(gate0, prices, lane_tickers, exclude_sic=DEFAULT_EXCLUDE_SIC):
                      pl.lit(None, dtype=pl.Date if c == "as_of" else pl.String)).alias(c)
                     for c in ("as_of", "market_cap_fetched_at", "market_cap_currency")
                 ],
+                (pl.col("market_cap_rejected") if "market_cap_rejected" in prices.columns
+                 else pl.lit(None, dtype=pl.String)).alias("market_cap_rejected"),
             ),
             on="ticker",
             how="left",
         ).with_columns(
-            # Same rule as screen.apply_prices: a supplied cap wins; otherwise
-            # price x the store's diluted count, which lags buybacks.
-            pl.coalesce(pl.col("_cap"), pl.col("_price") * _num("shares_diluted"))
-            .alias("market_cap")
+            # Same rule as screen.apply_prices: a supplied cap wins; a price
+            # file with no cap derives one from the store's diluted count,
+            # flagged; a cap the loader REJECTED is not derived at all.
+            (pl.col("_cap").is_null() & pl.col("_price").is_not_null()
+             & pl.col("market_cap_rejected").is_null()).alias("market_cap_derived")
+        ).with_columns(
+            pl.coalesce(
+                pl.col("_cap"),
+                pl.when(pl.col("market_cap_derived"))
+                .then(pl.col("_price") * _num("shares_diluted")),
+            ).alias("market_cap")
         ).rename({"_cap": "market_cap_supplied", "_price": "price"})
     elif "market_cap" not in frame.columns:
         frame = frame.with_columns(pl.lit(None, dtype=pl.Float64).alias("market_cap"))
@@ -300,9 +318,12 @@ def rank(frame, tracked=(), exclude_sic=DEFAULT_EXCLUDE_SIC, fx_rates=None, *, t
     for name in FAIL_OPEN_DEFECTS:
         fail_open = fail_open | flags.str.contains(name, literal=True)
     multiple = _num("p_fcf_after_sbc_live")
+    cap_derived = (_truthy("market_cap_derived") if "market_cap_derived" in frame.columns
+                   else pl.lit(False))
     out = frame.with_columns(
         tier.alias("tier"),
         fail_open.alias("fail_open_defect"),
+        cap_derived.alias("cap_derived"),
         multiple.alias("p_fcf_after_sbc_rank"),
         pl.col("ticker").str.to_uppercase().is_in(list(tracked)).fill_null(False).alias("tracked"),
         pl.col("lane_count").cast(pl.Int32),
@@ -311,8 +332,8 @@ def rank(frame, tracked=(), exclude_sic=DEFAULT_EXCLUDE_SIC, fx_rates=None, *, t
         .alias("_tier_order")
     ).sort(
         ["tracked", "_tier_order", "gate0_provisional", "framework_not_evaluated",
-         "fail_open_defect", "lane_count", "p_fcf_after_sbc_rank", "ticker"],
-        descending=[False, False, False, False, False, True, False, False],
+         "fail_open_defect", "cap_derived", "lane_count", "p_fcf_after_sbc_rank", "ticker"],
+        descending=[False, False, False, False, False, False, True, False, False],
         nulls_last=True,
     )
     untracked = ~pl.col("tracked")
@@ -345,6 +366,9 @@ def rank(frame, tracked=(), exclude_sic=DEFAULT_EXCLUDE_SIC, fx_rates=None, *, t
                 .otherwise(pl.lit("")),
                 pl.when(pl.col("fx_owed"))
                 .then(pl.lit(" | FX OWED"))
+                .otherwise(pl.lit("")),
+                pl.when(pl.col("cap_derived"))
+                .then(pl.lit(" | CAP DERIVED: price x filed shares, share basis unchecked"))
                 .otherwise(pl.lit("")),
             ]
         ).alias("rank_reason"),
@@ -431,7 +455,8 @@ def main(argv=None):
         ]
         prices = merge_price_frames(loaded) if loaded else None
         lane_tickers = set(merged["ticker"].to_list()) if merged.height else set()
-        direct, funnel = direct_pass(gate0, prices, lane_tickers, args.exclude_sic)
+        direct, funnel = direct_pass(gate0, prices, lane_tickers, args.exclude_sic,
+                                     load_fx(paths.root / "fx.csv"))
         if direct.height:
             frames.append(direct)
     if not frames:

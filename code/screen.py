@@ -113,7 +113,35 @@ def _partition(frame, ok, reason):
     return frame.filter(ok.fill_null(False)), rejected
 
 
-def apply_eligibility(frame, args, exclude_tickers):
+def revenue_floor(frame, min_revenue, fx_rates=None, today=None):
+    """The USD revenue floor, tested in USD (audit 2026-11-11).
+
+    ``revenue`` is in the filer's reporting currency and the floor is in
+    dollars. Comparing them raw let a KRW 60bn (~$43M) filer clear a $50M floor
+    that a $45M USD filer fails. The floor now runs on ``revenue_usd``:
+    revenue x the same dated rate add_usd_fcf uses, 1.0 for USD.
+
+    Returns (frame with ``revenue_usd``, ok). ``ok`` is NULL -- unresolved, not
+    passed and not failed -- where revenue is known but no usable rate is. A
+    store with no ``reporting_currency`` column predates the currency work and
+    keeps the old raw comparison rather than rejecting every row.
+    """
+    revenue = pl.col("revenue").cast(pl.Float64, strict=False)
+    if "reporting_currency" not in frame.columns:
+        return frame, revenue.is_not_null() & (revenue > min_revenue)
+    fx_columns = ("fx_usd_per_unit", "fx_as_of", "fx_owed", "fcf_after_sbc_usd")
+    frame = add_usd_fcf(frame, fx_rates, today).with_columns(
+        (revenue * pl.col("fx_usd_per_unit")).alias("revenue_usd")
+    ).drop(fx_columns)  # rank_by_cheapness recomputes these on the survivors
+    ok = (
+        pl.when(revenue.is_null()).then(False)
+        .when(pl.col("revenue_usd").is_null()).then(None)
+        .otherwise(pl.col("revenue_usd") > min_revenue)
+    )
+    return frame, ok
+
+
+def apply_eligibility(frame, args, exclude_tickers, fx_rates=None):
     """gate0_status pass/pass_stale, non-financial unless asked, min revenue,
     and the exclude list. Returns (survivors, [rejected batches])."""
     batches = []
@@ -158,7 +186,7 @@ def apply_eligibility(frame, args, exclude_tickers):
     remaining, rejected = _partition(remaining, status_ok, "ineligible:gate0_status")
     batches.append(rejected)
 
-    revenue_ok = pl.col("revenue").is_not_null() & (pl.col("revenue") > args.min_revenue)
+    remaining, revenue_ok = revenue_floor(remaining, args.min_revenue, fx_rates)
     remaining, rejected = _partition(remaining, revenue_ok, "ineligible:min_revenue")
     batches.append(rejected)
 
@@ -513,6 +541,7 @@ def apply_band(frame, min_mktcap, max_mktcap):
         return frame, frame.filter(pl.lit(False))
 
     missing = pl.col("market_cap").is_null()
+
     no_cap = frame.filter(missing).with_columns(
         pl.lit("band:market_cap_missing").alias("rejected_because")
     )
@@ -717,10 +746,15 @@ CAP_PROVENANCE = ("market_cap_fetched_at", "market_cap_source", "market_cap_curr
 def enforce_cap_freshness(prices, raw, columns, stale_cutoff):
     """Audit 2026-10-15 #3 (auditor 2026-10-16): a supplied market cap is used
     only when its provenance says it is USD and was fetched within
-    PRICE_STALE_DAYS. Otherwise it is DROPPED (never converted, never kept) and
-    the row falls back to the flagged price x shares estimate, with the reason
-    in market_cap_rejected. A fetch time is not the value's age: the provider's
-    own timestamp rides along in market_cap_effective_at ("unknown" if none)."""
+    PRICE_STALE_DAYS. Otherwise it is DROPPED (never converted, never kept),
+    with the reason in market_cap_rejected. A fetch time is not the value's
+    age: the provider's own timestamp rides along in market_cap_effective_at
+    ("unknown" if none).
+
+    🔴 A REJECTED CAP LEAVES NO CAP (audit 2026-11-11). It used to fall back to
+    price x shares_diluted -- the same stale price, times a filed share count
+    that is wrong by 1,000 on a thousands-tagged filer and by the ADR ratio on
+    a depositary receipt. See apply_prices."""
     prov = [
         (pl.col(columns[c]).cast(pl.String) if c in columns else pl.lit(None, dtype=pl.String)).alias(c)
         for c in CAP_PROVENANCE
@@ -744,7 +778,7 @@ def enforce_cap_freshness(prices, raw, columns, stale_cutoff):
         counts = rejected.group_by(pl.col("market_cap_rejected").str.split(":").list.first()).len()
         print(f"  market_cap REJECTED on {rejected.height} row(s): "
               + ", ".join(f"{r[0]}={r[1]}" for r in counts.iter_rows())
-              + " -- those rows use the flagged price x shares estimate")
+              + " -- those rows carry NO market cap (band:market_cap_missing) until re-priced")
     return prices
 
 
@@ -771,7 +805,16 @@ def merge_price_frames(frames):
 def apply_prices(frame, prices):
     """market_cap = price supplied, or price x shares_diluted from the store
     (market_cap_derived=True) when the price file omits it -- the store's
-    share count lags buybacks, so a supplied cap is always preferred."""
+    share count lags buybacks, so a supplied cap is always preferred.
+
+    🔴 A cap the loader REJECTED is not derived (audit 2026-11-11). Simulated
+    14 days after the 2026-11-06 price build, every one of 286 value-lane caps
+    was derived: BKNG read $5.2B against $119B (P/FCF 0.62x against 14.1x),
+    IESC and SM halved into the $0.5-5B band, HTHT/EDU/DRD inflated ~10x on
+    their ADR ratios, and MCD, CAMT, RGEN and NVMI left the shortlist with caps
+    under $10M. shares_identity_suspect -- the detector for exactly this --
+    is null on a derived cap. So the row carries no cap, is cut as
+    band:market_cap_missing, and build_prices.py --from-lanes re-prices it."""
     stale_cols = [
         c
         for c in (
@@ -786,13 +829,16 @@ def apply_prices(frame, prices):
         if c in frame.columns
     ]
     frame = frame.drop(stale_cols).join(prices, on="ticker", how="left")
+    cap_rejected = (pl.col("market_cap_rejected").is_not_null()
+                    if "market_cap_rejected" in frame.columns else pl.lit(False))
+    derived = (pl.col("market_cap_supplied").is_null() & pl.col("price").is_not_null()
+               & ~cap_rejected)
     frame = frame.with_columns(
         pl.coalesce(
-            [pl.col("market_cap_supplied"), pl.col("price") * pl.col("shares_diluted")]
+            [pl.col("market_cap_supplied"),
+             pl.when(derived).then(pl.col("price") * pl.col("shares_diluted"))]
         ).alias("market_cap"),
-        (pl.col("market_cap_supplied").is_null() & pl.col("price").is_not_null()).alias(
-            "market_cap_derived"
-        ),
+        derived.alias("market_cap_derived"),
         pl.when(pl.col("ma_200").is_not_null() & pl.col("price").is_not_null())
         .then((pl.col("price") - pl.col("ma_200")) / pl.col("ma_200"))
         .otherwise(None)
@@ -971,7 +1017,7 @@ STAGE_ORDER = ("eligible", "growth", "margin_expansion", "quality", "band", "mom
 def run_screen(frame, args, exclude_tickers, prices, eps, fx_rates=None):
     frame = add_framework_triage(apply_lane_filter(frame, args.lane))
 
-    eligible, elig_rejects = apply_eligibility(frame, args, exclude_tickers)
+    eligible, elig_rejects = apply_eligibility(frame, args, exclude_tickers, fx_rates)
     funnel = {"lane_universe": frame.height, "eligible": eligible.height}
 
     survivors, growth_rejects = apply_growth(eligible, args.lane)

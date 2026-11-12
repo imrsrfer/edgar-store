@@ -712,7 +712,9 @@ def compute_metrics(frame, assume_absent_zero=False, sbc_evidence=None,
     )
     capex_ratio = _safe_div(pl.col("capex"), pl.col("revenue"))
     # lease_unmeasured: Finance-lease principal payment not captured in financing section.
-    # Set where lease_payments is null (unresolved). Blocks FCF calculation.
+    # Set where lease_payments is null (unresolved). It does NOT block the FCF
+    # calculation: the deduction below is 0 on these rows (Option a), and
+    # lease_heavy_upper_bound is a reader flag only (Fer, 2026-10-16).
     lease_unmeasured = pl.col("lease_payments").is_null().fill_null(False)
     # lease_heavy: Set where finance-lease payments >= 0.25 × OCF. Bounded at both ends
     # (near-zero and negative OCF) to avoid spurious ratios. Signals lease-dependent business.

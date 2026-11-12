@@ -107,7 +107,10 @@ def test_stale_cap_dropped_by_loader_yields_null_live_check():
         raw, raw, {c: c for c in raw.columns}, date(2026, 10, 20)
     )
     out = screen.apply_prices(frame, prices).row(0, named=True)
-    assert out["market_cap_derived"] is True
+    # Audit 2026-11-11: a rejected cap is no longer replaced by price x shares.
+    assert out["market_cap_rejected"] == "stale_fetch"
+    assert out["market_cap"] is None
+    assert out["market_cap_derived"] is False
     assert out["live_share_count"] is None
     assert out["share_count_live_gap"] is None
     assert out["share_count_stale_vs_live"] is None

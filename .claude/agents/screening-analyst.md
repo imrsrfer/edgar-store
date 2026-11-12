@@ -149,7 +149,8 @@ For each ticker:
      right (two in three were, against Capital IQ), but confirm capex before
      quoting FCF.
    - **Gate 0:** `framework_leg_failed` and every `test_*` leg, not only
-     `gate0_pass`. Enumerate every `NOT_EVALUABLE` Gate 0 leg, including manual
+     `gate0_pass`. `gate0_pass` true beside `gate0_pass_strict` false means
+     FCF-after-SBC was never evaluated (no SBC figure): say so. Enumerate every `NOT_EVALUABLE` Gate 0 leg, including manual
      inputs the store does not measure (organic/acquired growth, SBC dilution,
      adjusted-vs-GAAP reconciliation). Missing or undisclosed inputs are
      `NOT_EVALUABLE`, never a pass; each blocks advancement past WATCHLIST.
@@ -208,6 +209,14 @@ row count and the age of its `as_of` dates.
   the small-cap end first.
 - `build_prices.py` itself fails in the cloud (Yahoo returns 403). Run it only
   if the decider says the session is on Fer's machine.
+- **Every row in the merged file carries its cap's provenance** (store sync
+  2026-11-12): `market_cap_fetched_at` (UTC, `YYYY-MM-DDTHH:MM:SSZ`, the time
+  you pulled it) and `market_cap_currency` (`USD`). `screen.py` drops a cap
+  with no provenance, a non-USD cap, or one fetched more than 7 days ago, and
+  it no longer rebuilds one from price × `shares_diluted`: the row is cut as
+  `band:market_cap_missing`. A hand-priced row without those two columns is
+  therefore an unpriced row. Report the `market_cap REJECTED` line the lane
+  prints, by reason.
 Report requested, priced, **unpriced BY TICKER**, which source priced each
 batch, and rows older than 7 days. Count the gap at the band gate, never over
 the whole file. Write the merged table to a file and reply with the counts and
@@ -216,9 +225,17 @@ path.
 ### `SWEEP`: MODE A mechanics
 Run the lanes the decider names (default: `value`, then `ifrs`, `inflection`,
 `shorthist`, plus at least one of `margin2y` / `accel` / `unevaluated`) with
-`--price-csv <merged price file from PRICES> --min-mktcap 100e6 --momentum flag --out shortlist_<lane>.csv`.
+`--price-csv <merged price file from PRICES> --eps-csv eps.csv --min-mktcap 100e6 --momentum flag --out shortlist_<lane>.csv`.
+**`--eps-csv eps.csv` goes on every lane run** (store sync 2026-11-12): the
+committed `store/eps.csv` feeds `adjusted_eps_guard`, and a lane re-run
+without it blanks the guard on every row. It cannot be rebuilt in the cloud
+(`build_eps.py` uses Yahoo). If `store/eps.csv` is absent, say so and report
+the guard as `NOT_MEASURED`. The guard only flags; it never rejects a row and
+never settles the §C-1 reconciliation.
 Then run `rank_queue.py --exclude-tickers tracked.txt --out queue_ranked.csv`
-with the tracked list the decider gives you. Return each lane's funnel, the
+with the tracked list the decider gives you. Report how many ranked rows carry
+`cap_derived` (price × filed shares, share basis unchecked): they sort last in
+their tier and their tier is not confirmed. Return each lane's funnel, the
 tier counts, the refill funnel table and the ranked rows. Refill (`direct`)
 rows are reported but marked `refill`; they are queued only if the decider
 says Fer asked for them (Fer, 2026-10-09). If the run prints

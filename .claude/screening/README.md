@@ -68,7 +68,7 @@ swaps).
 python fetch_edgar.py --force
 python build_facts.py
 python gate0.py
-$lanes = "value","ifrs","inflection","shorthist","margin2y","accel","unevaluated"
+$lanes = "main","value","ifrs","inflection","shorthist","margin2y","accel","unevaluated"
 foreach ($l in $lanes) { python screen.py --lane $l --out "shortlist_$l.csv" --price-csv prices.csv --min-mktcap 100e6 --momentum flag }
 python build_prices.py --from-framework-pass --max-age-days 7
 python build_eps.py

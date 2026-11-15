@@ -890,13 +890,17 @@ def test_price_csv_derives_market_cap_ev_and_leaves_missing_debt_null(tmp_path):
 
 
 def test_palantir_nine_quarter_accelerating_revenue_streak(universe):
-    """Palantir: hand-verified YoY revenue growth rising every quarter on file
-    (48% -> 63% -> 85% -> 93% over the four most recent), a 9-quarter streak
-    and a positive 4-quarter slope."""
+    """Palantir: YoY revenue growth rising every quarter on file
+    (63% -> 70% -> 85% -> 93% -> 96% through Q3 2026), a 10-quarter streak
+    and a positive 4-quarter slope.
+
+    Re-pinned 2026-11-15 after the Q3 10-Q landed. Endpoints hand-verified
+    against reported revenue: Q3-25 $1,181.1M vs Q3-24 $725.5M = +62.8%;
+    Q3-26 $2,313.4M vs Q3-25 $1,181.1M = +95.9%."""
     row = company(universe, "PLTR")
 
-    assert row["revenue_growth_yoy_q1"] == pytest.approx(0.48, abs=0.02)
-    assert row["revenue_growth_yoy_q4"] == pytest.approx(0.93, abs=0.02)
+    assert row["revenue_growth_yoy_q1"] == pytest.approx(0.63, abs=0.02)
+    assert row["revenue_growth_yoy_q4"] == pytest.approx(0.96, abs=0.02)
     assert row["revenue_growth_yoy_q4"] > row["revenue_growth_yoy_q1"]
     assert row["revenue_accel_4q"] > 0
     assert row["quarters_of_accelerating_revenue"] >= 4
@@ -1277,12 +1281,17 @@ def test_a_row_with_no_ttm_window_is_not_reported_as_misaligned():
 
 
 def test_task_special_dividend_fails_the_leg_on_the_quarterly_vintage(universe):
-    """TaskUs FY2025: +227M tangible book, -62M after the March 2026 payout."""
+    """TaskUs FY2025: +227M tangible book, negative after the March 2026 payout.
+
+    The -62.3M Q2-26 figure was hand-verified. The Q3-26 rebuild (2026-11-15)
+    moved latest_q to 2026-09-30, where the store reads about -34.7M; that
+    figure is NOT hand-verified, so the test pins the shape (FY positive,
+    quarter negative, quarter wins, leg fails), not a number copied from the
+    store."""
     row = company(universe, "TASK")
 
     assert row["tangible_book"] > 0
     assert row["tangible_book_latest_q"] < 0
-    assert row["tangible_book_latest_q"] == pytest.approx(-62.3 * MILLION, rel=0.05)
     assert row["tangible_book_basis"] == gate0.TANGIBLE_BOOK_BASIS_LATEST_Q
     assert row["test_tangible_book"] == "FAIL"
     assert row["tangible_book_vintage_conflict"] is True
@@ -1290,32 +1299,27 @@ def test_task_special_dividend_fails_the_leg_on_the_quarterly_vintage(universe):
 
 
 def test_atmu_koch_filter_deal_fails_the_leg_on_the_quarterly_vintage(universe):
-    """Atmus Filtration: equity 454.8M against 511.9M of goodwill+intangibles."""
+    """Atmus Filtration: FY-positive tangible book turned negative by the deal.
+
+    Q2-26 was hand-verified (equity 454.8M against 511.9M of goodwill and
+    intangibles, -57.1M). The Q3-26 rebuild (2026-11-15) reads about -4.7M at
+    2026-09-30, which is NOT hand-verified, so the test pins the shape only.
+    At -4.7M this case is close to flipping positive; retire it with a test:
+    commit when a later quarter does."""
     row = company(universe, "ATMU")
 
     assert row["tangible_book"] > 0
     assert row["tangible_book_latest_q"] < 0
-    assert row["tangible_book_latest_q"] == pytest.approx(-57.1 * MILLION, rel=0.05)
     assert row["tangible_book_basis"] == gate0.TANGIBLE_BOOK_BASIS_LATEST_Q
     assert row["test_tangible_book"] == "FAIL"
 
 
-def test_kimball_lagging_quarters_keep_the_fiscal_year_and_flag_the_ttm_window(
-    universe,
-):
-    """KE, FY ending 30-Jun-26 with its last interim at 31-Mar-26.
-
-    Two findings on one row: the balance-sheet leg must NOT move to the older
-    quarterly vintage, and the TTM window -- which straddles the far stronger
-    FY2025 -- must say so instead of passing as clean.
-    """
-    row = company(universe, "KE")
-
-    assert row["tangible_book_basis"] == gate0.TANGIBLE_BOOK_BASIS_FISCAL_YEAR
-    assert row["latest_q_period_end"] < row["period_end"]
-    assert row["ttm_window_end"] < row["period_end"]
-    assert row["ttm_window_misaligned"] is True
-    assert row["ttm_unavailable"] is False
+# test_kimball_lagging_quarters_keep_the_fiscal_year_and_flag_the_ttm_window
+# retired 2026-11-15: KE's Q1 FY27 10-Q (quarter ending 2026-09-30) landed,
+# so its latest quarter is now NEWER than the 30-Jun-26 fiscal year. The
+# latest_q basis and an aligned TTM window are the correct result on the live
+# store. The KE shape stays pinned synthetically by the KE-numbered vintage
+# test above and test_ttm_window_that_stops_a_quarter_short_of_the_fiscal_year_is_flagged.
 
 
 def test_nth_back_uses_fiscal_year_not_row_count():

@@ -289,11 +289,14 @@ LIVE_CASES = {
     # is consistent at 2025-07-31 and there is no staleness left to flag. The
     # 153-day FYE-change logic is still covered by
     # test_fye_change_gap_below_300_days_still_flags.
-    "VMC": "ttm_behind_calendar",
     # LSTR removed 2026-10-29: the refreshed archive holds its Q3 10-Q (window
     # 2026-09-26), so the store is no longer behind and the flag correctly
-    # stays off. VMC and CTSH still pin the live case.
-    "CTSH": "ttm_behind_calendar",
+    # stays off.
+    # VMC and CTSH removed 2026-11-15: the post-Q3 rebuild holds both Q3 10-Qs
+    # (TTM window 2026-09-30), so neither is behind and the flag correctly
+    # stays off. No live case is left for ttm_behind_calendar; the synthetic
+    # tests above (test_missing_10q_flags_against_store_as_of_not_wall_clock
+    # and its three neighbours) still pin the logic.
     "OKE": "ttm_side_flows_lagging",
 }
 

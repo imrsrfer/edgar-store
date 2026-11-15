@@ -70,7 +70,9 @@ GROUPS = {
         "dilution_attribution_owed", "dilution_share_scale_break", "warn_low_tax",
         "store_defect_flags", "total_debt_partial", "capex_gross_of_proceeds",
         "shares_history_scale_break", "shares_split_basis_break", "share_count_stale_vs_live", "revenue_subset_suspect", "fy_flows_stale", "ttm_behind_calendar",
-        "ttm_side_flows_lagging",
+        "ttm_side_flows_lagging", "capex_tag_hold", "capex_unconfirmed", "fail_dilution",
+        "revenue_subset_history_suspect", "tangible_book_buyback_exempt",
+        "lease_heavy_upper_bound", "currency_unresolved",
     ],
     "residuals": ["investing_residual", "capex_floor_from_investing", "fcf_after_sbc_capex_floor", "net_income_residual", "capex_vs_dep_amort"],
     "fy_flows": [
@@ -93,7 +95,7 @@ GROUPS = {
         "shares_diluted", "shares_diluted_prior_fy", "latest_q_shares_diluted", "live_share_count", "share_count_live_gap", "shares_split_basis_ratio", "fcf_per_share",
         "dilution_yoy", "dilution_cagr_3y", "acquisition_shares",
         "equity_issuance_shares", "equity_issuance_proceeds", "debt_conversion_shares", "preferred_conversion_shares",
-        "acquisition_shares_measured", "equity_issuance_shares_measured", "equity_issuance_proceeds_measured",
+        "dilution_sbc_issuance", "acquisition_shares_measured", "equity_issuance_shares_measured", "equity_issuance_proceeds_measured",
         "debt_conversion_shares_measured", "preferred_conversion_shares_measured",
     ],
     "ratios": [

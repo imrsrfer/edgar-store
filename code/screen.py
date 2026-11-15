@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 from datetime import date, timedelta
 
 import polars as pl
@@ -910,6 +911,35 @@ def load_eps(path):
     ).unique(subset="ticker")
 
 
+def unused_eps_file(eps_csv, root, cwd=None):
+    """An eps.csv sitting in the working dir or the data root while --eps-csv
+    was not passed, else None. build_eps.py writes <root>/eps.csv, and without
+    --eps-csv the adjusted_eps_guard column is blank on every row -- silently."""
+    if eps_csv:
+        return None
+    for folder in (cwd if cwd is not None else os.getcwd(), root):
+        candidate = os.path.join(str(folder), "eps.csv")
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
+def warn_unused_eps(eps_csv, root, no_eps_ok=False, cwd=None, stream=None):
+    """Warn (stderr only; behaviour and exit code unchanged) -> the path or None."""
+    if no_eps_ok:
+        return None
+    found = unused_eps_file(eps_csv, root, cwd)
+    if found:
+        print(
+            f"  WARNING: {found} exists but --eps-csv was not passed, so "
+            "adjusted_eps_guard will be BLANK on every row of this shortlist "
+            "(the guard is unevaluated, not passed). Re-run with "
+            f"--eps-csv {found}, or pass --no-eps-ok if running without it is deliberate.",
+            file=stream if stream is not None else sys.stderr,
+        )
+    return found
+
+
 # --------------------------------------------------------------------------
 # Lanes
 # --------------------------------------------------------------------------
@@ -1199,6 +1229,12 @@ def main(argv=None):
         default=None,
         help="ticker,fwd_pe,trail_pe (optional, informational only)",
     )
+    parser.add_argument(
+        "--no-eps-ok",
+        action="store_true",
+        help="silence the warning that an eps.csv exists but --eps-csv was not passed "
+        "(pass 1 of a rebuild deliberately runs without it)",
+    )
     parser.add_argument("--tickers", default=None, help="ad-hoc exact lookup, e.g. COPA,1345105")
     args = parser.parse_args(argv)
 
@@ -1252,6 +1288,7 @@ def main(argv=None):
                 f"  merged {len(loaded)} price files -> {prices.height:,} tickers "
                 "(freshest as_of wins per ticker)"
             )
+    warn_unused_eps(args.eps_csv, paths.root, args.no_eps_ok)
     eps = load_eps(args.eps_csv) if args.eps_csv else None
 
     result, funnel = run_screen(frame, args, exclude_tickers, prices, eps,

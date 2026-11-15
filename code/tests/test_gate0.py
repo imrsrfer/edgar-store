@@ -953,6 +953,9 @@ def gate0_csv_frame():
     return pl.read_csv(paths.gate0, infer_schema_length=200000)
 
 
+PERF_CIK = 1899830  # Perfect Corp.; ticker PERF until 2026, PERFF on OTC since
+
+
 def test_perf_fails_margin_expansion_screen(gate0_csv_frame):
     """Perfect Corp (PERF): operating margin improved (+7.0pp) but is still
     negative (-2.5%) at the latest fiscal year.
@@ -961,14 +964,19 @@ def test_perf_fails_margin_expansion_screen(gate0_csv_frame):
     tested only operating_margin_delta > 0 and let PERF through. Both
     conditions are mandatory in apply_margin_expansion; this pins that a
     still-unprofitable "improver" is rejected, not shortlisted.
+
+    Matched on CIK 1899830, not ticker: Perfect Corp moved from NYSE to OTC
+    and SEC's ticker map now lists it as PERFF (2026-11-15 rebuild). Same
+    filer, same FY2025 figures.
     """
-    row = gate0_csv_frame.filter(pl.col("ticker") == "PERF").to_dicts()[0]
+    is_perf = pl.col("cik") == PERF_CIK
+    row = gate0_csv_frame.filter(is_perf).to_dicts()[0]
     assert row["operating_margin_delta"] > 0
     assert row["operating_margin_latest"] < 0
 
     survivors, rejected = screen.apply_margin_expansion(gate0_csv_frame)
-    assert survivors.filter(pl.col("ticker") == "PERF").height == 0
-    perf_rejection = rejected.filter(pl.col("ticker") == "PERF")
+    assert survivors.filter(is_perf).height == 0
+    perf_rejection = rejected.filter(is_perf)
     assert perf_rejection.height == 1
     assert perf_rejection["rejected_because"][0] == "margin_expansion"
 

@@ -1,0 +1,255 @@
+From dc28624a3b119a622ca8ab72acec3448bb6753c9 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 15 Nov 2026 02:46:27 -0500
+Subject: [PATCH] fact_pack: show analyst-named flag columns; screen: warn when
+ eps.csv exists but --eps-csv omitted
+
+- fact_pack GROUPS now include capex_tag_hold, capex_unconfirmed, fail_dilution,
+  revenue_subset_history_suspect, tangible_book_buyback_exempt,
+  lease_heavy_upper_bound, currency_unresolved (flags) and dilution_sbc_issuance (shares).
+- New test parses screening-analyst.md backticked tokens, intersects with the
+  gate0.csv header, and asserts each is in GROUPS (plus an explicit list).
+- screen.py prints a stderr WARNING when eps.csv sits in cwd or the data root
+  and --eps-csv is not passed; --no-eps-ok silences it. Behaviour and exit code
+  unchanged; shortlist CSVs byte-identical.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KAFfMzZdr5vxi36NXZ7Lsn
+---
+ .claude/screening/fact_pack.py     |  6 ++-
+ code/screen.py                     | 37 ++++++++++++++++++
+ code/tests/test_eps_warning.py     | 59 ++++++++++++++++++++++++++++
+ code/tests/test_factpack_groups.py | 62 ++++++++++++++++++++++++++++++
+ 4 files changed, 162 insertions(+), 2 deletions(-)
+ create mode 100644 code/tests/test_eps_warning.py
+ create mode 100644 code/tests/test_factpack_groups.py
+
+diff --git a/.claude/screening/fact_pack.py b/.claude/screening/fact_pack.py
+index b759dcd..ae0d6c9 100644
+--- a/.claude/screening/fact_pack.py
++++ b/.claude/screening/fact_pack.py
+@@ -70,7 +70,9 @@ GROUPS = {
+         "dilution_attribution_owed", "dilution_share_scale_break", "warn_low_tax",
+         "store_defect_flags", "total_debt_partial", "capex_gross_of_proceeds",
+         "shares_history_scale_break", "shares_split_basis_break", "share_count_stale_vs_live", "revenue_subset_suspect", "fy_flows_stale", "ttm_behind_calendar",
+-        "ttm_side_flows_lagging",
++        "ttm_side_flows_lagging", "capex_tag_hold", "capex_unconfirmed", "fail_dilution",
++        "revenue_subset_history_suspect", "tangible_book_buyback_exempt",
++        "lease_heavy_upper_bound", "currency_unresolved",
+     ],
+     "residuals": ["investing_residual", "capex_floor_from_investing", "fcf_after_sbc_capex_floor", "net_income_residual", "capex_vs_dep_amort"],
+     "fy_flows": [
+@@ -93,7 +95,7 @@ GROUPS = {
+         "shares_diluted", "shares_diluted_prior_fy", "latest_q_shares_diluted", "live_share_count", "share_count_live_gap", "shares_split_basis_ratio", "fcf_per_share",
+         "dilution_yoy", "dilution_cagr_3y", "acquisition_shares",
+         "equity_issuance_shares", "equity_issuance_proceeds", "debt_conversion_shares", "preferred_conversion_shares",
+-        "acquisition_shares_measured", "equity_issuance_shares_measured", "equity_issuance_proceeds_measured",
++        "dilution_sbc_issuance", "acquisition_shares_measured", "equity_issuance_shares_measured", "equity_issuance_proceeds_measured",
+         "debt_conversion_shares_measured", "preferred_conversion_shares_measured",
+     ],
+     "ratios": [
+diff --git a/code/screen.py b/code/screen.py
+index aa8be74..dcc9dca 100644
+--- a/code/screen.py
++++ b/code/screen.py
+@@ -24,6 +24,7 @@ from __future__ import annotations
+ 
+ import argparse
+ import os
++import sys
+ from datetime import date, timedelta
+ 
+ import polars as pl
+@@ -910,6 +911,35 @@ def load_eps(path):
+     ).unique(subset="ticker")
+ 
+ 
++def unused_eps_file(eps_csv, root, cwd=None):
++    """An eps.csv sitting in the working dir or the data root while --eps-csv
++    was not passed, else None. build_eps.py writes <root>/eps.csv, and without
++    --eps-csv the adjusted_eps_guard column is blank on every row -- silently."""
++    if eps_csv:
++        return None
++    for folder in (cwd if cwd is not None else os.getcwd(), root):
++        candidate = os.path.join(str(folder), "eps.csv")
++        if os.path.isfile(candidate):
++            return candidate
++    return None
++
++
++def warn_unused_eps(eps_csv, root, no_eps_ok=False, cwd=None, stream=None):
++    """Warn (stderr only; behaviour and exit code unchanged) -> the path or None."""
++    if no_eps_ok:
++        return None
++    found = unused_eps_file(eps_csv, root, cwd)
++    if found:
++        print(
++            f"  WARNING: {found} exists but --eps-csv was not passed, so "
++            "adjusted_eps_guard will be BLANK on every row of this shortlist "
++            "(the guard is unevaluated, not passed). Re-run with "
++            f"--eps-csv {found}, or pass --no-eps-ok if running without it is deliberate.",
++            file=stream if stream is not None else sys.stderr,
++        )
++    return found
++
++
+ # --------------------------------------------------------------------------
+ # Lanes
+ # --------------------------------------------------------------------------
+@@ -1199,6 +1229,12 @@ def main(argv=None):
+         default=None,
+         help="ticker,fwd_pe,trail_pe (optional, informational only)",
+     )
++    parser.add_argument(
++        "--no-eps-ok",
++        action="store_true",
++        help="silence the warning that an eps.csv exists but --eps-csv was not passed "
++        "(pass 1 of a rebuild deliberately runs without it)",
++    )
+     parser.add_argument("--tickers", default=None, help="ad-hoc exact lookup, e.g. COPA,1345105")
+     args = parser.parse_args(argv)
+ 
+@@ -1252,6 +1288,7 @@ def main(argv=None):
+                 f"  merged {len(loaded)} price files -> {prices.height:,} tickers "
+                 "(freshest as_of wins per ticker)"
+             )
++    warn_unused_eps(args.eps_csv, paths.root, args.no_eps_ok)
+     eps = load_eps(args.eps_csv) if args.eps_csv else None
+ 
+     result, funnel = run_screen(frame, args, exclude_tickers, prices, eps,
+diff --git a/code/tests/test_eps_warning.py b/code/tests/test_eps_warning.py
+new file mode 100644
+index 0000000..8ab44d0
+--- /dev/null
++++ b/code/tests/test_eps_warning.py
+@@ -0,0 +1,59 @@
++"""screen.py warns (stderr only) when eps.csv exists but --eps-csv was not passed."""
++
++import screen
++
++
++def _run(tmp_path, capsys, eps_csv=None, no_eps_ok=False, in_cwd=False, in_root=False):
++    root, cwd = tmp_path / "root", tmp_path / "cwd"
++    root.mkdir(), cwd.mkdir()
++    if in_root:
++        (root / "eps.csv").write_text("ticker,fwd_pe,trail_pe\n")
++    if in_cwd:
++        (cwd / "eps.csv").write_text("ticker,fwd_pe,trail_pe\n")
++    found = screen.warn_unused_eps(eps_csv, root, no_eps_ok, cwd=cwd)
++    captured = capsys.readouterr()
++    return found, captured
++
++
++def test_warns_on_stderr_when_eps_in_root(tmp_path, capsys):
++    found, cap = _run(tmp_path, capsys, in_root=True)
++    assert found and found.endswith("eps.csv")
++    assert "eps.csv" in cap.err and "adjusted_eps_guard" in cap.err and "BLANK" in cap.err
++    assert cap.out == ""
++
++
++def test_warns_when_eps_in_cwd(tmp_path, capsys):
++    found, cap = _run(tmp_path, capsys, in_cwd=True)
++    assert found and "adjusted_eps_guard" in cap.err
++
++
++def test_no_warning_when_eps_csv_passed(tmp_path, capsys):
++    found, cap = _run(tmp_path, capsys, eps_csv="eps.csv", in_root=True)
++    assert found is None and cap.err == ""
++
++
++def test_no_warning_when_no_eps_file(tmp_path, capsys):
++    found, cap = _run(tmp_path, capsys)
++    assert found is None and cap.err == ""
++
++
++def test_no_eps_ok_silences(tmp_path, capsys):
++    found, cap = _run(tmp_path, capsys, no_eps_ok=True, in_root=True)
++    assert found is None and cap.err == ""
++
++
++def test_main_warns_but_exit_code_and_output_unchanged(tmp_path, capsys):
++    import shutil
++    from pathlib import Path
++    store = Path(__file__).resolve().parents[2] / "store"
++    root = tmp_path / "store"
++    root.mkdir()
++    shutil.copy(store / "gate0.csv", root / "gate0.csv")
++    (root / "eps.csv").write_text("ticker,fwd_pe,trail_pe\n")
++    out = tmp_path / "o.csv"
++    assert screen.main(["--lane", "value", "--root", str(root), "--out", str(out)]) == 0
++    assert "adjusted_eps_guard" in capsys.readouterr().err
++    out2 = tmp_path / "o2.csv"
++    assert screen.main(["--lane", "value", "--root", str(root), "--out", str(out2), "--no-eps-ok"]) == 0
++    assert "adjusted_eps_guard" not in capsys.readouterr().err
++    assert out.read_bytes() == out2.read_bytes()
+diff --git a/code/tests/test_factpack_groups.py b/code/tests/test_factpack_groups.py
+new file mode 100644
+index 0000000..bd63a4a
+--- /dev/null
++++ b/code/tests/test_factpack_groups.py
+@@ -0,0 +1,62 @@
++"""fact_pack GROUPS must show the analyst every gate0.csv column its prompt tells it to act on.
++
++2026-11-15: capex_tag_hold, capex_unconfirmed, fail_dilution, revenue_subset_history_suspect,
++tangible_book_buyback_exempt, lease_heavy_upper_bound and currency_unresolved were named in
++screening-analyst.md but missing from GROUPS, so `fact_pack.py rows` never showed them.
++
++Method: every backticked token in screening-analyst.md that is also a gate0.csv header
++column. (Parsing is deliberately the intersection, so prose like `NOT_EVALUABLE` or
++`--quote` can never false-fail.)
++"""
++
++import importlib.util
++import re
++from pathlib import Path
++
++import pytest
++
++REPO = Path(__file__).resolve().parents[2]
++SCRIPT = REPO / ".claude/screening/fact_pack.py"
++AGENT = REPO / ".claude/agents/screening-analyst.md"
++GATE0 = REPO / "store/gate0.csv"
++if not (SCRIPT.is_file() and AGENT.is_file() and GATE0.is_file()):
++    pytest.skip("needs .claude/ and store/gate0.csv beside this code tree", allow_module_level=True)
++
++_spec = importlib.util.spec_from_file_location("fact_pack", SCRIPT)
++fp = importlib.util.module_from_spec(_spec)
++_spec.loader.exec_module(fp)
++
++
++def header():
++    return set(GATE0.open(encoding="utf-8").readline().strip().split(","))
++
++
++def analyst_columns():
++    tokens = set(re.findall(r"`([A-Za-z0-9_]+)`", AGENT.read_text(encoding="utf-8")))
++    return tokens & header()
++
++
++def test_every_analyst_named_column_is_in_a_group():
++    shown = {c for cols in fp.GROUPS.values() for c in cols}
++    missing = sorted(analyst_columns() - shown)
++    assert not missing, f"screening-analyst.md names these gate0.csv columns but fact_pack GROUPS hides them: {missing}"
++
++
++def test_parser_sees_the_known_flag_columns():
++    # Guards the parser itself: if it silently found nothing the test above would pass vacuously.
++    assert {"capex_tag_hold", "capex_unconfirmed", "capex_suspect"} <= analyst_columns()
++
++
++# Explicit list: columns the 2026-11-15 audit required, whether or not the analyst prompt
++# names them today (the first four are named only by other agents / the job definition).
++REQUIRED = [
++    "capex_tag_hold", "capex_unconfirmed", "fail_dilution", "revenue_subset_history_suspect",
++    "tangible_book_buyback_exempt", "lease_heavy_upper_bound", "currency_unresolved",
++    "dilution_sbc_issuance",
++]
++
++
++@pytest.mark.parametrize("column", REQUIRED)
++def test_required_columns_exist_and_are_shown(column):
++    assert column in header()
++    assert column in {c for cols in fp.GROUPS.values() for c in cols}
+-- 
+2.43.0
+

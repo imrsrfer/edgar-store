@@ -1,5 +1,7 @@
 """screen.py warns (stderr only) when eps.csv exists but --eps-csv was not passed."""
 
+import pytest
+
 import screen
 
 
@@ -45,10 +47,16 @@ def test_no_eps_ok_silences(tmp_path, capsys):
 def test_main_warns_but_exit_code_and_output_unchanged(tmp_path, capsys):
     import shutil
     from pathlib import Path
-    store = Path(__file__).resolve().parents[2] / "store"
+    here = Path(__file__).resolve()
+    # gate0.csv lives in store/ beside code/ in the repo clone, and flat beside
+    # the scripts in the producer root. Locate it in whichever layout we run in.
+    candidates = [here.parents[2] / "store" / "gate0.csv", here.parents[1] / "gate0.csv"]
+    store_gate0 = next((c for c in candidates if c.is_file()), None)
+    if store_gate0 is None:
+        pytest.skip("no gate0.csv in repo (store/) or producer (flat) layout")
     root = tmp_path / "store"
     root.mkdir()
-    shutil.copy(store / "gate0.csv", root / "gate0.csv")
+    shutil.copy(store_gate0, root / "gate0.csv")
     (root / "eps.csv").write_text("ticker,fwd_pe,trail_pe\n")
     out = tmp_path / "o.csv"
     assert screen.main(["--lane", "value", "--root", str(root), "--out", str(out)]) == 0

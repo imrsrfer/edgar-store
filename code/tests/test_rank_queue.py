@@ -106,9 +106,12 @@ def test_load_exclusions_reads_and_normalizes(tmp_path):
 
 def test_exclusions_default_path_points_at_the_versioned_file():
     # The default must resolve beside this script so a bare run reads the
-    # version-controlled list, not a store-relative path.
+    # version-controlled list, not a store-relative path. rank_queue.py lives
+    # in code/ in the repo and flat in the producer root, so assert the actual
+    # guarantee (beside the module) rather than a directory name.
+    from pathlib import Path
     assert rq.DEFAULT_EXCLUSIONS_PATH.name == "exclusions.csv"
-    assert rq.DEFAULT_EXCLUSIONS_PATH.parent.name == "code"
+    assert rq.DEFAULT_EXCLUSIONS_PATH == Path(rq.__file__).resolve().parent / "exclusions.csv"
 
 
 def test_fail_open_defect_sorts_after_clean_within_tier_but_not_across():

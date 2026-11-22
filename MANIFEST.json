@@ -1,11 +1,11 @@
 {
   "contains": "reference data only: code + SEC-derived store. NO queue, NO portfolio data.",
-  "synced_utc": "2026-11-15T09:05:57Z",
-  "store_built_utc_oldest": "2026-11-15T08:33:08Z",
-  "store_built_utc_newest": "2026-11-15T09:04:56Z",
-  "store_build_spread_hours": 0.53,
-  "store_vintage_ok": true,
-  "publication_gate": "passed: 660 passed, 18 skipped in 37.98s (EDGAR_REQUIRE_STORE=1)",
+  "synced_utc": "2026-11-22T05:42:17Z",
+  "store_built_utc_oldest": "2026-11-15T09:04:26Z",
+  "store_built_utc_newest": "2026-11-22T05:30:57Z",
+  "store_build_spread_hours": 164.44,
+  "store_vintage_ok": false,
+  "publication_gate": "passed: 676 passed, 19 skipped in 66.19s (0:01:06) (EDGAR_REQUIRE_STORE=1)",
   "pruned": {
     "store": [],
     "code": []
@@ -22,14 +22,14 @@
       "sha256_16": "a01e7104d653eca6"
     },
     "gate0.py": {
-      "bytes": 193319,
-      "mtime_utc": "2026-11-12T06:56:09Z",
-      "sha256_16": "3dd0d3118c6ef3a5"
+      "bytes": 194288,
+      "mtime_utc": "2026-11-22T05:24:05Z",
+      "sha256_16": "577ed2c41c103e8c"
     },
     "screen.py": {
-      "bytes": 70681,
-      "mtime_utc": "2026-11-15T08:11:34Z",
-      "sha256_16": "60b6f9e2e311a946"
+      "bytes": 71580,
+      "mtime_utc": "2026-11-22T05:24:05Z",
+      "sha256_16": "849dc8e89e17b78b"
     },
     "build_prices.py": {
       "bytes": 21090,
@@ -37,9 +37,14 @@
       "sha256_16": "d361f5dfa14767fc"
     },
     "rank_queue.py": {
-      "bytes": 23789,
-      "mtime_utc": "2026-11-12T02:17:02Z",
-      "sha256_16": "9c07d497ac342305"
+      "bytes": 27896,
+      "mtime_utc": "2026-11-22T05:24:05Z",
+      "sha256_16": "a186d9f4bb3d19d2"
+    },
+    "exclusions.csv": {
+      "bytes": 1598,
+      "mtime_utc": "2026-11-22T05:24:05Z",
+      "sha256_16": "beed7d8f6d9f3941"
     },
     "store_defects.py": {
       "bytes": 29830,
@@ -47,19 +52,19 @@
       "sha256_16": "6f0d41e5217d4af9"
     },
     "concepts.py": {
-      "bytes": 52433,
-      "mtime_utc": "2026-11-07T03:09:27Z",
-      "sha256_16": "b5edda7f775f3d69"
+      "bytes": 53078,
+      "mtime_utc": "2026-11-22T05:24:04Z",
+      "sha256_16": "80a6cbb27c466c51"
     },
     "edgar_lib.py": {
-      "bytes": 9686,
-      "mtime_utc": "2026-10-30T00:29:22Z",
-      "sha256_16": "31799779d3617e6a"
+      "bytes": 11095,
+      "mtime_utc": "2026-11-22T05:24:05Z",
+      "sha256_16": "e22db2ec4034794b"
     },
     "README.md": {
-      "bytes": 48406,
-      "mtime_utc": "2026-11-12T06:59:27Z",
-      "sha256_16": "58b774a23ad31b4e"
+      "bytes": 48999,
+      "mtime_utc": "2026-11-22T05:24:04Z",
+      "sha256_16": "2580dbb62c5ca9bd"
     },
     "PRICES_SCHEMA.md": {
       "bytes": 5881,
@@ -87,9 +92,9 @@
       "sha256_16": "938e563bd5f8f491"
     },
     "fx.py": {
-      "bytes": 3439,
-      "mtime_utc": "2026-10-30T00:29:22Z",
-      "sha256_16": "b4b1f0938391f947"
+      "bytes": 3802,
+      "mtime_utc": "2026-11-22T05:24:05Z",
+      "sha256_16": "ffcc1812e9857551"
     },
     "scorecard.py": {
       "bytes": 19765,
@@ -104,88 +109,88 @@
   },
   "store": {
     "gate0.csv": {
-      "bytes": 11049428,
-      "mtime_utc": "2026-11-15T08:43:19Z",
-      "sha256_16": "1e8d7287f85f2615"
+      "bytes": 11059515,
+      "mtime_utc": "2026-11-22T05:29:56Z",
+      "sha256_16": "f002d47a7f5e578f"
     },
     "facts.parquet": {
       "bytes": 26147906,
-      "mtime_utc": "2026-11-15T08:33:08Z",
+      "mtime_utc": "2026-11-22T04:43:05Z",
       "sha256_16": "ced321b127217efc"
     },
     "meta.parquet": {
       "bytes": 321915,
-      "mtime_utc": "2026-11-15T08:33:08Z",
+      "mtime_utc": "2026-11-22T04:43:05Z",
       "sha256_16": "084ad811fb5e02de"
     },
     "shortlist_main.csv": {
-      "bytes": 11844898,
-      "mtime_utc": "2026-11-15T09:04:29Z",
-      "sha256_16": "94d4c7799b1b21da"
+      "bytes": 11840402,
+      "mtime_utc": "2026-11-22T05:30:16Z",
+      "sha256_16": "c6891f9b69faabea"
     },
     "shortlist_inflection.csv": {
-      "bytes": 11798769,
-      "mtime_utc": "2026-11-15T09:04:40Z",
-      "sha256_16": "debfb4e8123f9ea9"
+      "bytes": 11816606,
+      "mtime_utc": "2026-11-22T05:30:33Z",
+      "sha256_16": "450c78ee20d2915c"
     },
     "shortlist_shorthist.csv": {
-      "bytes": 2109286,
-      "mtime_utc": "2026-11-15T09:04:44Z",
-      "sha256_16": "33f9c99745e56090"
+      "bytes": 2111369,
+      "mtime_utc": "2026-11-22T05:30:38Z",
+      "sha256_16": "65e8dc0edeb664e1"
     },
     "shortlist_ifrs.csv": {
-      "bytes": 945484,
-      "mtime_utc": "2026-11-15T09:04:37Z",
-      "sha256_16": "2d0d21f434fd8965"
+      "bytes": 946506,
+      "mtime_utc": "2026-11-22T05:30:28Z",
+      "sha256_16": "a7295a213d1b5c8a"
     },
     "shortlist_value.csv": {
-      "bytes": 11886162,
-      "mtime_utc": "2026-11-15T09:04:33Z",
-      "sha256_16": "ef3926e31a3630f4"
+      "bytes": 11863434,
+      "mtime_utc": "2026-11-22T05:30:23Z",
+      "sha256_16": "78dc3c037d5e84c8"
     },
     "shortlist_accel.csv": {
-      "bytes": 11819368,
-      "mtime_utc": "2026-11-15T09:04:52Z",
-      "sha256_16": "0fdd09a15f0d4aae"
+      "bytes": 11832877,
+      "mtime_utc": "2026-11-22T05:30:50Z",
+      "sha256_16": "dbd5c39067a77085"
     },
     "shortlist_margin2y.csv": {
-      "bytes": 11843037,
-      "mtime_utc": "2026-11-15T09:04:47Z",
-      "sha256_16": "e1890bc2ceb7637a"
+      "bytes": 11852810,
+      "mtime_utc": "2026-11-22T05:30:43Z",
+      "sha256_16": "60d00fe01ad0938b"
     },
     "shortlist_unevaluated.csv": {
-      "bytes": 11814791,
-      "mtime_utc": "2026-11-15T09:04:56Z",
-      "sha256_16": "77589d1558ac710b"
+      "bytes": 11827406,
+      "mtime_utc": "2026-11-22T05:30:57Z",
+      "sha256_16": "d78bd0ce3f6466e4"
     },
     "data_quality.csv": {
       "bytes": 297237,
-      "mtime_utc": "2026-11-15T08:43:19Z",
+      "mtime_utc": "2026-11-22T05:29:56Z",
       "sha256_16": "b77955c68cdc204d"
     },
     "inactive_filers.csv": {
       "bytes": 169818,
-      "mtime_utc": "2026-11-15T08:43:19Z",
+      "mtime_utc": "2026-11-22T05:29:56Z",
       "sha256_16": "21a74abef0727bd4"
     },
     "duplicate_filers.csv": {
       "bytes": 25020,
-      "mtime_utc": "2026-11-15T08:43:19Z",
+      "mtime_utc": "2026-11-22T05:29:56Z",
       "sha256_16": "7d1a0bccc032fd06"
     },
     "invalid_fiscal_years.csv": {
       "bytes": 213657,
-      "mtime_utc": "2026-11-15T08:33:08Z",
+      "mtime_utc": "2026-11-22T04:21:39Z",
       "sha256_16": "a15107327bdfb8a4"
     },
     "prices.csv": {
-      "bytes": 111081,
-      "mtime_utc": "2026-11-15T09:02:53Z",
-      "sha256_16": "2839dbe55fd863be"
+      "bytes": 111397,
+      "mtime_utc": "2026-11-22T01:25:54Z",
+      "sha256_16": "60f6751d86e89596"
     },
     "prices_unmatched.csv": {
       "bytes": 737,
-      "mtime_utc": "2026-11-15T09:04:55Z",
+      "mtime_utc": "2026-11-22T05:30:55Z",
       "sha256_16": "d5545231d4a0697a"
     },
     "eps.csv": {

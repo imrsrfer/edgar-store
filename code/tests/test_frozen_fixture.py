@@ -66,7 +66,7 @@ def test_xom_successor_merge(fixture_gate0):
     # Hand-verified FY2025 10-K: OCF $51,970M, capex $28,358M.
     r = row(fixture_gate0, "XOM")
     assert (r["cik"], str(r["sic"]), r["latest_fiscal_year"], r["gate0_status"]) == (
-        34088, "2911", 2025, "pass")
+            34088, "2911", 2025, "pass_c1_pending")
     assert r["fcf"] == pytest.approx((51_970 - 28_358) * 1e6, rel=1e-6)
 
 
@@ -80,7 +80,7 @@ def test_cnxc_fiscal_label_fix(fixture_gate0):
 @pytest.mark.parametrize("ticker,currency,status", [
     ("WILCF", "ILS", "unknown"),   # audit #1: ILS OCF never combined with USD NI
     ("SGHC", "USD", "unknown"),    # audit #1: EUR flows, USD balance sheet
-    ("DIDIY", "CNY", "pass"),      # verification V1: was mislabelled USD
+    ("DIDIY", "CNY", "pass_c1_pending"),  # verification V1: was mislabelled USD
     ("SELXF", "TWD", "unknown"),   # auditor 2026-10-16: diagnostics no longer vote
 ])
 def test_currency_cases(fixture_gate0, ticker, currency, status):
@@ -98,7 +98,7 @@ def test_zim_lease_upper_bound_flag_without_verdict_change(fixture_gate0):
     # Lease forensics 2026-10-16: CashOutflowForLeases FY2025 $1,889.3M vs OCF
     # $2,299.5M fires lease_heavy via the proxy; Fer ruled flag-only.
     r = row(fixture_gate0, "ZIM")
-    assert r["gate0_status"] == "pass"
+    assert r["gate0_status"] == "pass_c1_pending"
     assert r["lease_heavy"] is True and r["lease_heavy_upper_bound"] is True
     assert r["lease_outflow_total"] == pytest.approx(1_889_300_000, rel=1e-6)
 

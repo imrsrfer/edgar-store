@@ -76,6 +76,7 @@ from __future__ import annotations
 
 import argparse
 import os
+from pathlib import Path
 
 import polars as pl
 
@@ -98,6 +99,18 @@ TIER_LABELS = {
     "DX": "FRAMEWORK FAILED -- diagnosis or logged exception owed",
 }
 
+# Education is auto-excluded by SIC (8200-8299), not just by the named rows in
+# exclusions.csv (ruling 2026-11-20). Unlike the financial range (6000-6799),
+# which merely re-tiers a name to B, education is a hard drop: those names do
+# not enter the queue at all.
+EDUCATION_EXCLUDE_SIC = "8200-8299"
+
+# Version-controlled exclusion list, read every run. Separates RULE exclusions
+# (struck at Gate 0, education, business-defined financials) from STATE
+# exclusions (holdings/pipeline/watchlist), which still arrive via
+# --exclude-tickers.
+DEFAULT_EXCLUSIONS_PATH = Path(__file__).resolve().parent / "exclusions.csv"
+
 # Columns carried into the queue, when present.
 CARRY = (
     "cik", "ticker", "company_name", "sic", "filing_form", "market_cap",
@@ -107,7 +120,7 @@ CARRY = (
     "live_share_count", "share_count_live_gap", "share_count_stale_vs_live",
     "framework_leg_failed", "framework_leg_unresolved", "review_bucket",
     "framework_diagnosis", "framework_not_evaluated", "gate0_provisional",
-    "ttm_fcf_divergence", "ttm_fcf_after_sbc", "ttm_sbc_owed", "ttm_sbc_zero_reported",
+    "ttm_fcf_divergence", "ttm_fcf_after_sbc", "ttm_unavailable", "ttm_sbc_owed", "ttm_sbc_zero_reported",
     "ttm_suspect", "ttm_window_misaligned", "ttm_sbc_evidence_conflict",
     "ttm_capex_negative", "ttm_capex_missing",
     "reporting_currency", "currency_unresolved", "fx_owed", "fx_as_of", "fx_usd_per_unit",
@@ -289,7 +302,8 @@ def direct_pass(gate0, prices, lane_tickers, exclude_sic=DEFAULT_EXCLUDE_SIC, fx
     return rows, funnel
 
 
-def rank(frame, tracked=(), exclude_sic=DEFAULT_EXCLUDE_SIC, fx_rates=None, *, today=None):
+def rank(frame, tracked=(), exclude_sic=DEFAULT_EXCLUDE_SIC, fx_rates=None,
+         exclusions=(), education_exclude_sic=EDUCATION_EXCLUDE_SIC, *, today=None):
     """Tier and order the merged survivors. Pure; the tests pin it."""
     tracked = {t.strip().upper() for t in tracked if t and t.strip()}
     for column in ("store_defect_flags", "filing_form", "sic", "ticker"):
@@ -297,6 +311,16 @@ def rank(frame, tracked=(), exclude_sic=DEFAULT_EXCLUDE_SIC, fx_rates=None, *, t
             frame = frame.with_columns(pl.lit(None, dtype=pl.Utf8).alias(column))
     if "fcf_after_sbc" not in frame.columns:
         frame = frame.with_columns(pl.lit(None, dtype=pl.Float64).alias("fcf_after_sbc"))
+    # Hard exclusions (2026-11-21): the exclusions.csv names plus the education
+    # SIC range are DROPPED, not re-tiered -- they must not reach a tier, least
+    # of all tier A. The financial SIC range below only re-tiers a name to B,
+    # which is a different, intentional behaviour.
+    excluded_names = {t.strip().upper() for t in exclusions if t and t.strip()}
+    drop = pl.col("ticker").str.to_uppercase().is_in(list(excluded_names)).fill_null(False)
+    sic_drop = pl.col("sic").cast(pl.Int32, strict=False)
+    for low, high in parse_sic_ranges(education_exclude_sic):
+        drop = drop | sic_drop.is_between(low, high).fill_null(False)
+    frame = frame.filter(~drop)
     frame = rank_by_cheapness(frame, fx_rates, today=today, sort=False)
     cap = _num("market_cap")
     sic = pl.col("sic").cast(pl.Int32, strict=False)
@@ -387,7 +411,42 @@ def load_tracked(path):
                 if line.strip() and not line.lstrip().startswith("#")]
 
 
-def summarise(ranked, funnel, tracked_supplied, head=10):
+def load_exclusions(path=None):
+    """Read the version-controlled exclusions.csv (ticker, reason, source, date).
+
+    Returns None when there is nothing to read, so a bare ``--no-direct`` run
+    on a repo checkout without the file still works. Tickers are normalised to
+    upper case; reasons to lower case so the by-reason count is stable.
+    """
+    path = Path(path) if path else DEFAULT_EXCLUSIONS_PATH
+    if not path.exists():
+        return None
+    frame = pl.read_csv(path, infer_schema_length=0)
+    required = {"ticker", "reason", "source", "date"}
+    if not required.issubset(frame.columns):
+        raise SystemExit(f"{path}: exclusions.csv requires columns {sorted(required)}")
+    return frame.with_columns(
+        pl.col("ticker").str.strip_chars().str.to_uppercase(),
+        pl.col("reason").str.strip_chars().str.to_lowercase(),
+    )
+
+
+def _education_sic_count(frame, education_exclude_sic=EDUCATION_EXCLUDE_SIC):
+    """How many sweep rows fall in the education SIC range (auto-excluded)."""
+    if "sic" not in frame.columns:
+        return 0
+    ranges = parse_sic_ranges(education_exclude_sic)
+    if not ranges:
+        return 0
+    sic = frame["sic"].cast(pl.Int32, strict=False)
+    mask = pl.Series("edu", [False] * frame.height, dtype=pl.Boolean)
+    for low, high in ranges:
+        mask = mask | sic.is_between(low, high).fill_null(False)
+    return int(mask.sum())
+
+
+def summarise(ranked, funnel, tracked_supplied, head=10, excluded_by_reason=None,
+              excluded_education_sic=0):
     live = ranked.filter(~pl.col("tracked"))
     counts = dict(live.group_by("tier").len().iter_rows())
     print("")
@@ -397,6 +456,11 @@ def summarise(ranked, funnel, tracked_supplied, head=10):
     for key in ("A", "B", "C", "D", "E", "DX"):
         print(f"  tier {key}  {counts.get(key, 0):4d}  {TIER_LABELS[key]}")
     print(f"  tracked (labelled, not ranked): {ranked.height - live.height}")
+    if excluded_by_reason:
+        parts = ", ".join(f"{n} {reason}" for reason, n in sorted(excluded_by_reason.items()))
+        print(f"  excluded (exclusions.csv): {parts}")
+    if excluded_education_sic:
+        print(f"  excluded (education SIC 8200-8299): {excluded_education_sic}")
     if not tracked_supplied:
         print("  🔴 NO --exclude-tickers: settled names are ranked as if new. Supply the")
         print("     raw-text diff of the console, Review Queue pages and Exclusion Index.")
@@ -432,6 +496,11 @@ def main(argv=None):
     parser.add_argument("--no-direct", action="store_true",
                         help="lane survivors only; skip the §G-1 refill funnel")
     parser.add_argument("--exclude-sic", default=DEFAULT_EXCLUDE_SIC)
+    parser.add_argument("--exclusions", default=None,
+                        help="version-controlled exclusions.csv path "
+                             "(default: the file beside this script)")
+    parser.add_argument("--education-exclude-sic", default=EDUCATION_EXCLUDE_SIC,
+                        help="SIC range dropped outright as education (default 8200-8299)")
     args = parser.parse_args(argv)
 
     paths = Paths(args.root).ensure()
@@ -463,9 +532,16 @@ def main(argv=None):
         raise SystemExit("no lane survivors and no direct-source rows; run screen.py first")
     combined = pl.concat(frames, how="diagonal_relaxed")
     tracked = load_tracked(args.exclude_tickers)
-    ranked = rank(combined, tracked, args.exclude_sic, load_fx(paths.root / "fx.csv"))
+    exclusions = load_exclusions(args.exclusions)
+    excluded_tickers = exclusions["ticker"].to_list() if exclusions is not None else []
+    by_reason = (dict(exclusions.group_by("reason").len().iter_rows())
+                 if exclusions is not None else {})
+    edu_count = _education_sic_count(combined, args.education_exclude_sic)
+    ranked = rank(combined, tracked, args.exclude_sic, load_fx(paths.root / "fx.csv"),
+                  excluded_tickers, args.education_exclude_sic)
     ranked.write_csv(out_path)
-    counts = summarise(ranked, funnel, bool(tracked))
+    counts = summarise(ranked, funnel, bool(tracked), excluded_by_reason=by_reason,
+                       excluded_education_sic=edu_count)
     log_stage("rank_queue", rows=ranked.height, out=out_path,
               **{f"tier_{k}": v for k, v in sorted(counts.items())})
     return 0

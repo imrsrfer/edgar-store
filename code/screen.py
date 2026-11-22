@@ -88,7 +88,11 @@ PRICE_STALE_DAYS = 7
 # not percentage drift, and a tight band would flag ordinary corporate action.
 SHARES_IDENTITY_BAND = (0.80, 1.25)
 
-ELIGIBLE_STATUSES = ("pass", "pass_stale")
+# A §C-1-pending pass (adjusted-vs-GAAP not yet evaluated) is still a pass for
+# eligibility purposes: the underwrite owes that reconciliation downstream, not
+# the screen. "pass" itself is retained for the (future) case where §C-1 is
+# actually evaluated.
+ELIGIBLE_STATUSES = ("pass", "pass_c1_pending", "pass_stale")
 
 
 # --------------------------------------------------------------------------
@@ -981,25 +985,34 @@ def rank_by_cheapness(frame, fx_rates=None, *, today=None, sort=True):
     A NEGATIVE multiple is not cheap, it is a loss, and it would sort ahead
     of every genuine bargain. Those are pushed to the bottom with the nulls.
     """
-    for name in ("market_cap", "fcf_after_sbc"):
+    for name in ("market_cap", "fcf_after_sbc", "ttm_fcf_after_sbc"):
         if name not in frame.columns:
             frame = frame.with_columns(pl.lit(None, dtype=pl.Float64).alias(name))
     frame = add_framework_triage(add_usd_fcf(frame, fx_rates, today))
     # Legacy inputs without a framework verdict remain visibly NE and cannot
     # certify quality by omission.
+    #
+    # 🔴 P/FCF-after-SBC rests on TTM FCF-after-SBC (2026-11-21), never the
+    # fiscal-year figure. A single year's FCF is not the cash the company
+    # produces now -- the FY number can be a peak or a trough against the
+    # trailing twelve months, and pricing a rotation off it mis-states the
+    # multiple by up to ~2x (LMB 22.2x FY vs 15.2x TTM on the same build).
+    # When the TTM cannot be built the multiple is null -- the ttm_* flags
+    # (ttm_unavailable, ttm_capex_missing, ...) say why; there is never a
+    # silent fallback to the FY figure.
     multiple = (
         pl.when(
             pl.col("market_cap").is_null()
             | ~pl.col("market_cap").cast(pl.Float64, strict=False).is_finite()
             | (pl.col("market_cap").cast(pl.Float64, strict=False) <= 0)
-            | pl.col("fcf_after_sbc_usd").is_null()
-            | ~pl.col("fcf_after_sbc_usd").is_finite()
-            | (pl.col("fcf_after_sbc_usd") <= 0)
+            | pl.col("ttm_fcf_after_sbc_usd").is_null()
+            | ~pl.col("ttm_fcf_after_sbc_usd").is_finite()
+            | (pl.col("ttm_fcf_after_sbc_usd") <= 0)
             | pl.col("framework_diagnosis")
             | pl.col("framework_not_evaluated")
         )
         .then(None)
-        .otherwise(pl.col("market_cap").cast(pl.Float64, strict=False) / pl.col("fcf_after_sbc_usd"))
+        .otherwise(pl.col("market_cap").cast(pl.Float64, strict=False) / pl.col("ttm_fcf_after_sbc_usd"))
     )
     out = frame.with_columns(
         multiple.alias("p_fcf_after_sbc_live"),

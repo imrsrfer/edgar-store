@@ -289,6 +289,35 @@ def test_unknown_flag_is_not_reported_as_a_pass():
     assert result["gate0_status"][0] == "unknown"
 
 
+def test_pass_with_pending_c1_reads_pass_c1_pending_never_pass():
+    """§C-1 (adjusted_vs_gaap) is what the underwrite owes on every row: the
+    store never evaluates it, so test_adjusted_vs_gaap is NOT_EVALUABLE for all
+    names. A row whose load-bearing legs clear must therefore not read a plain
+    "pass" -- it is relabelled "pass_c1_pending" (2026-11-21) so the queue
+    carries the owed check instead of a status that hides it."""
+    frame = pl.DataFrame(
+        [
+            {
+                "fail_tangible_book": False,
+                "fail_income_quality": False,
+                "fail_fcf": False,
+                "fail_sbc": False,
+                "fail_ni_over_oi": False,
+                "fail_tax_anomaly": False,
+            }
+        ],
+        schema={c: pl.Boolean for c in gate0.FLAG_COLUMNS},
+    )
+    result = gate0.add_verdict(frame)
+
+    assert result["gate0_pass"][0] is True
+    assert result["gate0_status"][0] == "pass_c1_pending"
+    # A resolved §C-1 would be the only route back to a plain "pass"; while it
+    # is NOT_EVALUABLE the status must never emit "pass".
+    assert result["test_adjusted_vs_gaap"][0] == "NOT_EVALUABLE"
+    assert (result["gate0_status"] == "pass").sum() == 0
+
+
 def test_parse_sic_ranges_handles_ranges_and_singletons():
     assert gate0.parse_sic_ranges("6000-6799") == [(6000, 6799)]
     assert gate0.parse_sic_ranges("6000-6799,7370") == [(6000, 6799), (7370, 7370)]

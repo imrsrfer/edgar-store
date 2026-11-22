@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 import polars as pl
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -198,11 +199,11 @@ def test_nulls_and_negatives_sort_LAST_not_first():
     a cheapness ranking puts that trap at position one by construction. A
     negative multiple is a loss, not a bargain, and sorts with the nulls."""
     order = _ranked([
-        {"ticker": "NULLCAP", "market_cap": None, "fcf_after_sbc": 10.0},
-        {"ticker": "CHEAP", "market_cap": 100.0, "fcf_after_sbc": 20.0},
-        {"ticker": "LOSS", "market_cap": 100.0, "fcf_after_sbc": -5.0},
-        {"ticker": "DEAR", "market_cap": 900.0, "fcf_after_sbc": 20.0},
-        {"ticker": "NULLFCF", "market_cap": 100.0, "fcf_after_sbc": None},
+        {"ticker": "NULLCAP", "market_cap": None, "ttm_fcf_after_sbc": 10.0},
+        {"ticker": "CHEAP", "market_cap": 100.0, "ttm_fcf_after_sbc": 20.0},
+        {"ticker": "LOSS", "market_cap": 100.0, "ttm_fcf_after_sbc": -5.0},
+        {"ticker": "DEAR", "market_cap": 900.0, "ttm_fcf_after_sbc": 20.0},
+        {"ticker": "NULLFCF", "market_cap": 100.0, "ttm_fcf_after_sbc": None},
     ])
     assert order[0] == "CHEAP"
     assert order[1] == "DEAR"
@@ -211,11 +212,58 @@ def test_nulls_and_negatives_sort_LAST_not_first():
 
 def test_multiple_is_recomputed_on_the_live_cap():
     out = screen.rank_by_cheapness(
-        pl.DataFrame([{"ticker": "X", "market_cap": 1_000.0, "fcf_after_sbc": 50.0,
+        pl.DataFrame([{"ticker": "X", "market_cap": 1_000.0, "ttm_fcf_after_sbc": 50.0,
                        "reporting_currency": "USD", "gate0_framework_pass": True}])
     )
     assert out["p_fcf_after_sbc_live"][0] == 20.0
     assert out["fcf_after_sbc_yield"][0] == 0.05
+
+
+def test_p_fcf_after_sbc_uses_ttm_not_fy():
+    """P/FCF-after-SBC rests on TTM FCF-after-SBC, never the FY figure (2026-11-21).
+    Here the FY figure is 4x the TTM, so using the wrong vintage is unmistakable."""
+    frame = pl.DataFrame([{
+        "ticker": "X", "market_cap": 1_000.0,
+        "fcf_after_sbc": 10.0, "ttm_fcf_after_sbc": 40.0,
+        "reporting_currency": "USD", "gate0_framework_pass": True,
+    }])
+    out = screen.rank_by_cheapness(frame)
+    assert out["p_fcf_after_sbc_live"][0] == 25.0   # 1000/40, NOT 1000/10 = 100
+
+
+def test_p_fcf_after_sbc_is_null_not_fy_fallback_when_ttm_missing():
+    """A missing TTM is null + flag, never a silent fallback to the FY figure."""
+    frame = pl.DataFrame([{
+        "ticker": "X", "market_cap": 1_000.0,
+        "fcf_after_sbc": 50.0, "ttm_fcf_after_sbc": None,
+        "reporting_currency": "USD", "gate0_framework_pass": True,
+    }])
+    out = screen.rank_by_cheapness(frame)
+    assert out["p_fcf_after_sbc_live"][0] is None
+    assert out["ttm_fcf_after_sbc_usd"][0] is None
+
+
+@pytest.mark.parametrize("ticker,market_cap,ttm_fcf,fy_fcf,target", [
+    # Today's filing-derived P/FCF-after-SBC (2026-11-21), from the underwrite
+    # batch. Market caps are today's; ttm_fcf is the filing-derived TTM implied
+    # by each target (cap / target); fy_fcf is the store's FY figure, kept in
+    # the row so a silent revert to the FY vintage would shift the multiple far
+    # enough to fail. ±10% (rel=0.10) absorbs price-date drift.
+    ("LMB", 620_410_535, 45_618_421, 30_510_000, 13.6),
+    ("IRMD", 1_036_096_113, 21_812_550, 13_607_000, 47.5),
+    ("AGYS", 3_118_975_111, 50_306_050, 46_331_000, 62.0),
+    ("MTRN", 3_806_418_562, 59_382_816, 38_435_000, 64.1),
+    ("USLM", 2_870_553_930, 78_645_313, 94_135_000, 36.5),
+    ("TILE", 1_721_875_756, 118_342_320, 104_270_000, 14.55),
+])
+def test_todays_filing_derived_multiples(ticker, market_cap, ttm_fcf, fy_fcf, target):
+    frame = pl.DataFrame([{
+        "ticker": ticker, "market_cap": market_cap,
+        "ttm_fcf_after_sbc": ttm_fcf, "fcf_after_sbc": fy_fcf,
+        "reporting_currency": "USD", "gate0_framework_pass": True,
+    }])
+    out = screen.rank_by_cheapness(frame)
+    assert out["p_fcf_after_sbc_live"][0] == pytest.approx(target, rel=0.10)
 
 
 def test_unknown_momentum_is_not_reported_as_a_drawdown():
@@ -380,9 +428,9 @@ def test_screen_withholds_unknown_currency_and_applies_fresh_fx():
     from datetime import date
 
     frame = pl.DataFrame([
-        {"ticker": "EUR", "market_cap": 1000.0, "fcf_after_sbc": 100.0,
+        {"ticker": "EUR", "market_cap": 1000.0, "ttm_fcf_after_sbc": 100.0,
          "gate0_framework_pass": True, "reporting_currency": "EUR"},
-        {"ticker": "UNKNOWN", "market_cap": 1000.0, "fcf_after_sbc": 100.0,
+        {"ticker": "UNKNOWN", "market_cap": 1000.0, "ttm_fcf_after_sbc": 100.0,
          "gate0_framework_pass": True, "reporting_currency": None},
     ])
     assert screen.rank_by_cheapness(frame)["p_fcf_after_sbc_live"].null_count() == 2

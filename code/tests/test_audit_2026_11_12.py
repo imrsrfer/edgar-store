@@ -59,7 +59,7 @@ def test_missing_sbc_keeps_gate0_pass_but_not_the_strict_pass():
 
     # Assert: the frozen column is unchanged, the strict one says no.
     assert row["fcf_after_sbc"] is None
-    assert row["gate0_pass"] is True and row["gate0_status"] == "pass"
+    assert row["gate0_pass"] is True and row["gate0_status"] == "pass_c1_pending"
     assert row["gate0_pass_strict"] is False
 
 

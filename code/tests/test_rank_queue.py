@@ -12,6 +12,7 @@ def _survivors(rows):
         "filing_form": pl.Utf8,
         "market_cap": pl.Float64,
         "fcf_after_sbc": pl.Float64,
+        "ttm_fcf_after_sbc": pl.Float64,
         "store_defect_flags": pl.Utf8,
         "lane_count": pl.Int64,
         "lanes": pl.Utf8,
@@ -19,6 +20,7 @@ def _survivors(rows):
         "gate0_framework_pass": pl.Boolean,
     }
     base = {"sic": "3500", "filing_form": "10-K", "fcf_after_sbc": 1e8,
+            "ttm_fcf_after_sbc": 1e8,
             "store_defect_flags": "", "lane_count": 1, "lanes": "value",
             "reporting_currency": "USD", "gate0_framework_pass": True}
     return pl.DataFrame([{**base, **r} for r in rows], schema=schema)
@@ -61,6 +63,54 @@ def test_foreign_and_financial_in_band_names_are_not_tier_a():
     assert tiers["BANK"] == "B"
 
 
+def test_rule_exclusions_are_dropped_not_tiered():
+    """exclusions.csv names are a hard drop -- they must not reach any tier."""
+    ranked = rq.rank(
+        _survivors([
+            {"ticker": "NSSC", "market_cap": 2e9},
+            {"ticker": "SEZL", "market_cap": 2e9},
+            {"ticker": "KEEP", "market_cap": 2e9},
+        ]),
+        exclusions=["NSSC", "SEZL"],
+    )
+    assert set(ranked["ticker"].to_list()) == {"KEEP"}
+
+
+def test_education_sic_is_auto_excluded():
+    """Education (SIC 8200-8299) is dropped outright, unlike the financial range
+    which only re-tiers a name to B (ruling 2026-11-20)."""
+    ranked = rq.rank(
+        _survivors([
+            {"ticker": "SCHOOL", "market_cap": 2e9, "sic": "8299"},
+            {"ticker": "BANK", "market_cap": 2e9, "sic": "6022"},
+            {"ticker": "KEEP", "market_cap": 2e9},
+        ])
+    )
+    tiers = dict(ranked.select("ticker", "tier").iter_rows())
+    assert "SCHOOL" not in tiers
+    assert tiers["KEEP"] == "A"
+    assert tiers["BANK"] == "B"  # re-tiered, not dropped
+
+
+def test_load_exclusions_reads_and_normalizes(tmp_path):
+    path = tmp_path / "exclusions.csv"
+    path.write_text(
+        "ticker,reason,source,date\n"
+        "nssc,Struck_At_Gate0,console,2026-11-21\n"
+        "pxed,education,ruling 2026-11-20,2026-11-20\n"
+    )
+    ex = rq.load_exclusions(str(path))
+    assert ex["ticker"].to_list() == ["NSSC", "PXED"]
+    assert ex["reason"].to_list() == ["struck_at_gate0", "education"]
+
+
+def test_exclusions_default_path_points_at_the_versioned_file():
+    # The default must resolve beside this script so a bare run reads the
+    # version-controlled list, not a store-relative path.
+    assert rq.DEFAULT_EXCLUSIONS_PATH.name == "exclusions.csv"
+    assert rq.DEFAULT_EXCLUSIONS_PATH.parent.name == "code"
+
+
 def test_fail_open_defect_sorts_after_clean_within_tier_but_not_across():
     ranked = rq.rank(
         _survivors(
@@ -92,9 +142,9 @@ def test_lane_overlap_then_cheapness_nulls_last():
     ranked = rq.rank(
         _survivors(
             [
-                {"ticker": "CHEAP", "market_cap": 1e9, "fcf_after_sbc": 1e8},     # 10x
-                {"ticker": "DEAR", "market_cap": 4e9, "fcf_after_sbc": 1e8},      # 40x
-                {"ticker": "LOSS", "market_cap": 1e9, "fcf_after_sbc": -5e7},     # n/a
+                {"ticker": "CHEAP", "market_cap": 1e9, "ttm_fcf_after_sbc": 1e8},     # 10x
+                {"ticker": "DEAR", "market_cap": 4e9, "ttm_fcf_after_sbc": 1e8},      # 40x
+                {"ticker": "LOSS", "market_cap": 1e9, "ttm_fcf_after_sbc": -5e7},     # n/a
                 {"ticker": "OVERLAP", "market_cap": 4e9, "lane_count": 2},
             ]
         )

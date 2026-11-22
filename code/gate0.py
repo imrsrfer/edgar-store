@@ -2105,6 +2105,24 @@ def add_verdict(frame, allow_imputed=False):
             .alias("gate0_status")
         )
 
+    # §C-1 honest status (2026-11-21). The adjusted-vs-GAAP leg is owed by the
+    # underwrite on every row -- the store never evaluates it (XBRL carries no
+    # non-GAAP reconciliation), so test_adjusted_vs_gaap is NOT_EVALUABLE for
+    # every name. A row whose load-bearing legs cleared but whose §C-1 is still
+    # pending may not read a plain "pass": relabel it "pass_c1_pending" so the
+    # queue carries the owed check instead of a status that silently hides it.
+    # "pass_stale" is a separate, already-diminished status and is left alone.
+    c1_unresolved = (
+        pl.col("test_adjusted_vs_gaap").is_in(["NOT_EVALUABLE", "review"])
+        | pl.col("test_adjusted_vs_gaap").is_null()
+    )
+    frame = frame.with_columns(
+        pl.when((pl.col("gate0_status") == "pass") & c1_unresolved)
+        .then(pl.lit("pass_c1_pending"))
+        .otherwise(pl.col("gate0_status"))
+        .alias("gate0_status")
+    )
+
     if "imputed_fields" in frame.columns:
         # resolve_goodwill_intangibles only ever adds entries to imputed_fields
         # for a NON_BLOCKING_IMPUTATION_BASES basis (never_acquired /
@@ -3120,7 +3138,7 @@ def add_gate0_provisional(frame):
         if column in frame.columns:
             conflict = conflict | pl.col(column).fill_null(False)
     if "gate0_status" in frame.columns:
-        annual_pass = pl.col("gate0_status").is_in(["pass", "pass_stale"])
+        annual_pass = pl.col("gate0_status").is_in(["pass", "pass_c1_pending", "pass_stale"])
     elif "gate0_pass" in frame.columns:
         annual_pass = pl.col("gate0_pass")
     else:

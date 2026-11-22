@@ -36,8 +36,8 @@ def add_usd_fcf(frame, rates=None, today=None):
     if "reporting_currency" not in frame.columns:
         frame = frame.with_columns(pl.lit(None, dtype=pl.String).alias("reporting_currency"))
     # Recompute on every run; a previous lane's conversion may now be stale.
-    frame = frame.drop([c for c in ("fx_usd_per_unit", "fx_as_of", "fx_owed", "fcf_after_sbc_usd")
-                        if c in frame.columns])
+    frame = frame.drop([c for c in ("fx_usd_per_unit", "fx_as_of", "fx_owed", "fcf_after_sbc_usd",
+                                    "ttm_fcf_after_sbc_usd") if c in frame.columns])
     currency = pl.col("reporting_currency").cast(pl.String).str.strip_chars().str.to_uppercase()
     frame = frame.with_columns(currency.alias("_fx_currency"))
     if rates is not None:
@@ -65,5 +65,9 @@ def add_usd_fcf(frame, rates=None, today=None):
     )
     cash = (pl.col("fcf_after_sbc").cast(pl.Float64, strict=False)
             if "fcf_after_sbc" in frame.columns else pl.lit(None, dtype=pl.Float64))
-    return frame.with_columns((cash * pl.col("fx_usd_per_unit")).alias("fcf_after_sbc_usd")).drop(
-        "_fx_currency", "_fx_rate", "_fx_date")
+    ttm_cash = (pl.col("ttm_fcf_after_sbc").cast(pl.Float64, strict=False)
+                if "ttm_fcf_after_sbc" in frame.columns else pl.lit(None, dtype=pl.Float64))
+    return frame.with_columns(
+        (cash * pl.col("fx_usd_per_unit")).alias("fcf_after_sbc_usd"),
+        (ttm_cash * pl.col("fx_usd_per_unit")).alias("ttm_fcf_after_sbc_usd"),
+    ).drop("_fx_currency", "_fx_rate", "_fx_date")

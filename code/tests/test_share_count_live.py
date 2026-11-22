@@ -65,7 +65,7 @@ def test_live_flag_demotes_queue_without_withholding_multiple():
     assert "share_count_stale_vs_live" in sd.FAIL_OPEN_DEFECTS
     frame = pl.DataFrame([{
         "ticker": "RUSHA", "sic": "5000", "filing_form": "10-Q",
-        "market_cap": 2e9, "fcf_after_sbc": 1e8, "lane_count": 1,
+        "market_cap": 2e9, "ttm_fcf_after_sbc": 1e8, "lane_count": 1,
         "lanes": "value", "reporting_currency": "USD",
         "gate0_framework_pass": True, "store_defect_flags": "share_count_stale_vs_live",
         "p_fcf_after_sbc_live": 20.0,

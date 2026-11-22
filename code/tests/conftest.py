@@ -94,7 +94,14 @@ import edgar_lib  # noqa: E402
 
 # Captured at import time, before anything is patched: the root the suite must
 # never touch. Resolved so a case- or separator-variant spelling still matches.
-PRODUCTION_ROOT = Path(edgar_lib.DEFAULT_ROOT).resolve()
+# The fix in edgar_lib makes DEFAULT_ROOT None when EDGAR_ROOT is unset (no
+# hardcoded private-tree fallback). With no env root there is no production
+# store to seed from or guard against, so PRODUCTION_ROOT is None and every
+# use below is None-safe. Frozen CI (EDGAR_ROOT unset) relies on the checked-in
+# code/tests/fixtures and touches no store.
+PRODUCTION_ROOT = (
+    Path(edgar_lib.DEFAULT_ROOT).resolve() if edgar_lib.DEFAULT_ROOT is not None else None
+)
 
 # Seeded into the temporary root so read-only fixtures behave identically.
 # Suffix-based rather than a hand-maintained name list: a list that has to be
@@ -116,19 +123,19 @@ def isolated_data_root(tmp_path_factory):
     """Point the whole suite at a disposable copy of the store."""
     root = tmp_path_factory.mktemp("edgar_store")
 
-    if PRODUCTION_ROOT.is_dir():
-        for source in sorted(PRODUCTION_ROOT.iterdir()):
-            if source.is_file() and source.suffix.lower() in SEEDED_SUFFIXES:
-                # copyfile, not copy2 -- the store carries read-only files
-                # (prices.csv), and inheriting that bit would make the copy
-                # unwritable for the very tests that need to write to it.
-                shutil.copyfile(source, root / source.name)
+    if PRODUCTION_ROOT is not None and PRODUCTION_ROOT.is_dir():
+            for source in sorted(PRODUCTION_ROOT.iterdir()):
+                if source.is_file() and source.suffix.lower() in SEEDED_SUFFIXES:
+                    # copyfile, not copy2 -- the store carries read-only files
+                    # (prices.csv), and inheriting that bit would make the copy
+                    # unwritable for the very tests that need to write to it.
+                    shutil.copyfile(source, root / source.name)
 
     original_init = edgar_lib.Paths.__init__
 
     def guarded_init(self, root_arg=None):
         original_init(self, root_arg)
-        if _is_within(self.root, PRODUCTION_ROOT):
+        if PRODUCTION_ROOT is not None and _is_within(self.root, PRODUCTION_ROOT):
             raise RuntimeError(
                 f"Test attempted to build Paths on the production data root "
                 f"({self.root}). Every path the pipeline writes derives from "

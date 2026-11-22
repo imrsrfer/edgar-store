@@ -27,12 +27,16 @@ def test_default_root_is_redirected_away_from_production(isolated_data_root):
 
 def test_explicit_production_root_is_refused():
     """Passing the real root by hand fails loudly rather than quietly writing."""
+    if PRODUCTION_ROOT is None:
+        pytest.skip("no production root identified -- EDGAR_ROOT unset (frozen CI)")
     with pytest.raises(RuntimeError, match="production data root"):
         Paths(PRODUCTION_ROOT)
 
 
 def test_subdirectory_of_production_root_is_refused():
     """The guard covers the whole subtree, not just an exact string match."""
+    if PRODUCTION_ROOT is None:
+        pytest.skip("no production root identified -- EDGAR_ROOT unset (frozen CI)")
     with pytest.raises(RuntimeError, match="production data root"):
         Paths(PRODUCTION_ROOT / "raw")
 

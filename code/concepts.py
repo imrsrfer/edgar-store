@@ -586,6 +586,14 @@ CONCEPTS = (
             "PaymentsToAcquireWaterAndWasteWaterSystems",
             "PaymentsForNuclearFuel",
             "PaymentsToAcquireAndDevelopRealEstate",
+            # 🔴 MINE DEVELOPMENT IS CAPEX. (Added 2026-11-21.) A mining filer
+            # reports its mine-development spend on PaymentsToAcquireMiningAssets,
+            # a disjoint investing line beside (not inside) the PP&E leg. MTRN is
+            # the worked case: on PP&E-only capex its TTM capex was ~$19M light,
+            # overstating FCF-aSBC and pricing it ~49.6x instead of ~64x. The
+            # same class as the 2026-11-06 legs -- a separately reported
+            # operating-asset purchase that the sum has to include.
+            "PaymentsToAcquireMiningAssets",
         ],
         partial_ok=True,
         # See Concept.never_alone. Both of these are complements to the PP&E
@@ -607,6 +615,7 @@ CONCEPTS = (
             "PaymentsToAcquireWaterAndWasteWaterSystems",
             "PaymentsForNuclearFuel",
             "PaymentsToAcquireAndDevelopRealEstate",
+            "PaymentsToAcquireMiningAssets",
         ),
         # ...and intangibles alone are not a capex disclosure at all. See
         # Concept.never_sole for the five rows that drew this line.

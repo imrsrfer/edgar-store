@@ -34,18 +34,39 @@ CHUNK_BYTES = 1 << 20
 
 PROGRESS_INTERVAL_SECONDS = 5
 
-# EDGAR_ROOT overrides it so CI's integration job can read the repo's store/.
-DEFAULT_ROOT = Path(os.environ.get("EDGAR_ROOT", r"C:\Users\Fer\Documents\CLAUDE\Portfolio\edgar"))
+# EDGAR_ROOT is the ONLY source for the default root, and there is deliberately no hardcoded
+# fallback. A built-in default aimed at a private tree makes every default-argument run read AND
+# write another project's folder -- and ``Paths.ensure()`` would even create directories there.
+DEFAULT_ROOT = Path(os.environ["EDGAR_ROOT"]) if os.environ.get("EDGAR_ROOT") else None
+
+_NO_ROOT_MESSAGE = (
+    "No data root. Set the EDGAR_ROOT environment variable, or pass an explicit root "
+    "(--root on the CLI, root= to Paths()). This tooling has no built-in default on purpose: "
+    "a hardcoded default path makes a default-argument run read and write a store that may "
+    "belong to another project, and Paths.ensure() would create directories there."
+)
 
 
 class Paths:
     """Every path the pipeline writes, derived from a single root."""
 
     def __init__(self, root=None):
-        self.root = Path(root) if root else DEFAULT_ROOT
+        if root is not None:
+            self.root = Path(root)
+            self._explicit = True
+        elif DEFAULT_ROOT is not None:
+            self.root = Path(DEFAULT_ROOT)
+            self._explicit = False
+        else:
+            raise RuntimeError(_NO_ROOT_MESSAGE)
         self.raw = self.root / "raw"
 
     def ensure(self):
+        # Never mkdir a root that came from the environment/default: creating directories is
+        # the write half of the defect this guards against. A caller that supplies a root
+        # explicitly is asking for it to exist.
+        if not self._explicit:
+            return self
         for directory in (self.root, self.raw):
             directory.mkdir(parents=True, exist_ok=True)
         return self

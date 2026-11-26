@@ -1,6 +1,6 @@
 ticker,cik,company_name,report_type,reason,merged_into_cik,review_candidate_ciks,latest_fiscal_year
 ,1751692,"1895 Bancorp of Wisconsin, Inc.",review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1751692,1847360",2020
-BCOW,1847360,"1895 Bancorp of Wisconsin, Inc.",review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1751692,1847360",2023
+,1847360,"1895 Bancorp of Wisconsin, Inc.",review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1751692,1847360",2023
 AAT,1500217,"AMERICAN ASSETS TRUST, INC.",review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1500217,1509570",2025
 ,1509570,"AMERICAN ASSETS TRUST, INC.",review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1500217,1509570",2026
 ,81027,AMERICAN ELECTRIC POWER CO INC.,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"81027,92487",2026
@@ -61,8 +61,6 @@ CLBK,2115119,"Columbia Financial, Inc.",review_candidate,normalized_name_collisi
 DLR,1297996,"DIGITAL REALTY TRUST, INC.",review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1297996,1494877",2025
 ,1494877,"DIGITAL REALTY TRUST, INC.",review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1297996,1494877",2026
 DKNG,1883685,DRAFTKINGS INC.,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1772757,1883685",2025
-DTE,936340,DTE ENERGY CO,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"28385,936340",2025
-,28385,DTE Energy Co,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"28385,936340",2025
 ,1438231,Digimarc CORP,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1438231,2119322",2025
 DMRC,2119322,Digimarc CORP,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1438231,2119322",2026
 ,1772757,DraftKings Inc.,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1772757,1883685",2021
@@ -136,14 +134,12 @@ PNFP,2082866,"PINNACLE FINANCIAL PARTNERS, INC.",review_candidate,normalized_nam
 PFSA,1859807,"PROFUSA, INC.",review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1479362,1859807",2025
 ,1416265,"PROSPER MARKETPLACE, INC.",review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1416265,1542574",2025
 ,1542574,"PROSPER MARKETPLACE, INC.",review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1416265,1542574",2026
-,81100,PUGET ENERGY INC /WA,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"81100,1085392",2025
-,1085392,PUGET ENERGY INC /WA,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"81100,1085392",2025
 ,1115055,Pinnacle Financial Partners Inc.,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1115055,2082866",2024
 ,1479362,"Profusa, Inc.",review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1479362,1859807",2024
 PLD,1045609,"Prologis, Inc.",review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1045609,1045610",2025
 ,1045610,"Prologis, Inc.",review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1045609,1045610",2026
+QVCG,1254699,"QVC GROUP, INC.",review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1254699,1355096",2025
 ,1355096,"QVC GROUP, INC.",review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1254699,1355096",2025
-QVCG,1254699,"QVC Group, Inc.",review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1254699,1355096",2025
 RYN,52827,RAYONIER INC.,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"52827,1806931",2025
 ,1806931,RAYONIER INC.,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"52827,1806931",2026
 REG,910606,REGENCY CENTERS CORPORATION,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"910606,1066247",2025
@@ -157,8 +153,9 @@ SAFE,1095651,Safehold Inc.,review_candidate,normalized_name_collision_without_e
 ,86521,Sempra,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"86521,1032208",2026
 ,92416,"Southwest Gas Holdings, Inc.",review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"92416,1692115",2025
 SWX,1692115,"Southwest Gas Holdings, Inc.",review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"92416,1692115",2025
-,3146,Spire Inc.,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"3146,1126956",2026
-SR,1126956,Spire Inc.,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"3146,1126956",2025
+,3146,Spire Inc.,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"3146,57183,1126956",2026
+,57183,Spire Inc.,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"3146,57183,1126956",2026
+SR,1126956,Spire Inc.,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"3146,57183,1126956",2025
 ,707388,"Star Equity Holdings, Inc.",review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"707388,1210708",2024
 ,22767,"TXNM Energy, Inc.",review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"22767,81023,1108426",2026
 PNMXO,81023,"TXNM Energy, Inc.",review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"22767,81023,1108426",2026
@@ -173,10 +170,8 @@ URI,1067701,"United Rentals, Inc.",review_candidate,normalized_name_collision_wi
 UNIT,2020795,Uniti Group Inc.,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1620280,2020795",2025
 ,1711570,Uranium Royalty Corp.,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1711570,2143673",2025
 UROY,2143673,Uranium Royalty Corp.,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1711570,2143673",2026
-VRMK,931182,VIVMARK RESIDENTIAL,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"906107,931182",2025
 ,1602065,"Viper Energy, Inc.",review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1602065,2074176",2024
 VNOM,2074176,"Viper Energy, Inc.",review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1602065,2074176",2025
-VMRK,906107,Vivmark Residential,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"906107,931182",2025
 VNO,899689,Vornado Realty Trust,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"899689,1040765",2025
 ,1040765,Vornado Realty Trust,review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"899689,1040765",2025
 ,1414475,"WESTERN MIDSTREAM PARTNERS, LP",review_candidate,normalized_name_collision_without_explicit_cik_relationship,,"1414475,1423902",2025

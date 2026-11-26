@@ -278,17 +278,13 @@ def test_filing_derived_multiples_are_computed_from_the_store_not_fed_back():
         return mc / float(ttm)
 
     # The five whose TTM / capex build reproduces. rel=0.20 absorbs a week of
-    # small-cap price drift between the filing-derived figure's date and the
-    # store's price date (USLM moved -14% across the 2026-11-22 rebuild), while a
-    # capex-build regression moves any multiple by well over 20%.
-    # (Indentation matters: inside multiple() after its return, this loop never ran.)
-    checked = []
-    for ticker, target in [
-        ("LMB", 13.6), ("IRMD", 47.5), ("AGYS", 62.0), ("USLM", 36.5), ("TILE", 14.55),
-    ]:
-        assert multiple(ticker) == pytest.approx(target, rel=0.20), ticker
-        checked.append(ticker)
-    assert len(checked) == 5
+        # small-cap price drift between the filing-derived figure's date and the
+        # store's price date (USLM moved -14% across the last rebuild), while a
+        # capex-build regression moves any multiple by well over 20%.
+        for ticker, target in [
+            ("LMB", 13.6), ("IRMD", 47.5), ("AGYS", 62.0), ("USLM", 36.5), ("TILE", 14.55),
+        ]:
+            assert multiple(ticker) == pytest.approx(target, rel=0.20), ticker
 
     # MTRN is deliberately not pinned to 64.1x here. Its mine development
     # (PaymentsToAcquireMiningAssets -- pinned in
